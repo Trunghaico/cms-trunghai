@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   FileText, 
@@ -78,10 +78,9 @@ export const DocumentDetailModal: React.FC = () => {
   const canEditDoc = hasPermission('doc.edit') || activeUser.role === 'ADMIN';
   const canUserResubmit = selectedDocument.status === 'ADDITIONAL_REQ' && (isCreator || canEditDoc);
 
-  const latestRequestInfoLog = useMemo(() => {
-    if (!selectedDocument) return null;
-    return [...selectedDocument.auditLogs].reverse().find(l => l.action === 'REQUEST_INFO');
-  }, [selectedDocument]);
+  const latestRequestInfoLog = selectedDocument 
+    ? [...selectedDocument.auditLogs].reverse().find(l => l.action === 'REQUEST_INFO') 
+    : null;
 
   // Kiểm tra xem người dùng hiện tại có quyền duyệt bước này không (xét cả chức vụ chính & kiêm nhiệm)
   const isExactUser = currentStep && currentStep.approverId ? currentStep.approverId === activeUser.id : false;

@@ -40,8 +40,6 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     searchQuery: globalSearchQuery 
   } = useDocument();
 
-  if (!activeUser) return null;
-
   const canApprove = hasPermission('approval.approve');
   const canOverride = hasPermission('approval.override');
   const canDelete = hasPermission('doc.delete');
@@ -70,6 +68,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
 
   // Lọc dữ liệu theo tab và tiêu chuẩn bảo mật phân quyền ma trận
   const filteredDocuments = useMemo(() => {
+    if (!activeUser) return [];
     return documents.filter(doc => {
       // 1. KIỂM TRA QUYỀN XEM HỒ SƠ (VISIBILITY ACL)
       // Người xem phải là: Admin, Người tạo, Người trong Cc, Người duyệt cá nhân, hoặc Thành viên thuộc phòng ban có bước duyệt
@@ -233,6 +232,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         );
     }
   };
+
+  if (!activeUser) return null;
 
   return (
     <div className="space-y-4">
