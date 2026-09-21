@@ -105,40 +105,138 @@ export const removeDeletedJobId = (idOrCode: string) => {
   }
 };
 
+/**
+ * Chuẩn hóa và loại bỏ hoàn toàn trùng lặp trong danh sách người dùng.
+ * Đảm bảo mỗi ID và Username chỉ xuất hiện duy nhất 1 lần, lọc bỏ các tài khoản đã bị xóa.
+ */
+export const deduplicateUsers = (usersList: User[]): User[] => {
+  if (!Array.isArray(usersList)) return [];
+  const seenIds = new Set<string>();
+  const seenUsernames = new Set<string>();
+  const deletedSet = new Set(loadDeletedUserIds().map(s => s.toLowerCase()));
+  const result: User[] = [];
+
+  for (const u of usersList) {
+    if (!u) continue;
+    const uId = (u.id || '').trim().toLowerCase();
+    const uName = (u.username || '').trim().toLowerCase();
+
+    // Loại trừ vĩnh viễn nếu nằm trong danh sách đã xóa
+    if ((uId && deletedSet.has(uId)) || (uName && deletedSet.has(uName))) {
+      continue;
+    }
+
+    // Chống nhân bản trùng lặp ID hoặc Username
+    if (uId && seenIds.has(uId)) continue;
+    if (uName && seenUsernames.has(uName)) continue;
+
+    if (uId) seenIds.add(uId);
+    if (uName) seenUsernames.add(uName);
+
+    result.push({
+      ...u,
+      permissions: Array.isArray(u.permissions) && u.permissions.length > 0
+        ? u.permissions 
+        : (ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF),
+      secondaryPositions: Array.isArray(u.secondaryPositions) ? u.secondaryPositions : []
+    });
+  }
+
+  return result;
+};
+
+/**
+ * Chuẩn hóa và loại bỏ trùng lặp trong danh sách phòng ban.
+ */
+export const deduplicateDepartments = (deptList: DepartmentItem[]): DepartmentItem[] => {
+  if (!Array.isArray(deptList)) return [];
+  const seenIds = new Set<string>();
+  const seenCodes = new Set<string>();
+  const seenNames = new Set<string>();
+  const deletedSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
+  const result: DepartmentItem[] = [];
+
+  for (const d of deptList) {
+    if (!d) continue;
+    const dId = (d.id || '').trim().toLowerCase();
+    const dCode = (d.code || '').trim().toLowerCase();
+    const dName = (d.name || '').trim().toLowerCase();
+
+    if ((dId && deletedSet.has(dId)) || (dCode && deletedSet.has(dCode)) || (dName && deletedSet.has(dName))) {
+      continue;
+    }
+
+    if (dId && seenIds.has(dId)) continue;
+    if (dCode && seenCodes.has(dCode)) continue;
+    if (dName && seenNames.has(dName)) continue;
+
+    if (dId) seenIds.add(dId);
+    if (dCode) seenCodes.add(dCode);
+    if (dName) seenNames.add(dName);
+
+    result.push(d);
+  }
+
+  return result;
+};
+
+/**
+ * Chuẩn hóa và loại bỏ trùng lặp trong danh sách chức danh/chức vụ.
+ */
+export const deduplicateJobTitles = (jobList: JobTitleItem[]): JobTitleItem[] => {
+  if (!Array.isArray(jobList)) return [];
+  const seenIds = new Set<string>();
+  const seenCodes = new Set<string>();
+  const seenNames = new Set<string>();
+  const deletedSet = new Set(loadDeletedJobIds().map(s => s.toLowerCase()));
+  const result: JobTitleItem[] = [];
+
+  for (const j of jobList) {
+    if (!j) continue;
+    const jId = (j.id || '').trim().toLowerCase();
+    const jCode = (j.code || '').trim().toLowerCase();
+    const jName = (j.name || '').trim().toLowerCase();
+
+    if ((jId && deletedSet.has(jId)) || (jCode && deletedSet.has(jCode)) || (jName && deletedSet.has(jName))) {
+      continue;
+    }
+
+    if (jId && seenIds.has(jId)) continue;
+    if (jCode && seenCodes.has(jCode)) continue;
+    if (jName && seenNames.has(jName)) continue;
+
+    if (jId) seenIds.add(jId);
+    if (jCode) seenCodes.add(jCode);
+    if (jName) seenNames.add(jName);
+
+    result.push(j);
+  }
+
+  return result;
+};
+
 export const loadUsers = (): User[] => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY_USERS_DB);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
-        const deletedSet = new Set(loadDeletedUserIds().map(s => s.toLowerCase()));
-        return parsed
-          .filter((u: User) => {
-            if (!u) return false;
-            const uId = u.id?.toLowerCase();
-            const uName = u.username?.toLowerCase();
-            return !deletedSet.has(uId) && !deletedSet.has(uName);
-          })
-          .map((u: User) => ({
-            ...u,
-            permissions: Array.isArray(u.permissions) && u.permissions.length > 0
-              ? u.permissions 
-              : (ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF),
-            secondaryPositions: Array.isArray(u.secondaryPositions) ? u.secondaryPositions : []
-          }));
+        return deduplicateUsers(parsed);
       }
     }
   } catch (e) {
     console.error('Failed to load users database', e);
   }
   // Khởi tạo mặc định nếu chưa từng có cơ sở dữ liệu trên máy
-  saveUsers(USERS);
-  return USERS;
+  const initial = deduplicateUsers(USERS);
+  saveUsers(initial);
+  return initial;
 };
 
 export const saveUsers = (users: User[]) => {
   try {
-    localStorage.setItem(STORAGE_KEY_USERS_DB, JSON.stringify(users));
+    const cleanUsers = deduplicateUsers(users);
+    localStorage.setItem(STORAGE_KEY_USERS_DB, JSON.stringify(cleanUsers));
   } catch (e) {
     console.error('Failed to save users database', e);
   }
@@ -150,26 +248,21 @@ export const loadDepartments = (): DepartmentItem[] => {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
-        const deletedSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
-        return parsed.filter((d: DepartmentItem) => {
-          if (!d) return false;
-          const dId = d.id?.toLowerCase();
-          const dCode = d.code?.toLowerCase();
-          const dName = d.name?.toLowerCase();
-          return !deletedSet.has(dId) && !deletedSet.has(dCode) && !deletedSet.has(dName);
-        });
+        return deduplicateDepartments(parsed);
       }
     }
   } catch (e) {
     console.error('Failed to load departments', e);
   }
-  saveDepartments(INITIAL_DEPARTMENTS);
-  return INITIAL_DEPARTMENTS;
+  const initial = deduplicateDepartments(INITIAL_DEPARTMENTS);
+  saveDepartments(initial);
+  return initial;
 };
 
 export const saveDepartments = (depts: DepartmentItem[]) => {
   try {
-    localStorage.setItem(STORAGE_KEY_DEPTS, JSON.stringify(depts));
+    const cleanDepts = deduplicateDepartments(depts);
+    localStorage.setItem(STORAGE_KEY_DEPTS, JSON.stringify(cleanDepts));
   } catch (e) {
     console.error('Failed to save departments', e);
   }
@@ -181,26 +274,21 @@ export const loadJobTitles = (): JobTitleItem[] => {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
-        const deletedSet = new Set(loadDeletedJobIds().map(s => s.toLowerCase()));
-        return parsed.filter((j: JobTitleItem) => {
-          if (!j) return false;
-          const jId = j.id?.toLowerCase();
-          const jCode = j.code?.toLowerCase();
-          const jName = j.name?.toLowerCase();
-          return !deletedSet.has(jId) && !deletedSet.has(jCode) && !deletedSet.has(jName);
-        });
+        return deduplicateJobTitles(parsed);
       }
     }
   } catch (e) {
     console.error('Failed to load job titles', e);
   }
-  saveJobTitles(INITIAL_JOB_TITLES);
-  return INITIAL_JOB_TITLES;
+  const initial = deduplicateJobTitles(INITIAL_JOB_TITLES);
+  saveJobTitles(initial);
+  return initial;
 };
 
 export const saveJobTitles = (titles: JobTitleItem[]) => {
   try {
-    localStorage.setItem(STORAGE_KEY_JOB_TITLES, JSON.stringify(titles));
+    const cleanJobs = deduplicateJobTitles(titles);
+    localStorage.setItem(STORAGE_KEY_JOB_TITLES, JSON.stringify(cleanJobs));
   } catch (e) {
     console.error('Failed to save job titles', e);
   }

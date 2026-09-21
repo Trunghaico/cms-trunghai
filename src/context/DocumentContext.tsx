@@ -21,7 +21,10 @@ import {
   removeDeletedDeptId,
   loadDeletedJobIds,
   addDeletedJobId,
-  removeDeletedJobId
+  removeDeletedJobId,
+  deduplicateUsers,
+  deduplicateDepartments,
+  deduplicateJobTitles
 } from '../lib/storage';
 import {
   saveDatabaseToNAS,
@@ -204,12 +207,19 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsNASSyncing(true);
     setNasSyncStatus('syncing');
     try {
+      const cleanUsers = deduplicateUsers(users);
+      const cleanDepts = deduplicateDepartments(departments);
+      const cleanJobs = deduplicateJobTitles(jobTitles);
+
       const res = await saveDatabaseToNAS({
         documents,
-        users,
-        departments,
-        jobTitles,
+        users: cleanUsers,
+        departments: cleanDepts,
+        jobTitles: cleanJobs,
         notifications,
+        deletedUserIds: loadDeletedUserIds(),
+        deletedDepartmentIds: loadDeletedDeptIds(),
+        deletedJobTitleIds: loadDeletedJobIds(),
         savedBy: isAuto ? 'Tự động sao lưu hệ thống' : (activeUser?.name || 'Tài khoản quản trị'),
       });
       if (res.success) {
@@ -246,9 +256,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     notifications?: NotificationItem[];
     actionDescription?: string;
   }) => {
-    const targetUsers = overrides?.users || users;
-    const targetDepts = overrides?.departments || departments;
-    const targetJobs = overrides?.jobTitles || jobTitles;
+    const targetUsers = deduplicateUsers(overrides?.users || users);
+    const targetDepts = deduplicateDepartments(overrides?.departments || departments);
+    const targetJobs = deduplicateJobTitles(overrides?.jobTitles || jobTitles);
     const targetDocs = overrides?.documents || documents;
     const targetNotifs = overrides?.notifications || notifications;
 
@@ -372,69 +382,20 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const deletedDeptsSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
             const deletedJobsSet = new Set(loadDeletedJobIds().map(s => s.toLowerCase()));
 
-            // MERGE USERS:
+            // MERGE & DEDUPLICATE USERS:
             const localUsers = loadUsers();
             const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
-            const userMap = new Map<string, User>();
-            snapUsers.forEach(u => {
-              if (!u) return;
-              const uId = u.id?.toLowerCase();
-              const uName = u.username?.toLowerCase();
-              if ((uId && deletedUsersSet.has(uId)) || (uName && deletedUsersSet.has(uName))) return;
-              userMap.set(uName || uId, u);
-            });
-            localUsers.forEach(u => {
-              if (!u) return;
-              const uId = u.id?.toLowerCase();
-              const uName = u.username?.toLowerCase();
-              if ((uId && deletedUsersSet.has(uId)) || (uName && deletedUsersSet.has(uName))) return;
-              userMap.set(uName || uId, u);
-            });
-            const mergedUsers = Array.from(userMap.values());
+            const mergedUsers = deduplicateUsers([...localUsers, ...snapUsers]);
 
-            // MERGE DEPARTMENTS:
+            // MERGE & DEDUPLICATE DEPARTMENTS:
             const localDepts = loadDepartments();
             const snapDepts = Array.isArray(snapshot.departments) ? snapshot.departments : [];
-            const deptMap = new Map<string, DepartmentItem>();
-            snapDepts.forEach(d => {
-              if (!d) return;
-              const dId = d.id?.toLowerCase();
-              const dCode = d.code?.toLowerCase();
-              const dName = d.name?.toLowerCase();
-              if ((dId && deletedDeptsSet.has(dId)) || (dCode && deletedDeptsSet.has(dCode)) || (dName && deletedDeptsSet.has(dName))) return;
-              deptMap.set(dCode || dId, d);
-            });
-            localDepts.forEach(d => {
-              if (!d) return;
-              const dId = d.id?.toLowerCase();
-              const dCode = d.code?.toLowerCase();
-              const dName = d.name?.toLowerCase();
-              if ((dId && deletedDeptsSet.has(dId)) || (dCode && deletedDeptsSet.has(dCode)) || (dName && deletedDeptsSet.has(dName))) return;
-              deptMap.set(dCode || dId, d);
-            });
-            const mergedDepts = Array.from(deptMap.values());
+            const mergedDepts = deduplicateDepartments([...localDepts, ...snapDepts]);
 
-            // MERGE JOB TITLES:
+            // MERGE & DEDUPLICATE JOB TITLES:
             const localJobs = loadJobTitles();
             const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
-            const jobMap = new Map<string, JobTitleItem>();
-            snapJobs.forEach(j => {
-              if (!j) return;
-              const jId = j.id?.toLowerCase();
-              const jCode = j.code?.toLowerCase();
-              const jName = j.name?.toLowerCase();
-              if ((jId && deletedJobsSet.has(jId)) || (jCode && deletedJobsSet.has(jCode)) || (jName && deletedJobsSet.has(jName))) return;
-              jobMap.set(jCode || jId, j);
-            });
-            localJobs.forEach(j => {
-              if (!j) return;
-              const jId = j.id?.toLowerCase();
-              const jCode = j.code?.toLowerCase();
-              const jName = j.name?.toLowerCase();
-              if ((jId && deletedJobsSet.has(jId)) || (jCode && deletedJobsSet.has(jCode)) || (jName && deletedJobsSet.has(jName))) return;
-              jobMap.set(jCode || jId, j);
-            });
-            const mergedJobs = Array.from(jobMap.values());
+            const mergedJobs = deduplicateJobTitles([...localJobs, ...snapJobs]);
 
             // MERGE DOCUMENTS:
             const localDocs = loadDocuments();
@@ -481,6 +442,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 departments: mergedDepts,
                 jobTitles: mergedJobs,
                 notifications,
+                deletedUserIds: loadDeletedUserIds(),
+                deletedDepartmentIds: loadDeletedDeptIds(),
+                deletedJobTitleIds: loadDeletedJobIds(),
                 savedBy: 'Đồng bộ gộp dữ liệu khởi động'
               }).catch(e => console.warn('Lưu snapshot gộp lên NAS:', e));
             }
@@ -571,70 +535,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
               }
 
-              const deletedUsersSet = new Set(loadDeletedUserIds().map(s => s.toLowerCase()));
-              const deletedDeptsSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
-              const deletedJobsSet = new Set(loadDeletedJobIds().map(s => s.toLowerCase()));
-
               const currentUsers = loadUsers();
               const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
-              const userMap = new Map<string, User>();
-              snapUsers.forEach(u => {
-                if (!u) return;
-                const uId = u.id?.toLowerCase();
-                const uName = u.username?.toLowerCase();
-                if ((uId && deletedUsersSet.has(uId)) || (uName && deletedUsersSet.has(uName))) return;
-                userMap.set(uName || uId, u);
-              });
-              currentUsers.forEach(u => {
-                if (!u) return;
-                const uId = u.id?.toLowerCase();
-                const uName = u.username?.toLowerCase();
-                if ((uId && deletedUsersSet.has(uId)) || (uName && deletedUsersSet.has(uName))) return;
-                userMap.set(uName || uId, u);
-              });
-              const mergedUsers = Array.from(userMap.values());
+              const mergedUsers = deduplicateUsers([...currentUsers, ...snapUsers]);
 
               const currentDepts = loadDepartments();
               const snapDepts = Array.isArray(snapshot.departments) ? snapshot.departments : [];
-              const deptMap = new Map<string, DepartmentItem>();
-              snapDepts.forEach(d => {
-                if (!d) return;
-                const dId = d.id?.toLowerCase();
-                const dCode = d.code?.toLowerCase();
-                const dName = d.name?.toLowerCase();
-                if ((dId && deletedDeptsSet.has(dId)) || (dCode && deletedDeptsSet.has(dCode)) || (dName && deletedDeptsSet.has(dName))) return;
-                deptMap.set(dCode || dId, d);
-              });
-              currentDepts.forEach(d => {
-                if (!d) return;
-                const dId = d.id?.toLowerCase();
-                const dCode = d.code?.toLowerCase();
-                const dName = d.name?.toLowerCase();
-                if ((dId && deletedDeptsSet.has(dId)) || (dCode && deletedDeptsSet.has(dCode)) || (dName && deletedDeptsSet.has(dName))) return;
-                deptMap.set(dCode || dId, d);
-              });
-              const mergedDepts = Array.from(deptMap.values());
+              const mergedDepts = deduplicateDepartments([...currentDepts, ...snapDepts]);
 
               const currentJobs = loadJobTitles();
               const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
-              const jobMap = new Map<string, JobTitleItem>();
-              snapJobs.forEach(j => {
-                if (!j) return;
-                const jId = j.id?.toLowerCase();
-                const jCode = j.code?.toLowerCase();
-                const jName = j.name?.toLowerCase();
-                if ((jId && deletedJobsSet.has(jId)) || (jCode && deletedJobsSet.has(jCode)) || (jName && deletedJobsSet.has(jName))) return;
-                jobMap.set(jCode || jId, j);
-              });
-              currentJobs.forEach(j => {
-                if (!j) return;
-                const jId = j.id?.toLowerCase();
-                const jCode = j.code?.toLowerCase();
-                const jName = j.name?.toLowerCase();
-                if ((jId && deletedJobsSet.has(jId)) || (jCode && deletedJobsSet.has(jCode)) || (jName && deletedJobsSet.has(jName))) return;
-                jobMap.set(jCode || jId, j);
-              });
-              const mergedJobs = Array.from(jobMap.values());
+              const mergedJobs = deduplicateJobTitles([...currentJobs, ...snapJobs]);
 
               const currentDocs = loadDocuments();
               const snapDocs = Array.isArray(snapshot.documents) ? snapshot.documents : [];
@@ -802,11 +713,28 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (activeUser?.id === userId) {
       return { success: false, message: 'Không thể xóa tài khoản đang đăng nhập hiện tại.' };
     }
-    const userToDelete = users.find(u => u.id === userId);
+    const userToDelete = users.find(u => u.id === userId || (u.username && u.username.toLowerCase() === userId.toLowerCase()));
     if (userToDelete?.id) addDeletedUserId(userToDelete.id);
     if (userToDelete?.username) addDeletedUserId(userToDelete.username);
+    addDeletedUserId(userId);
 
-    const updatedUsers = users.filter(u => u.id !== userId);
+    const deletedSet = new Set(loadDeletedUserIds().map(s => s.toLowerCase()));
+    const targetUsername = userToDelete?.username?.toLowerCase();
+    const targetId = (userToDelete?.id || userId).toLowerCase();
+
+    // Lọc sạch toàn bộ instance của người dùng này và mọi user nằm trong deletedSet khỏi bộ nhớ ngay lập tức
+    const filtered = users.filter(u => {
+      if (!u) return false;
+      const uId = u.id?.toLowerCase();
+      const uName = u.username?.toLowerCase();
+      if (uId === targetId || uId === userId.toLowerCase()) return false;
+      if (targetUsername && uName === targetUsername) return false;
+      if (uId && deletedSet.has(uId)) return false;
+      if (uName && deletedSet.has(uName)) return false;
+      return true;
+    });
+
+    const updatedUsers = deduplicateUsers(filtered);
     setUsers(updatedUsers);
     saveUsers(updatedUsers);
     persistStateToDatabase({
@@ -901,17 +829,37 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteDepartment = (id: string): { success: boolean; message?: string } => {
-    const target = departments.find(d => d.id === id);
+    const target = departments.find(d => d.id === id || (d.code && d.code.toUpperCase() === id.toUpperCase()));
     if (!target) return { success: false, message: 'Không tìm thấy phòng ban.' };
     const hasUsers = users.some(u => u.department.toLowerCase() === target.name.toLowerCase());
     if (hasUsers) {
       return { success: false, message: `Không thể xóa phòng ban "${target.name}" vì đang có ${users.filter(u => u.department.toLowerCase() === target.name.toLowerCase()).length} nhân sự trực thuộc. Vui lòng chuyển phòng ban của nhân sự trước.` };
     }
     addDeletedDeptId(id);
+    if (target.id) addDeletedDeptId(target.id);
     if (target.code) addDeletedDeptId(target.code);
     if (target.name) addDeletedDeptId(target.name);
 
-    const updatedDepts = departments.filter(d => d.id !== id);
+    const deletedDeptsSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
+    const targetCode = target.code?.toLowerCase();
+    const targetName = target.name?.toLowerCase();
+    const targetId = (target.id || id).toLowerCase();
+
+    const filtered = departments.filter(d => {
+      if (!d) return false;
+      const dId = d.id?.toLowerCase();
+      const dCode = d.code?.toLowerCase();
+      const dName = d.name?.toLowerCase();
+      if (dId === targetId || dId === id.toLowerCase()) return false;
+      if (targetCode && dCode === targetCode) return false;
+      if (targetName && dName === targetName) return false;
+      if (dId && deletedDeptsSet.has(dId)) return false;
+      if (dCode && deletedDeptsSet.has(dCode)) return false;
+      if (dName && deletedDeptsSet.has(dName)) return false;
+      return true;
+    });
+
+    const updatedDepts = deduplicateDepartments(filtered);
     setDepartments(updatedDepts);
     saveDepartments(updatedDepts);
     persistStateToDatabase({
@@ -993,17 +941,37 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteJobTitle = (id: string): { success: boolean; message?: string } => {
-    const target = jobTitles.find(j => j.id === id);
+    const target = jobTitles.find(j => j.id === id || (j.code && j.code.toUpperCase() === id.toUpperCase()));
     if (!target) return { success: false, message: 'Không tìm thấy chức vụ.' };
     const hasUsers = users.some(u => u.roleTitle.toLowerCase() === target.name.toLowerCase());
     if (hasUsers) {
       return { success: false, message: `Không thể xóa chức vụ "${target.name}" vì đang có ${users.filter(u => u.roleTitle.toLowerCase() === target.name.toLowerCase()).length} nhân sự nắm giữ. Vui lòng thay đổi chức vụ của nhân sự trước.` };
     }
     addDeletedJobId(id);
+    if (target.id) addDeletedJobId(target.id);
     if (target.code) addDeletedJobId(target.code);
     if (target.name) addDeletedJobId(target.name);
 
-    const updatedJobs = jobTitles.filter(j => j.id !== id);
+    const deletedJobsSet = new Set(loadDeletedJobIds().map(s => s.toLowerCase()));
+    const targetCode = target.code?.toLowerCase();
+    const targetName = target.name?.toLowerCase();
+    const targetId = (target.id || id).toLowerCase();
+
+    const filtered = jobTitles.filter(j => {
+      if (!j) return false;
+      const jId = j.id?.toLowerCase();
+      const jCode = j.code?.toLowerCase();
+      const jName = j.name?.toLowerCase();
+      if (jId === targetId || jId === id.toLowerCase()) return false;
+      if (targetCode && jCode === targetCode) return false;
+      if (targetName && jName === targetName) return false;
+      if (jId && deletedJobsSet.has(jId)) return false;
+      if (jCode && deletedJobsSet.has(jCode)) return false;
+      if (jName && deletedJobsSet.has(jName)) return false;
+      return true;
+    });
+
+    const updatedJobs = deduplicateJobTitles(filtered);
     setJobTitles(updatedJobs);
     saveJobTitles(updatedJobs);
     persistStateToDatabase({

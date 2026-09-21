@@ -355,6 +355,9 @@ export async function onRequest(context: any): Promise<Response> {
         departments: snapshotData.departments || [],
         jobTitles: snapshotData.jobTitles || [],
         notifications: snapshotData.notifications || [],
+        deletedUserIds: snapshotData.deletedUserIds || [],
+        deletedDepartmentIds: snapshotData.deletedDepartmentIds || [],
+        deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],
         meta: {
           totalDocuments: (snapshotData.documents || []).length,
           totalUsers: (snapshotData.users || []).length,
