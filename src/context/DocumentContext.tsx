@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog } from '../types';
+import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog } from '../types';
 import { 
   loadDocuments, 
   saveDocuments, 
@@ -145,6 +145,7 @@ interface DocumentContextType {
     rejected: number;
     additionalReq: number;
     urgentCount: number;
+    overdueCount: number;
     myPendingApprovalsCount: number;
     myCreatedCount: number;
   };
@@ -1889,6 +1890,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const myCreatedCount = activeUser ? accessibleDocuments.filter(d => d.creatorId === activeUser.id).length : 0;
 
+    const overdueCount = accessibleDocuments.filter(d => {
+      if (d.status === 'APPROVED' || d.status === 'REJECTED') return false;
+      if (d.isOverdue) return true;
+      const currentStep = d.steps[d.currentStepIndex];
+      return (
+        currentStep?.status === 'CURRENT' &&
+        !!currentStep?.deadline &&
+        Date.now() > new Date(currentStep.deadline).getTime()
+      );
+    }).length;
+
     return {
       total,
       pending,
@@ -1897,6 +1909,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       rejected,
       additionalReq,
       urgentCount,
+      overdueCount,
       myPendingApprovalsCount,
       myCreatedCount,
     };
