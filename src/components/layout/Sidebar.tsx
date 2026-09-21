@@ -4,7 +4,8 @@ import {
   FolderGit2, 
   CheckSquare, 
   FileStack, 
-  ShieldCheck
+  ShieldCheck,
+  Settings
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 
@@ -24,6 +25,7 @@ export const Sidebar: React.FC = () => {
   const canViewDocs = hasPermission('doc.view') || hasPermission('doc.view_all');
   const canApprove = hasPermission('approval.approve') || hasPermission('approval.override');
   const canManageUsers = hasPermission('user.view') || hasPermission('user.create') || hasPermission('user.edit');
+  const canConfig = canManageUsers || activeUser.role === 'ADMIN' || activeUser.role === 'DIRECTOR';
 
   const navItems = [
     ...(canViewDashboard ? [{
@@ -59,6 +61,12 @@ export const Sidebar: React.FC = () => {
       icon: ShieldCheck,
       badge: `${users.length}`,
       badgeColor: 'bg-brand-red text-white font-bold',
+    }] : []),
+    ...(canConfig ? [{
+      id: 'settings',
+      label: 'Cấu hình',
+      icon: Settings,
+      badge: null,
     }] : []),
   ];
 

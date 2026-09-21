@@ -9,6 +9,7 @@ import { DMSStorageView } from './components/dms/DMSStorageView';
 import { CreateDocumentModal } from './components/documents/CreateDocumentModal';
 import { DocumentDetailModal } from './components/documents/DocumentDetailModal';
 import { UserManagementView } from './components/users/UserManagementView';
+import { SystemSettingsView } from './components/settings/SystemSettingsView';
 import { LoginPage } from './components/auth/LoginPage';
 
 const AppContent: React.FC = () => {
@@ -52,6 +53,8 @@ const AppContent: React.FC = () => {
         return <DMSStorageView />;
       case 'users':
         return <UserManagementView />;
+      case 'settings':
+        return <SystemSettingsView />;
       default:
         return <DashboardView />;
     }

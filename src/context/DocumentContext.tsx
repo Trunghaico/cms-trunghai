@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, NotificationItem, User, DocumentStatus, UserRole, PermissionId } from '../types';
+import { DocumentItem, NotificationItem, User, DocumentStatus, UserRole, PermissionId, DepartmentItem, JobTitleItem } from '../types';
 import { 
   loadDocuments, 
   saveDocuments, 
@@ -8,8 +8,23 @@ import {
   loadActiveUser, 
   saveActiveUser,
   loadUsers,
-  saveUsers
+  saveUsers,
+  loadDepartments,
+  saveDepartments,
+  loadJobTitles,
+  saveJobTitles
 } from '../lib/storage';
+import {
+  fetchDepartmentsFromDB,
+  fetchJobTitlesFromDB,
+  fetchUsersFromDB,
+  saveDepartmentToDB,
+  deleteDepartmentFromDB,
+  saveJobTitleToDB,
+  deleteJobTitleFromDB,
+  saveUserToDB,
+  deleteUserFromDB
+} from '../lib/databaseService';
 import { USERS } from '../lib/initialData';
 import { 
   hasPermission as checkHasPermission, 
@@ -32,6 +47,16 @@ interface DocumentContextType {
   deleteUser: (userId: string) => { success: boolean; message?: string };
   registerUser?: (userData: { name: string; username: string; pass: string; roleTitle: string; department: string; role?: UserRole; permissions?: PermissionId[] }) => { success: boolean; message?: string };
   
+  // Settings: Departments & Job Titles
+  departments: DepartmentItem[];
+  jobTitles: JobTitleItem[];
+  createDepartment: (deptData: { name: string; code: string; description?: string }) => { success: boolean; message?: string };
+  updateDepartment: (id: string, deptData: Partial<DepartmentItem>) => { success: boolean; message?: string };
+  deleteDepartment: (id: string) => { success: boolean; message?: string };
+  createJobTitle: (titleData: { name: string; code: string; department: string; defaultRole?: UserRole; description?: string }) => { success: boolean; message?: string };
+  updateJobTitle: (id: string, titleData: Partial<JobTitleItem>) => { success: boolean; message?: string };
+  deleteJobTitle: (id: string) => { success: boolean; message?: string };
+
   documents: DocumentItem[];
   notifications: NotificationItem[];
   unreadNotificationCount: number;
@@ -72,6 +97,8 @@ const DocumentContext = createContext<DocumentContextType | undefined>(undefined
 
 export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => loadUsers());
+  const [departments, setDepartments] = useState<DepartmentItem[]>(() => loadDepartments());
+  const [jobTitles, setJobTitles] = useState<JobTitleItem[]>(() => loadJobTitles());
   const [activeUser, setActiveUserState] = useState<User | null>(() => loadActiveUser());
   const [documents, setDocuments] = useState<DocumentItem[]>(() => loadDocuments());
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => loadNotifications());
@@ -85,6 +112,16 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveUsers(users);
   }, [users]);
 
+  // Sync departments to storage
+  useEffect(() => {
+    saveDepartments(departments);
+  }, [departments]);
+
+  // Sync job titles to storage
+  useEffect(() => {
+    saveJobTitles(jobTitles);
+  }, [jobTitles]);
+
   // Sync documents to storage
   useEffect(() => {
     saveDocuments(documents);
@@ -94,6 +131,46 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     saveNotifications(notifications);
   }, [notifications]);
+
+  // Initial Sync from Supabase DB on startup
+  useEffect(() => {
+    let isMounted = true;
+    const syncFromDB = async () => {
+      try {
+        const [dbDepts, dbJobs, dbUsers] = await Promise.all([
+          fetchDepartmentsFromDB(),
+          fetchJobTitlesFromDB(),
+          fetchUsersFromDB()
+        ]);
+        if (!isMounted) return;
+        if (dbDepts && dbDepts.length > 0) {
+          setDepartments(dbDepts);
+        }
+        if (dbJobs && dbJobs.length > 0) {
+          setJobTitles(dbJobs);
+        }
+        if (dbUsers && dbUsers.length > 0) {
+          setUsers(prev => {
+            return dbUsers.map(u => {
+              const localUser = prev.find(p => p.id === u.id || p.username === u.username);
+              return {
+                ...u,
+                permissions: localUser?.permissions?.length 
+                  ? localUser.permissions 
+                  : (ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF)
+              };
+            });
+          });
+        }
+      } catch (err) {
+        console.warn('Supabase DB sync notification:', err);
+      }
+    };
+    syncFromDB();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const login = (username: string, pass: string): { success: boolean; message?: string } => {
     const trimmed = username.trim().toLowerCase();
@@ -164,6 +241,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     setUsers(prev => [...prev, newUser]);
+    saveUserToDB(newUser).catch(err => console.warn('Lỗi lưu user lên DB:', err));
     return { success: true };
   };
 
@@ -176,15 +254,21 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
 
+    let updatedTarget: User | null = null;
     setUsers(prev => prev.map(u => {
       if (u.id !== userId) return u;
       const updated = { ...u, ...userData };
+      updatedTarget = updated;
       if (activeUser?.id === userId) {
         setActiveUserState(updated);
         saveActiveUser(updated);
       }
       return updated;
     }));
+
+    if (updatedTarget) {
+      saveUserToDB(updatedTarget).catch(err => console.warn('Lỗi cập nhật user lên DB:', err));
+    }
 
     return { success: true };
   };
@@ -194,6 +278,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'Không thể xóa tài khoản đang đăng nhập hiện tại.' };
     }
     setUsers(prev => prev.filter(u => u.id !== userId));
+    deleteUserFromDB(userId).catch(err => console.warn('Lỗi xóa user trên DB:', err));
     return { success: true };
   };
 
@@ -209,6 +294,133 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ...userData,
       role: userData.role || 'STAFF',
     });
+  };
+
+  // Department Management
+  const createDepartment = (deptData: { name: string; code: string; description?: string }): { success: boolean; message?: string } => {
+    const trimmedName = deptData.name.trim();
+    const trimmedCode = deptData.code.trim().toUpperCase();
+    if (!trimmedName || !trimmedCode) {
+      return { success: false, message: 'Vui lòng nhập đầy đủ tên và mã phòng ban.' };
+    }
+    if (departments.some(d => d.name.toLowerCase() === trimmedName.toLowerCase() || d.code.toUpperCase() === trimmedCode)) {
+      return { success: false, message: 'Phòng ban hoặc mã phòng ban này đã tồn tại.' };
+    }
+    const newDept: DepartmentItem = {
+      id: `dept-${Date.now()}`,
+      name: trimmedName,
+      code: trimmedCode,
+      description: deptData.description?.trim() || '',
+      createdAt: new Date().toISOString()
+    };
+    setDepartments(prev => [...prev, newDept]);
+    saveDepartmentToDB(newDept).catch(err => console.warn('Lỗi lưu phòng ban lên DB:', err));
+    return { success: true };
+  };
+
+  const updateDepartment = (id: string, deptData: Partial<DepartmentItem>): { success: boolean; message?: string } => {
+    if (deptData.name) {
+      const trimmedName = deptData.name.trim();
+      if (departments.some(d => d.id !== id && d.name.toLowerCase() === trimmedName.toLowerCase())) {
+        return { success: false, message: 'Tên phòng ban này đã được sử dụng.' };
+      }
+    }
+    if (deptData.code) {
+      const trimmedCode = deptData.code.trim().toUpperCase();
+      if (departments.some(d => d.id !== id && d.code.toUpperCase() === trimmedCode)) {
+        return { success: false, message: 'Mã phòng ban này đã được sử dụng.' };
+      }
+    }
+    let updatedDept: DepartmentItem | null = null;
+    setDepartments(prev => prev.map(d => {
+      if (d.id !== id) return d;
+      const updated = { ...d, ...deptData };
+      if (deptData.code) updated.code = deptData.code.trim().toUpperCase();
+      if (deptData.name) updated.name = deptData.name.trim();
+      updatedDept = updated;
+      return updated;
+    }));
+    if (updatedDept) {
+      saveDepartmentToDB(updatedDept).catch(err => console.warn('Lỗi cập nhật phòng ban lên DB:', err));
+    }
+    return { success: true };
+  };
+
+  const deleteDepartment = (id: string): { success: boolean; message?: string } => {
+    const target = departments.find(d => d.id === id);
+    if (!target) return { success: false, message: 'Không tìm thấy phòng ban.' };
+    const hasUsers = users.some(u => u.department.toLowerCase() === target.name.toLowerCase());
+    if (hasUsers) {
+      return { success: false, message: `Không thể xóa phòng ban "${target.name}" vì đang có ${users.filter(u => u.department.toLowerCase() === target.name.toLowerCase()).length} nhân sự trực thuộc. Vui lòng chuyển phòng ban của nhân sự trước.` };
+    }
+    setDepartments(prev => prev.filter(d => d.id !== id));
+    deleteDepartmentFromDB(id).catch(err => console.warn('Lỗi xóa phòng ban trên DB:', err));
+    return { success: true };
+  };
+
+  // Job Title Management
+  const createJobTitle = (titleData: { name: string; code: string; department: string; defaultRole?: UserRole; description?: string }): { success: boolean; message?: string } => {
+    const trimmedName = titleData.name.trim();
+    const trimmedCode = titleData.code.trim().toUpperCase();
+    const trimmedDept = titleData.department.trim();
+    if (!trimmedName || !trimmedCode || !trimmedDept) {
+      return { success: false, message: 'Vui lòng nhập đầy đủ tên chức vụ, mã chức vụ và phòng ban trực thuộc.' };
+    }
+    if (jobTitles.some(j => j.name.toLowerCase() === trimmedName.toLowerCase() || j.code.toUpperCase() === trimmedCode)) {
+      return { success: false, message: 'Chức vụ hoặc mã chức vụ này đã tồn tại.' };
+    }
+    const newJobTitle: JobTitleItem = {
+      id: `job-${Date.now()}`,
+      name: trimmedName,
+      code: trimmedCode,
+      department: trimmedDept,
+      defaultRole: titleData.defaultRole || 'STAFF',
+      description: titleData.description?.trim() || '',
+      createdAt: new Date().toISOString()
+    };
+    setJobTitles(prev => [...prev, newJobTitle]);
+    saveJobTitleToDB(newJobTitle).catch(err => console.warn('Lỗi lưu chức vụ lên DB:', err));
+    return { success: true };
+  };
+
+  const updateJobTitle = (id: string, titleData: Partial<JobTitleItem>): { success: boolean; message?: string } => {
+    if (titleData.name) {
+      const trimmedName = titleData.name.trim();
+      if (jobTitles.some(j => j.id !== id && j.name.toLowerCase() === trimmedName.toLowerCase())) {
+        return { success: false, message: 'Tên chức vụ này đã được sử dụng.' };
+      }
+    }
+    if (titleData.code) {
+      const trimmedCode = titleData.code.trim().toUpperCase();
+      if (jobTitles.some(j => j.id !== id && j.code.toUpperCase() === trimmedCode)) {
+        return { success: false, message: 'Mã chức vụ này đã được sử dụng.' };
+      }
+    }
+    let updatedJob: JobTitleItem | null = null;
+    setJobTitles(prev => prev.map(j => {
+      if (j.id !== id) return j;
+      const updated = { ...j, ...titleData };
+      if (titleData.code) updated.code = titleData.code.trim().toUpperCase();
+      if (titleData.name) updated.name = titleData.name.trim();
+      updatedJob = updated;
+      return updated;
+    }));
+    if (updatedJob) {
+      saveJobTitleToDB(updatedJob).catch(err => console.warn('Lỗi cập nhật chức vụ lên DB:', err));
+    }
+    return { success: true };
+  };
+
+  const deleteJobTitle = (id: string): { success: boolean; message?: string } => {
+    const target = jobTitles.find(j => j.id === id);
+    if (!target) return { success: false, message: 'Không tìm thấy chức vụ.' };
+    const hasUsers = users.some(u => u.roleTitle.toLowerCase() === target.name.toLowerCase());
+    if (hasUsers) {
+      return { success: false, message: `Không thể xóa chức vụ "${target.name}" vì đang có ${users.filter(u => u.roleTitle.toLowerCase() === target.name.toLowerCase()).length} nhân sự nắm giữ. Vui lòng thay đổi chức vụ của nhân sự trước.` };
+    }
+    setJobTitles(prev => prev.filter(j => j.id !== id));
+    deleteJobTitleFromDB(id).catch(err => console.warn('Lỗi xóa chức vụ trên DB:', err));
+    return { success: true };
   };
 
   const markNotificationAsRead = (id: string) => {
@@ -501,7 +713,25 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (!currentStep || currentStep.status !== 'CURRENT') return false;
       const canApprove = checkHasPermission(activeUser, 'approval.approve');
       const canOverride = checkHasPermission(activeUser, 'approval.override');
-      return (canApprove && (currentStep.approverRole === activeUser.role || currentStep.approverId === activeUser.id)) || canOverride;
+
+      const isExactUser = currentStep.approverId ? currentStep.approverId === activeUser.id : false;
+      const isDeptApprover = !currentStep.approverId && (
+        (currentStep.department && currentStep.department.toLowerCase() === activeUser.department.toLowerCase()) ||
+        activeUser.role === currentStep.approverRole ||
+        (currentStep.department?.includes('Pháp chế') && activeUser.role === 'LEGAL_DEPT') ||
+        (currentStep.department?.includes('Kế toán') && activeUser.role === 'CHIEF_ACCOUNTANT') ||
+        (currentStep.department?.includes('Giám Đốc') && activeUser.role === 'DIRECTOR')
+      );
+
+      const isAuthorizedToSign = 
+        activeUser.role === 'DIRECTOR' || 
+        activeUser.role === 'ADMIN' || 
+        activeUser.role === 'DEPT_HEAD' || 
+        activeUser.role === 'CHIEF_ACCOUNTANT' || 
+        activeUser.role === 'LEGAL_DEPT' ||
+        activeUser.role === currentStep.approverRole;
+
+      return (canApprove && (isExactUser || (isDeptApprover && isAuthorizedToSign))) || canOverride;
     }).length : 0;
 
     const myCreatedCount = activeUser ? documents.filter(d => d.creatorId === activeUser.id).length : 0;
@@ -538,6 +768,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateUser,
         deleteUser,
         registerUser,
+        departments,
+        jobTitles,
+        createDepartment,
+        updateDepartment,
+        deleteDepartment,
+        createJobTitle,
+        updateJobTitle,
+        deleteJobTitle,
         documents,
         notifications,
         unreadNotificationCount,

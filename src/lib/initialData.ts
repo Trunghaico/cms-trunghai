@@ -1,4 +1,4 @@
-import { DocumentItem, User, WorkflowTemplate, NotificationItem } from '../types';
+import { DocumentItem, User, WorkflowTemplate, NotificationItem, DepartmentItem, JobTitleItem } from '../types';
 import { ROLE_PRESET_PERMISSIONS } from './permissions';
 
 export const USERS: User[] = [
@@ -729,3 +729,149 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     createdAt: '2026-09-18T11:45:00+07:00',
   }
 ];
+
+export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
+  {
+    id: 'dept-ktda',
+    name: 'Phòng Kỹ thuật & Dự án',
+    code: 'KTDA',
+    description: 'Chịu trách nhiệm quản lý dự án, giải pháp kỹ thuật, giám sát thi công và nghiệm thu công trình.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'dept-tckt',
+    name: 'Phòng Tài chính Kế toán',
+    code: 'TCKT',
+    description: 'Quản lý dòng tiền, quyết toán thuế, thẩm tra hồ sơ thanh toán và kiểm soát ngân sách chi tiêu.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'dept-pcks',
+    name: 'Ban Pháp chế & Kiểm soát',
+    code: 'PCKS',
+    description: 'Thẩm định tính pháp lý hợp đồng kinh tế, quản trị rủi ro và kiểm soát tuân thủ nội bộ.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'dept-bgd',
+    name: 'Ban Giám đốc',
+    code: 'BGD',
+    description: 'Ban điều hành cao nhất công ty, phê duyệt chủ trương, hợp đồng lớn và chiến lược kinh doanh.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'dept-cntt',
+    name: 'Phòng CNTT & Hạ tầng',
+    code: 'CNTT',
+    description: 'Quản trị hệ thống máy chủ, an ninh mạng, phần mềm nghiệp vụ và chuyển đổi số.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'dept-cuvt',
+    name: 'Phòng Cung ứng & Vật tư',
+    code: 'CUVT',
+    description: 'Tìm kiếm nhà cung cấp, đấu thầu mua sắm thiết bị máy móc và quản trị kho vận.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'dept-hcns',
+    name: 'Phòng Hành chính Nhân sự',
+    code: 'HCNS',
+    description: 'Quản trị nhân lực, tuyển dụng, đào tạo, chế độ chính sách và công tác hành chính văn phòng.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  }
+];
+
+export const INITIAL_JOB_TITLES: JobTitleItem[] = [
+  {
+    id: 'title-tgd',
+    name: 'Tổng Giám đốc',
+    code: 'TGD',
+    department: 'Ban Giám Đốc',
+    defaultRole: 'DIRECTOR',
+    description: 'Người đại diện pháp luật, phê duyệt cấp cao nhất mọi hồ sơ, hợp đồng và ngân sách.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-ptgd',
+    name: 'Phó Tổng Giám đốc',
+    code: 'PTGD',
+    department: 'Ban Giám Đốc',
+    defaultRole: 'DIRECTOR',
+    description: 'Phụ trách khối nghiệp vụ chuyên môn theo ủy quyền của Tổng Giám đốc.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-ktt',
+    name: 'Kế toán trưởng',
+    code: 'KTT',
+    department: 'Phòng Tài chính - Kế toán',
+    defaultRole: 'CHIEF_ACCOUNTANT',
+    description: 'Kiểm soát tài chính, duyệt chứng từ thanh toán và thẩm định nguồn vốn.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-tbp-pc',
+    name: 'Trưởng bộ phận Pháp chế',
+    code: 'TBP_PC',
+    department: 'Phòng Pháp chế & Kiểm soát',
+    defaultRole: 'LEGAL_DEPT',
+    description: 'Chịu trách nhiệm thẩm định điều khoản hợp đồng và rủi ro pháp lý.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-tp-ktda',
+    name: 'Trưởng phòng Kỹ thuật & Dự án',
+    code: 'TP_KTDA',
+    department: 'Phòng Kỹ thuật & Dự án',
+    defaultRole: 'DEPT_HEAD',
+    description: 'Duyệt bước 1 về kỹ thuật, khối lượng và tiến độ các gói thầu.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-tp-cntt',
+    name: 'Trưởng phòng CNTT & Hạ tầng',
+    code: 'TP_CNTT',
+    department: 'Phòng Công nghệ Thông tin',
+    defaultRole: 'DEPT_HEAD',
+    description: 'Quản lý và duyệt các đề xuất đầu tư, bảo dưỡng công nghệ thông tin.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-cv-da-hd',
+    name: 'Chuyên viên Dự án & Hợp đồng',
+    code: 'CV_DA_HD',
+    department: 'Phòng Kỹ thuật & Dự án',
+    defaultRole: 'STAFF',
+    description: 'Khởi tạo hồ sơ, soạn thảo hợp đồng kinh tế và theo dõi tiến trình phê duyệt.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-cv-kt',
+    name: 'Chuyên viên Kế toán',
+    code: 'CV_KT',
+    department: 'Phòng Tài chính - Kế toán',
+    defaultRole: 'STAFF',
+    description: 'Đối soát hóa đơn, chuẩn bị hồ sơ tạm ứng và thanh toán.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-cv-pc',
+    name: 'Chuyên viên Pháp chế',
+    code: 'CV_PC',
+    department: 'Phòng Pháp chế & Kiểm soát',
+    defaultRole: 'STAFF',
+    description: 'Soạn thảo và rà soát hồ sơ pháp lý, văn bản ủy quyền.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-admin',
+    name: 'Quản trị viên Hệ thống',
+    code: 'ADMIN',
+    department: 'Phòng Công nghệ Thông tin',
+    defaultRole: 'ADMIN',
+    description: 'Quản trị người dùng, phân quyền chi tiết và cấu hình hệ thống.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  }
+];
+

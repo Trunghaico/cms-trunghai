@@ -67,42 +67,75 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     setSearchTerm('');
   };
 
-  // Lọc dữ liệu theo tab và tiêu chí
+  // Lọc dữ liệu theo tab và tiêu chuẩn bảo mật phân quyền ma trận
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
-      // Tab base filter
-      if (filterType === 'MY_DOCS' && doc.creatorId !== activeUser.id) {
+      // 1. KIỂM TRA QUYỀN XEM HỒ SƠ (VISIBILITY ACL)
+      // Người xem phải là: Admin, Người tạo, Người trong Cc, Người duyệt cá nhân, hoặc Thành viên thuộc phòng ban có bước duyệt
+      const isCreator = doc.creatorId === activeUser.id;
+      const isCc = doc.ccUsers?.some(cc => cc.id === activeUser.id);
+      const isAssignedUser = doc.steps?.some(s => s.approverId === activeUser.id);
+      const isDeptMember = doc.steps?.some(s => s.department && s.department.toLowerCase() === activeUser.department.toLowerCase());
+      const isCreatorDeptHead = doc.department.toLowerCase() === activeUser.department.toLowerCase() && (activeUser.role === 'DEPT_HEAD' || activeUser.role === 'DIRECTOR');
+      const hasViewAll = activeUser.role === 'ADMIN' || activeUser.role === 'DIRECTOR' || hasPermission('doc.view_all');
+
+      const canView = hasViewAll || isCreator || isCc || isAssignedUser || isDeptMember || isCreatorDeptHead;
+      if (!canView) {
         return false;
       }
+
+      // 2. Tab base filter
+      if (filterType === 'MY_DOCS' && !isCreator) {
+        return false;
+      }
+
       if (filterType === 'PENDING_MY_APPROVAL') {
         if (doc.status === 'APPROVED' || doc.status === 'REJECTED') return false;
         const currentStep = doc.steps[doc.currentStepIndex];
         if (!currentStep || currentStep.status !== 'CURRENT') return false;
-        const isMyTurn = (canApprove && (currentStep.approverRole === activeUser.role || currentStep.approverId === activeUser.id)) || canOverride;
+
+        const isExactUser = currentStep.approverId ? currentStep.approverId === activeUser.id : false;
+        const isDeptApprover = !currentStep.approverId && (
+          currentStep.department.toLowerCase() === activeUser.department.toLowerCase() ||
+          activeUser.role === currentStep.approverRole ||
+          (currentStep.department.includes('Pháp chế') && activeUser.role === 'LEGAL_DEPT') ||
+          (currentStep.department.includes('Kế toán') && activeUser.role === 'CHIEF_ACCOUNTANT') ||
+          (currentStep.department.includes('Giám Đốc') && activeUser.role === 'DIRECTOR')
+        );
+
+        const isAuthorizedToSign = 
+          activeUser.role === 'DIRECTOR' || 
+          activeUser.role === 'ADMIN' || 
+          activeUser.role === 'DEPT_HEAD' || 
+          activeUser.role === 'CHIEF_ACCOUNTANT' || 
+          activeUser.role === 'LEGAL_DEPT' ||
+          activeUser.role === currentStep.approverRole;
+
+        const isMyTurn = (canApprove && (isExactUser || (isDeptApprover && isAuthorizedToSign))) || canOverride;
         if (!isMyTurn) return false;
       }
 
-      // Status filter
+      // 3. Status filter
       if (statusFilter !== 'ALL' && doc.status !== statusFilter) {
         return false;
       }
 
-      // Priority filter
+      // 4. Priority filter
       if (priorityFilter !== 'ALL' && doc.priority !== priorityFilter) {
         return false;
       }
 
-      // Category filter
+      // 5. Category filter
       if (categoryFilter !== 'ALL' && doc.category !== categoryFilter) {
         return false;
       }
 
-      // Department filter
+      // 6. Department filter
       if (departmentFilter !== 'ALL' && doc.department !== departmentFilter) {
         return false;
       }
 
-      // Search (both local search and header global search)
+      // 7. Search (both local search and header global search)
       const query = (searchTerm || globalSearchQuery).toLowerCase().trim();
       if (query) {
         const matchCode = doc.code.toLowerCase().includes(query);

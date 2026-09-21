@@ -1,11 +1,13 @@
-import { DocumentItem, NotificationItem, User } from '../types';
-import { INITIAL_DOCUMENTS, INITIAL_NOTIFICATIONS, USERS } from './initialData';
+import { DocumentItem, NotificationItem, User, DepartmentItem, JobTitleItem } from '../types';
+import { INITIAL_DOCUMENTS, INITIAL_NOTIFICATIONS, USERS, INITIAL_DEPARTMENTS, INITIAL_JOB_TITLES } from './initialData';
 import { ROLE_PRESET_PERMISSIONS } from './permissions';
 
 const STORAGE_KEY_DOCS = 'trunghai_documents_v1';
 const STORAGE_KEY_NOTIFS = 'trunghai_notifications_v1';
 const STORAGE_KEY_USER = 'trunghai_active_user_v1';
 const STORAGE_KEY_USERS_DB = 'trunghai_users_db_v1';
+const STORAGE_KEY_DEPTS = 'trunghai_departments_v1';
+const STORAGE_KEY_JOB_TITLES = 'trunghai_job_titles_v1';
 
 export const loadUsers = (): User[] => {
   try {
@@ -35,6 +37,54 @@ export const saveUsers = (users: User[]) => {
     localStorage.setItem(STORAGE_KEY_USERS_DB, JSON.stringify(users));
   } catch (e) {
     console.error('Failed to save users database', e);
+  }
+};
+
+export const loadDepartments = (): DepartmentItem[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_DEPTS);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load departments', e);
+  }
+  saveDepartments(INITIAL_DEPARTMENTS);
+  return INITIAL_DEPARTMENTS;
+};
+
+export const saveDepartments = (depts: DepartmentItem[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_DEPTS, JSON.stringify(depts));
+  } catch (e) {
+    console.error('Failed to save departments', e);
+  }
+};
+
+export const loadJobTitles = (): JobTitleItem[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_JOB_TITLES);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load job titles', e);
+  }
+  saveJobTitles(INITIAL_JOB_TITLES);
+  return INITIAL_JOB_TITLES;
+};
+
+export const saveJobTitles = (titles: JobTitleItem[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_JOB_TITLES, JSON.stringify(titles));
+  } catch (e) {
+    console.error('Failed to save job titles', e);
   }
 };
 

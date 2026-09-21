@@ -120,8 +120,55 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 8. Kích hoạt Row Level Security (RLS)
+-- 8. Bảng danh mục Phòng Ban (Departments)
+CREATE TABLE IF NOT EXISTS public.departments (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    code TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+INSERT INTO public.departments (id, name, code)
+VALUES
+  ('dept-ktda', 'Phòng Kỹ thuật & Dự án', 'KTDA'),
+  ('dept-tckt', 'Phòng Tài chính - Kế toán', 'TCKT'),
+  ('dept-pcks', 'Phòng Pháp chế & Kiểm soát', 'PCKS'),
+  ('dept-bgd', 'Ban Giám Đốc', 'BGD'),
+  ('dept-cntt', 'Phòng Công nghệ Thông tin', 'CNTT'),
+  ('dept-cuvt', 'Phòng Cung ứng & Vật tư', 'CUVT'),
+  ('dept-hcns', 'Phòng Hành chính - Nhân sự', 'HCNS')
+ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name;
+
+-- 9. Bảng danh mục Chức Vụ (Job Titles)
+CREATE TABLE IF NOT EXISTS public.job_titles (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    code TEXT UNIQUE NOT NULL,
+    department TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+INSERT INTO public.job_titles (id, name, code, department)
+VALUES
+  ('title-tgd', 'Tổng Giám đốc', 'TGD', 'Ban Giám Đốc'),
+  ('title-ptgd', 'Phó Tổng Giám đốc', 'PTGD', 'Ban Giám Đốc'),
+  ('title-ktt', 'Kế toán trưởng', 'KTT', 'Phòng Tài chính - Kế toán'),
+  ('title-tbp-pc', 'Trưởng bộ phận Pháp chế', 'TBP_PC', 'Phòng Pháp chế & Kiểm soát'),
+  ('title-tp-ktda', 'Trưởng phòng Kỹ thuật & Dự án', 'TP_KTDA', 'Phòng Kỹ thuật & Dự án'),
+  ('title-tp-cntt', 'Trưởng phòng CNTT & Hạ tầng', 'TP_CNTT', 'Phòng Công nghệ Thông tin'),
+  ('title-cv-da-hd', 'Chuyên viên Dự án & Hợp đồng', 'CV_DA_HD', 'Phòng Kỹ thuật & Dự án'),
+  ('title-cv-kt', 'Chuyên viên Kế toán', 'CV_KT', 'Phòng Tài chính - Kế toán'),
+  ('title-cv-pc', 'Chuyên viên Pháp chế', 'CV_PC', 'Phòng Pháp chế & Kiểm soát'),
+  ('title-admin', 'Quản trị viên Hệ thống', 'ADMIN', 'Phòng Công nghệ Thông tin')
+ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name,
+  department = EXCLUDED.department;
+
+-- 10. Kích hoạt Row Level Security (RLS)
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_titles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.approval_steps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.document_attachments ENABLE ROW LEVEL SECURITY;
@@ -130,6 +177,11 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 -- Cấp quyền truy cập cho anon / authenticated users
 CREATE POLICY "Cho phép đọc người dùng" ON public.users FOR SELECT USING (true);
 CREATE POLICY "Cho phép thêm người dùng" ON public.users FOR INSERT WITH CHECK (true);
+CREATE POLICY "Cho phép đọc phòng ban" ON public.departments FOR SELECT USING (true);
+CREATE POLICY "Cho phép quản lý phòng ban" ON public.departments FOR ALL USING (true);
+CREATE POLICY "Cho phép đọc chức vụ" ON public.job_titles FOR SELECT USING (true);
+CREATE POLICY "Cho phép quản lý chức vụ" ON public.job_titles FOR ALL USING (true);
 CREATE POLICY "Cho phép đọc hồ sơ" ON public.documents FOR SELECT USING (true);
 CREATE POLICY "Cho phép tạo hồ sơ" ON public.documents FOR INSERT WITH CHECK (true);
 CREATE POLICY "Cho phép cập nhật hồ sơ" ON public.documents FOR UPDATE USING (true);
+

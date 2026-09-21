@@ -174,3 +174,22 @@ export interface WorkflowTemplate {
     slaHours: number;
   }[];
 }
+
+export interface DepartmentItem {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface JobTitleItem {
+  id: string;
+  name: string;
+  code: string;
+  department: string;
+  defaultRole?: UserRole;
+  description?: string;
+  createdAt: string;
+}
+

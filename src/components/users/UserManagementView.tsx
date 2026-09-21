@@ -46,7 +46,16 @@ const SafePortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export const UserManagementView: React.FC = () => {
-  const { users, activeUser, createUser, updateUser, deleteUser, hasPermission } = useDocument();
+  const { 
+    users, 
+    activeUser, 
+    createUser, 
+    updateUser, 
+    deleteUser, 
+    hasPermission,
+    departments: systemDepts,
+    jobTitles: systemJobTitles
+  } = useDocument();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
@@ -70,8 +79,12 @@ export const UserManagementView: React.FC = () => {
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Lấy danh sách các phòng ban duy nhất
-  const departments = useMemo(() => Array.from(new Set(users.map(u => u.department))), [users]);
+  // Lấy danh sách các phòng ban duy nhất (kết hợp từ danh mục cấu hình và users)
+  const departments = useMemo(() => {
+    const fromDepts = systemDepts.map(d => d.name);
+    const fromUsers = users.map(u => u.department);
+    return Array.from(new Set([...fromDepts, ...fromUsers]));
+  }, [systemDepts, users]);
 
   const togglePasswordVisibility = (userId: string) => {
     setShowPasswordMap(prev => ({
@@ -656,11 +669,31 @@ export const UserManagementView: React.FC = () => {
                         <input
                           type="text"
                           required
+                          list="system-job-titles-list"
                           value={roleTitle}
-                          onChange={(e) => setRoleTitle(e.target.value)}
-                          placeholder="VD: Kỹ sư Dự án"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setRoleTitle(val);
+                            // Auto prefill department & role if matched
+                            const matchedJob = systemJobTitles.find(j => j.name.toLowerCase() === val.toLowerCase());
+                            if (matchedJob) {
+                              if (matchedJob.department) {
+                                setDepartment(matchedJob.department);
+                              }
+                              if (matchedJob.defaultRole) {
+                                setRole(matchedJob.defaultRole);
+                                setSelectedPermissions(ROLE_PRESET_PERMISSIONS[matchedJob.defaultRole] || [...ROLE_PRESET_PERMISSIONS.STAFF]);
+                              }
+                            }
+                          }}
+                          placeholder="Chọn hoặc nhập chức vụ..."
                           className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-brand-blue"
                         />
+                        <datalist id="system-job-titles-list">
+                          {systemJobTitles.map(j => (
+                            <option key={j.id} value={j.name}>{j.code} - {j.name}</option>
+                          ))}
+                        </datalist>
                       </div>
 
                       <div>
@@ -670,11 +703,17 @@ export const UserManagementView: React.FC = () => {
                         <input
                           type="text"
                           required
+                          list="system-depts-list"
                           value={department}
                           onChange={(e) => setDepartment(e.target.value)}
-                          placeholder="VD: Phòng Kỹ thuật"
+                          placeholder="Chọn hoặc nhập phòng ban..."
                           className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-brand-blue"
                         />
+                        <datalist id="system-depts-list">
+                          {systemDepts.map(d => (
+                            <option key={d.id} value={d.name}>{d.code} - {d.name}</option>
+                          ))}
+                        </datalist>
                       </div>
                     </div>
                   </div>
