@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog } from '../types';
+import { DocumentItem, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog } from '../types';
 import { 
   loadDocuments, 
   saveDocuments, 
@@ -13,6 +13,8 @@ import {
   saveDepartments,
   loadJobTitles,
   saveJobTitles,
+  loadPermissionPresets,
+  savePermissionPresets,
   loadDeletedUserIds,
   addDeletedUserId,
   removeDeletedUserId,
@@ -22,9 +24,13 @@ import {
   loadDeletedJobIds,
   addDeletedJobId,
   removeDeletedJobId,
+  loadDeletedPresetIds,
+  addDeletedPresetId,
+  removeDeletedPresetId,
   deduplicateUsers,
   deduplicateDepartments,
-  deduplicateJobTitles
+  deduplicateJobTitles,
+  deduplicatePresets
 } from '../lib/storage';
 import {
   saveDatabaseToNAS,
@@ -45,6 +51,7 @@ import {
   hasAnyPermission as checkHasAnyPermission,
   hasAllPermissions as checkHasAllPermissions,
   ROLE_PRESET_PERMISSIONS,
+  DEFAULT_PERMISSION_PRESETS,
   canUserAccessDocument,
   canUserReceiveNotification,
   canUserOverseeAllDocuments,
@@ -78,7 +85,7 @@ interface DocumentContextType {
   listBackups: () => Promise<NASBackupItem[]>;
   persistStateToDatabase?: (overrides?: any) => Promise<any>;
 
-  // Settings: Departments & Job Titles
+  // Settings: Departments, Job Titles & Permission Presets
   departments: DepartmentItem[];
   jobTitles: JobTitleItem[];
   createDepartment: (deptData: { name: string; code: string; description?: string }) => { success: boolean; message?: string };
@@ -87,6 +94,12 @@ interface DocumentContextType {
   createJobTitle: (titleData: { name: string; code: string; department: string; defaultRole?: UserRole; description?: string }) => { success: boolean; message?: string };
   updateJobTitle: (id: string, titleData: Partial<JobTitleItem>) => { success: boolean; message?: string };
   deleteJobTitle: (id: string) => { success: boolean; message?: string };
+
+  permissionPresets: PermissionPreset[];
+  createPermissionPreset: (presetData: { name: string; role: UserRole; roleTitle?: string; permissions: PermissionId[]; description?: string }) => { success: boolean; message?: string; preset?: PermissionPreset };
+  updatePermissionPreset: (id: string, presetData: Partial<PermissionPreset>) => { success: boolean; message?: string };
+  deletePermissionPreset: (id: string) => { success: boolean; message?: string };
+  resetPermissionPresetsToDefault: () => void;
 
   documents: DocumentItem[];
   notifications: NotificationItem[];
@@ -142,6 +155,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [users, setUsers] = useState<User[]>(() => loadUsers());
   const [departments, setDepartments] = useState<DepartmentItem[]>(() => loadDepartments());
   const [jobTitles, setJobTitles] = useState<JobTitleItem[]>(() => loadJobTitles());
+  const [permissionPresets, setPermissionPresets] = useState<PermissionPreset[]>(() => loadPermissionPresets());
   const [activeUser, setActiveUserState] = useState<User | null>(() => loadActiveUser());
   const [documents, setDocuments] = useState<DocumentItem[]>(() => loadDocuments());
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => loadNotifications());
@@ -188,6 +202,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveJobTitles(jobTitles);
   }, [jobTitles]);
 
+  // Sync permission presets to storage
+  useEffect(() => {
+    savePermissionPresets(permissionPresets);
+  }, [permissionPresets]);
+
   // Sync documents to storage
   useEffect(() => {
     saveDocuments(documents);
@@ -210,16 +229,19 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const cleanUsers = deduplicateUsers(users);
       const cleanDepts = deduplicateDepartments(departments);
       const cleanJobs = deduplicateJobTitles(jobTitles);
+      const cleanPresets = deduplicatePresets(permissionPresets);
 
       const res = await saveDatabaseToNAS({
         documents,
         users: cleanUsers,
         departments: cleanDepts,
         jobTitles: cleanJobs,
+        permissionPresets: cleanPresets,
         notifications,
         deletedUserIds: loadDeletedUserIds(),
         deletedDepartmentIds: loadDeletedDeptIds(),
         deletedJobTitleIds: loadDeletedJobIds(),
+        deletedPresetIds: loadDeletedPresetIds(),
         savedBy: isAuto ? 'Tự động sao lưu hệ thống' : (activeUser?.name || 'Tài khoản quản trị'),
       });
       if (res.success) {
@@ -245,13 +267,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isSyncInProgress.current = false;
       return { success: false, message: e.message || 'Lỗi không xác định khi đồng bộ lên NAS' };
     }
-  }, [documents, users, departments, jobTitles, notifications, activeUser, autoBackupConfig.intervalMinutes]);
+  }, [documents, users, departments, jobTitles, permissionPresets, notifications, activeUser, autoBackupConfig.intervalMinutes]);
 
   // Lưu tức thời và đồng bộ vào Database (MinIO NAS + localStorage)
   const persistStateToDatabase = useCallback(async (overrides?: {
     users?: User[];
     departments?: DepartmentItem[];
     jobTitles?: JobTitleItem[];
+    permissionPresets?: PermissionPreset[];
     documents?: DocumentItem[];
     notifications?: NotificationItem[];
     actionDescription?: string;
@@ -259,6 +282,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const targetUsers = deduplicateUsers(overrides?.users || users);
     const targetDepts = deduplicateDepartments(overrides?.departments || departments);
     const targetJobs = deduplicateJobTitles(overrides?.jobTitles || jobTitles);
+    const targetPresets = deduplicatePresets(overrides?.permissionPresets || permissionPresets);
     const targetDocs = overrides?.documents || documents;
     const targetNotifs = overrides?.notifications || notifications;
 
@@ -266,6 +290,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (overrides?.users) saveUsers(targetUsers);
     if (overrides?.departments) saveDepartments(targetDepts);
     if (overrides?.jobTitles) saveJobTitles(targetJobs);
+    if (overrides?.permissionPresets) savePermissionPresets(targetPresets);
     if (overrides?.documents) saveDocuments(targetDocs);
     if (overrides?.notifications) saveNotifications(targetNotifs);
 
@@ -278,10 +303,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         users: targetUsers,
         departments: targetDepts,
         jobTitles: targetJobs,
+        permissionPresets: targetPresets,
         notifications: targetNotifs,
         deletedUserIds: loadDeletedUserIds(),
         deletedDepartmentIds: loadDeletedDeptIds(),
         deletedJobTitleIds: loadDeletedJobIds(),
+        deletedPresetIds: loadDeletedPresetIds(),
         savedBy: overrides?.actionDescription || (activeUser?.name ? `${activeUser.name} (${activeUser.roleTitle})` : 'Tài khoản quản trị'),
       });
       if (res.success) {
@@ -300,7 +327,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setNasSyncStatus('error');
       return { success: false, message: e.message };
     }
-  }, [users, departments, jobTitles, documents, notifications, activeUser]);
+  }, [users, departments, jobTitles, permissionPresets, documents, notifications, activeUser]);
 
   // Sync state from NAS
   const syncFromNAS = useCallback(async (backupKey?: string): Promise<{ success: boolean; message: string }> => {
@@ -329,6 +356,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) {
         setJobTitles(snapshot.jobTitles);
         saveJobTitles(snapshot.jobTitles);
+      }
+      if (Array.isArray(snapshot.permissionPresets) && snapshot.permissionPresets.length > 0) {
+        setPermissionPresets(snapshot.permissionPresets);
+        savePermissionPresets(snapshot.permissionPresets);
       }
       if (Array.isArray(snapshot.notifications)) {
         setNotifications(snapshot.notifications);
@@ -377,6 +408,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (Array.isArray(snapshot.deletedJobTitleIds)) {
               snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
             }
+            if (Array.isArray(snapshot.deletedPresetIds)) {
+              snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
+            }
 
             const deletedUsersSet = new Set(loadDeletedUserIds().map(s => s.toLowerCase()));
             const deletedDeptsSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
@@ -396,6 +430,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const localJobs = loadJobTitles();
             const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
             const mergedJobs = deduplicateJobTitles([...localJobs, ...snapJobs]);
+
+            // MERGE & DEDUPLICATE PERMISSION PRESETS:
+            const localPresets = loadPermissionPresets();
+            const snapPresets = Array.isArray(snapshot.permissionPresets) ? snapshot.permissionPresets : [];
+            const mergedPresets = deduplicatePresets([...localPresets, ...snapPresets]);
 
             // MERGE DOCUMENTS:
             const localDocs = loadDocuments();
@@ -419,11 +458,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setUsers(mergedUsers);
             setDepartments(mergedDepts);
             setJobTitles(mergedJobs);
+            setPermissionPresets(mergedPresets);
             setDocuments(mergedDocs);
 
             saveUsers(mergedUsers);
             saveDepartments(mergedDepts);
             saveJobTitles(mergedJobs);
+            savePermissionPresets(mergedPresets);
             saveDocuments(mergedDocs);
 
             const nowStr = new Date().toISOString();
@@ -435,16 +476,19 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (mergedUsers.length > snapUsers.length || 
                 mergedDepts.length > snapDepts.length || 
                 mergedJobs.length > snapJobs.length ||
+                mergedPresets.length > snapPresets.length ||
                 mergedDocs.length > snapDocs.length) {
               saveDatabaseToNAS({
                 documents: mergedDocs,
                 users: mergedUsers,
                 departments: mergedDepts,
                 jobTitles: mergedJobs,
+                permissionPresets: mergedPresets,
                 notifications,
                 deletedUserIds: loadDeletedUserIds(),
                 deletedDepartmentIds: loadDeletedDeptIds(),
                 deletedJobTitleIds: loadDeletedJobIds(),
+                deletedPresetIds: loadDeletedPresetIds(),
                 savedBy: 'Đồng bộ gộp dữ liệu khởi động'
               }).catch(e => console.warn('Lưu snapshot gộp lên NAS:', e));
             }
@@ -455,7 +499,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               users,
               departments,
               jobTitles,
+              permissionPresets,
               notifications,
+              deletedUserIds: loadDeletedUserIds(),
+              deletedDepartmentIds: loadDeletedDeptIds(),
+              deletedJobTitleIds: loadDeletedJobIds(),
+              deletedPresetIds: loadDeletedPresetIds(),
               savedBy: 'Khởi tạo hệ thống ban đầu'
             }).catch(e => console.warn('Khởi tạo baseline NAS:', e));
           }
@@ -979,6 +1028,109 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       actionDescription: `Xóa chức vụ: ${target.name}`
     });
     return { success: true };
+  };
+
+  // Permission Preset Management
+  const createPermissionPreset = (presetData: {
+    name: string;
+    role: UserRole;
+    roleTitle?: string;
+    permissions: PermissionId[];
+    description?: string;
+  }): { success: boolean; message?: string; preset?: PermissionPreset } => {
+    const trimmedName = presetData.name.trim();
+    if (!trimmedName) {
+      return { success: false, message: 'Vui lòng nhập tên mẫu phân quyền.' };
+    }
+    if (permissionPresets.some(p => p.name.toLowerCase() === trimmedName.toLowerCase())) {
+      return { success: false, message: 'Tên mẫu phân quyền này đã tồn tại.' };
+    }
+
+    const newPreset: PermissionPreset = {
+      id: `preset-${Date.now()}`,
+      name: trimmedName,
+      role: presetData.role || 'STAFF',
+      roleTitle: presetData.roleTitle?.trim() || trimmedName,
+      permissions: presetData.permissions || [],
+      isSystem: false,
+      description: presetData.description?.trim() || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    removeDeletedPresetId(newPreset.id);
+    const updated = [...permissionPresets, newPreset];
+    setPermissionPresets(updated);
+    savePermissionPresets(updated);
+    persistStateToDatabase({
+      permissionPresets: updated,
+      actionDescription: `Tạo mẫu phân quyền mới: ${newPreset.name}`
+    });
+    return { success: true, preset: newPreset };
+  };
+
+  const updatePermissionPreset = (id: string, presetData: Partial<PermissionPreset>): { success: boolean; message?: string } => {
+    const target = permissionPresets.find(p => p.id === id);
+    if (!target) return { success: false, message: 'Không tìm thấy mẫu phân quyền.' };
+
+    if (presetData.name) {
+      const trimmedName = presetData.name.trim();
+      if (permissionPresets.some(p => p.id !== id && p.name.toLowerCase() === trimmedName.toLowerCase())) {
+        return { success: false, message: 'Tên mẫu phân quyền này đã được sử dụng.' };
+      }
+    }
+
+    const updated = permissionPresets.map(p => {
+      if (p.id !== id) return p;
+      return {
+        ...p,
+        ...presetData,
+        name: presetData.name ? presetData.name.trim() : p.name,
+        roleTitle: presetData.roleTitle !== undefined ? presetData.roleTitle.trim() : p.roleTitle,
+        description: presetData.description !== undefined ? presetData.description.trim() : p.description,
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    setPermissionPresets(updated);
+    savePermissionPresets(updated);
+    persistStateToDatabase({
+      permissionPresets: updated,
+      actionDescription: `Cập nhật mẫu phân quyền: ${target.name}`
+    });
+    return { success: true };
+  };
+
+  const deletePermissionPreset = (id: string): { success: boolean; message?: string } => {
+    const target = permissionPresets.find(p => p.id === id);
+    if (!target) return { success: false, message: 'Không tìm thấy mẫu phân quyền.' };
+    if (target.isSystem) {
+      return { success: false, message: 'Không thể xóa mẫu phân quyền mặc định của hệ thống.' };
+    }
+
+    addDeletedPresetId(id);
+    const updated = permissionPresets.filter(p => p.id !== id);
+    setPermissionPresets(updated);
+    savePermissionPresets(updated);
+    persistStateToDatabase({
+      permissionPresets: updated,
+      actionDescription: `Xóa mẫu phân quyền: ${target.name}`
+    });
+    return { success: true };
+  };
+
+  const resetPermissionPresetsToDefault = () => {
+    const currentCustom = permissionPresets.filter(p => !p.isSystem);
+    const defaults = DEFAULT_PERMISSION_PRESETS.map(d => ({ ...d }));
+    // Gỡ các ID của default khỏi deleted set
+    defaults.forEach(d => removeDeletedPresetId(d.id));
+    const merged = [...defaults, ...currentCustom];
+    setPermissionPresets(merged);
+    savePermissionPresets(merged);
+    persistStateToDatabase({
+      permissionPresets: merged,
+      actionDescription: 'Khôi phục mẫu phân quyền hệ thống về mặc định'
+    });
   };
 
   const markNotificationAsRead = (id: string) => {
@@ -1522,6 +1674,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         createJobTitle,
         updateJobTitle,
         deleteJobTitle,
+        permissionPresets,
+        createPermissionPreset,
+        updatePermissionPreset,
+        deletePermissionPreset,
+        resetPermissionPresetsToDefault,
         documents: accessibleDocuments,
         notifications: userNotifications,
         unreadNotificationCount,

@@ -68,6 +68,18 @@ export interface PermissionDefinition {
   category: PermissionCategory;
 }
 
+export interface PermissionPreset {
+  id: string;                  // Định danh mẫu, e.g. 'preset-staff', 'preset-custom-123'
+  name: string;                // Tên hiển thị mẫu: Chuyên viên, Kế toán viên, Thủ kho...
+  role: UserRole;              // Nhóm vai trò thẩm quyền duyệt ký liên quan
+  roleTitle?: string;          // Chức vụ gợi ý mặc định
+  permissions: PermissionId[]; // Danh sách các ID quyền được tick chọn trong mẫu
+  isSystem?: boolean;          // true nếu là mẫu mặc định ban đầu của hệ thống
+  description?: string;        // Ghi chú / mô tả mục đích sử dụng mẫu
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface UserPosition {
   roleTitle: string;     // Chức vụ kiêm nhiệm
   department: string;    // Phòng ban kiêm nhiệm

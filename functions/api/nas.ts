@@ -354,10 +354,12 @@ export async function onRequest(context: any): Promise<Response> {
         users: snapshotData.users || [],
         departments: snapshotData.departments || [],
         jobTitles: snapshotData.jobTitles || [],
+        permissionPresets: snapshotData.permissionPresets || [],
         notifications: snapshotData.notifications || [],
         deletedUserIds: snapshotData.deletedUserIds || [],
         deletedDepartmentIds: snapshotData.deletedDepartmentIds || [],
         deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],
+        deletedPresetIds: snapshotData.deletedPresetIds || [],
         meta: {
           totalDocuments: (snapshotData.documents || []).length,
           totalUsers: (snapshotData.users || []).length,
@@ -410,7 +412,8 @@ export async function onRequest(context: any): Promise<Response> {
         saveEntity('documents', snapshotData.documents || []),
         saveEntity('users', snapshotData.users || []),
         saveEntity('departments', snapshotData.departments || []),
-        saveEntity('job_titles', snapshotData.jobTitles || [])
+        saveEntity('job_titles', snapshotData.jobTitles || []),
+        saveEntity('permission_presets', snapshotData.permissionPresets || [])
       ]);
 
       return new Response(JSON.stringify({

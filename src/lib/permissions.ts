@@ -1,4 +1,4 @@
-import { PermissionId, PermissionDefinition, PermissionCategory, UserRole, User, ApprovalStep, DocumentItem, NotificationItem } from '../types';
+import { PermissionId, PermissionDefinition, PermissionCategory, PermissionPreset, UserRole, User, ApprovalStep, DocumentItem, NotificationItem } from '../types';
 
 export const PERMISSION_CATEGORIES: { id: PermissionCategory; name: string; iconName: string; description: string }[] = [
   {
@@ -289,6 +289,64 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'system.audit_log'
   ]
 };
+
+// Danh sách các mẫu phân quyền mặc định ban đầu của hệ thống
+export const DEFAULT_PERMISSION_PRESETS: PermissionPreset[] = [
+  {
+    id: 'preset-staff',
+    name: 'Chuyên viên',
+    role: 'STAFF',
+    roleTitle: 'Chuyên viên',
+    permissions: [...ROLE_PRESET_PERMISSIONS.STAFF],
+    isSystem: true,
+    description: 'Dành cho nhân sự khởi tạo hồ sơ, theo dõi tiến độ và nộp tài liệu',
+  },
+  {
+    id: 'preset-dept-head',
+    name: 'Trưởng phòng',
+    role: 'DEPT_HEAD',
+    roleTitle: 'Trưởng phòng',
+    permissions: [...ROLE_PRESET_PERMISSIONS.DEPT_HEAD],
+    isSystem: true,
+    description: 'Thẩm quyền phê duyệt cấp phòng ban chuyên môn và khởi tạo hồ sơ',
+  },
+  {
+    id: 'preset-chief-accountant',
+    name: 'Kế toán trưởng',
+    role: 'CHIEF_ACCOUNTANT',
+    roleTitle: 'Kế toán trưởng',
+    permissions: [...ROLE_PRESET_PERMISSIONS.CHIEF_ACCOUNTANT],
+    isSystem: true,
+    description: 'Thẩm định tài chính, chứng từ thanh toán và xuất file dữ liệu DMS',
+  },
+  {
+    id: 'preset-legal-dept',
+    name: 'Pháp chế',
+    role: 'LEGAL_DEPT',
+    roleTitle: 'Pháp chế',
+    permissions: [...ROLE_PRESET_PERMISSIONS.LEGAL_DEPT],
+    isSystem: true,
+    description: 'Thẩm định hồ sơ pháp lý, hợp đồng và quản lý lưu đồ quy trình BPM',
+  },
+  {
+    id: 'preset-director',
+    name: 'Ban Giám đốc',
+    role: 'DIRECTOR',
+    roleTitle: 'Tổng Giám đốc',
+    permissions: [...ROLE_PRESET_PERMISSIONS.DIRECTOR],
+    isSystem: true,
+    description: 'Phê duyệt tối cao, duyệt vượt cấp hoặc xử lý hồ sơ toàn công ty',
+  },
+  {
+    id: 'preset-admin',
+    name: 'Quản trị viên',
+    role: 'ADMIN',
+    roleTitle: 'Quản trị viên',
+    permissions: [...ROLE_PRESET_PERMISSIONS.ADMIN],
+    isSystem: true,
+    description: 'Toàn quyền cấu hình hệ thống, quản lý tài khoản và phân quyền nhân sự',
+  }
+];
 
 // Hàm kiểm tra quyền độc lập
 export function hasPermission(user: User | null | undefined, permissionId: PermissionId): boolean {

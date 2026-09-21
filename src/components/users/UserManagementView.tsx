@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocument } from '../../context/DocumentContext';
-import { User, UserRole, PermissionId, UserPosition } from '../../types';
+import { User, UserRole, PermissionId, UserPosition, PermissionPreset } from '../../types';
+import { PermissionPresetModal } from './PermissionPresetModal';
 import { 
   ALL_PERMISSIONS, 
   PERMISSION_CATEGORIES, 
@@ -30,7 +31,8 @@ import {
   CheckSquare,
   GitFork,
   Archive,
-  BarChart3
+  BarChart3,
+  Sparkles
 } from 'lucide-react';
 
 // Portal component an toàn cho React + Framer Motion
@@ -54,7 +56,9 @@ export const UserManagementView: React.FC = () => {
     deleteUser, 
     hasPermission,
     departments: systemDepts,
-    jobTitles: systemJobTitles
+    jobTitles: systemJobTitles,
+    permissionPresets,
+    createPermissionPreset
   } = useDocument();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,6 +70,13 @@ export const UserManagementView: React.FC = () => {
 
   // View Permissions Quick Modal
   const [inspectingUser, setInspectingUser] = useState<User | null>(null);
+
+  // Permission Presets Modal & Quick Save
+  const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
+  const [activePresetId, setActivePresetId] = useState<string>('');
+  const [isQuickSavePresetOpen, setIsQuickSavePresetOpen] = useState(false);
+  const [quickPresetName, setQuickPresetName] = useState('');
+  const [quickSaveMsg, setQuickSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -126,12 +137,22 @@ export const UserManagementView: React.FC = () => {
     setFullName('');
     setUsername('');
     setPassword('123456');
-    setRoleTitle('Chuyên viên');
+    const defaultPreset = permissionPresets.find(p => p.role === 'STAFF') || permissionPresets[0];
+    if (defaultPreset) {
+      setActivePresetId(defaultPreset.id);
+      setRole(defaultPreset.role);
+      setRoleTitle(defaultPreset.roleTitle || defaultPreset.name);
+      setSelectedPermissions([...defaultPreset.permissions]);
+    } else {
+      setActivePresetId('');
+      setRole('STAFF');
+      setRoleTitle('Chuyên viên');
+      setSelectedPermissions([...ROLE_PRESET_PERMISSIONS.STAFF]);
+    }
     setDepartment('Phòng Kỹ thuật & Dự án');
-    setRole('STAFF');
-    setSelectedPermissions([...ROLE_PRESET_PERMISSIONS.STAFF]);
     setSecondaryPositions([]);
     setErrorMsg('');
+    setIsQuickSavePresetOpen(false);
     setIsModalOpen(true);
   };
 
@@ -143,16 +164,55 @@ export const UserManagementView: React.FC = () => {
     setRoleTitle(user.roleTitle);
     setDepartment(user.department);
     setRole(user.role);
-    setSelectedPermissions(user.permissions || ROLE_PRESET_PERMISSIONS[user.role] || [...ROLE_PRESET_PERMISSIONS.STAFF]);
+    const userPerms = user.permissions || ROLE_PRESET_PERMISSIONS[user.role] || [...ROLE_PRESET_PERMISSIONS.STAFF];
+    setSelectedPermissions(userPerms);
+    
+    // Tìm preset tương ứng
+    const matched = permissionPresets.find(p => p.role === user.role);
+    setActivePresetId(matched?.id || '');
+
     setSecondaryPositions(user.secondaryPositions ? [...user.secondaryPositions] : []);
     setErrorMsg('');
+    setIsQuickSavePresetOpen(false);
     setIsModalOpen(true);
   };
 
   // Áp dụng mẫu quyền nhanh (Preset)
-  const applyPresetRole = (presetRole: UserRole) => {
-    setRole(presetRole);
-    setSelectedPermissions([...ROLE_PRESET_PERMISSIONS[presetRole]]);
+  const applyPreset = (preset: PermissionPreset) => {
+    setActivePresetId(preset.id);
+    setRole(preset.role);
+    setSelectedPermissions([...preset.permissions]);
+    if (!editingUser) {
+      setRoleTitle(preset.roleTitle || preset.name);
+    }
+  };
+
+  // Lưu quyền hiện tại thành một mẫu tùy chọn mới
+  const handleQuickSavePreset = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = quickPresetName.trim();
+    if (!trimmed) {
+      setQuickSaveMsg({ type: 'error', text: 'Vui lòng nhập tên mẫu phân quyền.' });
+      return;
+    }
+    const res = createPermissionPreset({
+      name: trimmed,
+      role,
+      roleTitle: roleTitle.trim() || trimmed,
+      permissions: selectedPermissions,
+      description: `Mẫu tạo nhanh từ giao diện người dùng`
+    });
+    if (res.success && res.preset) {
+      setActivePresetId(res.preset.id);
+      setQuickSaveMsg({ type: 'success', text: `Đã lưu mẫu "${trimmed}" thành công!` });
+      setTimeout(() => {
+        setIsQuickSavePresetOpen(false);
+        setQuickPresetName('');
+        setQuickSaveMsg(null);
+      }, 1000);
+    } else {
+      setQuickSaveMsg({ type: 'error', text: res.message || 'Không thể lưu mẫu.' });
+    }
   };
 
   // Toggle từng quyền
@@ -867,89 +927,153 @@ export const UserManagementView: React.FC = () => {
                       <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                         <ShieldCheck className="h-4 w-4 text-brand-blue" />
                         <span>Danh Sách Quyền Hạn</span>
+                        <span className="ml-1 text-[10.5px] font-mono text-brand-blue font-bold px-1.5 py-0.2 bg-blue-50 border border-brand-blue/30 rounded">
+                          {selectedPermissions.length} / {ALL_PERMISSIONS.length} quyền
+                        </span>
                       </div>
 
                       {/* Actions Select/Clear */}
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
+                          onClick={() => setIsQuickSavePresetOpen(prev => !prev)}
+                          className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 border ${
+                            isQuickSavePresetOpen
+                              ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
+                              : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-200'
+                          }`}
+                          title="Lưu bộ quyền đang tick chọn trên form thành một mẫu mới"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Lưu thành mẫu mới</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsPresetModalOpen(true)}
+                          className="px-2.5 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded text-[11px] font-semibold cursor-pointer active:scale-95 flex items-center gap-1"
+                          title="Mở giao diện quản lý cấu hình các mẫu quyền"
+                        >
+                          <Sliders className="h-3.5 w-3.5 text-slate-600" />
+                          <span>Cài đặt mẫu</span>
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={selectAllPermissions}
-                          className="px-2 py-0.5 bg-blue-50 text-brand-blue hover:bg-blue-100 border border-brand-blue/30 rounded text-[11px] font-semibold cursor-pointer active:scale-95"
+                          className="px-2 py-1 bg-blue-50 text-brand-blue hover:bg-blue-100 border border-brand-blue/30 rounded text-[11px] font-semibold cursor-pointer active:scale-95"
                         >
                           Chọn tất cả
                         </button>
                         <button
                           type="button"
                           onClick={clearAllPermissions}
-                          className="px-2 py-0.5 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300 rounded text-[11px] font-semibold cursor-pointer active:scale-95"
+                          className="px-2 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300 rounded text-[11px] font-semibold cursor-pointer active:scale-95"
                         >
                           Bỏ tất cả
                         </button>
                       </div>
                     </div>
 
-                    {/* Role Presets Toolbar */}
-                    <div className="p-2 bg-slate-100 border border-slate-200 rounded-[3px] flex flex-wrap items-center gap-1">
-                      <span className="text-[11px] font-bold text-slate-600 mr-1">Mẫu nhanh:</span>
+                    {/* Quick Save Preset Popover */}
+                    {isQuickSavePresetOpen && (
+                      <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-[3px] space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                            <Sparkles className="h-4 w-4 text-amber-600" />
+                            <span>Lưu {selectedPermissions.length} quyền đang tick chọn thành Mẫu quyền mới</span>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => { setIsQuickSavePresetOpen(false); setQuickSaveMsg(null); }}
+                            className="text-amber-700 hover:text-amber-900 p-0.5 cursor-pointer"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            value={quickPresetName}
+                            onChange={(e) => setQuickPresetName(e.target.value)}
+                            placeholder="Nhập tên mẫu (VD: Kế toán thanh toán, Thủ kho vật tư...)"
+                            className="flex-1 min-w-[240px] px-2.5 py-1.5 bg-white border border-amber-300 rounded-[2px] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleQuickSavePreset(e);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleQuickSavePreset}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-[2px] text-xs cursor-pointer shadow-2xs active:scale-95"
+                          >
+                            Lưu mẫu
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setIsQuickSavePresetOpen(false); setQuickSaveMsg(null); }}
+                            className="px-2.5 py-1.5 bg-white text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-[2px] text-xs cursor-pointer"
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                        {quickSaveMsg && (
+                          <div className={`text-[11px] font-semibold ${quickSaveMsg.type === 'success' ? 'text-emerald-700' : 'text-brand-red'}`}>
+                            {quickSaveMsg.text}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Dynamic Role Presets Toolbar */}
+                    <div className="p-2 bg-slate-100 border border-slate-200 rounded-[3px] flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-slate-600 mr-1 flex items-center gap-1">
+                        <span>Mẫu nhanh:</span>
+                      </span>
                       
-                      <button
-                        type="button"
-                        onClick={() => applyPresetRole('STAFF')}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 ${
-                          role === 'STAFF' ? 'bg-brand-blue text-white shadow-2xs' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                        }`}
-                      >
-                        Chuyên viên
-                      </button>
+                      {permissionPresets.map((preset) => {
+                        const isPresetActive = activePresetId === preset.id;
+                        const isCustom = !preset.isSystem;
+
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => applyPreset(preset)}
+                            title={`${preset.name}: ${(preset.permissions || []).length} quyền (${preset.description || preset.role})`}
+                            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-1 ${
+                              isPresetActive
+                                ? preset.role === 'ADMIN'
+                                  ? 'bg-brand-red text-white shadow-2xs font-bold ring-1 ring-red-400'
+                                  : 'bg-brand-blue text-white shadow-2xs font-bold ring-1 ring-blue-400'
+                                : isCustom
+                                  ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300/80 font-semibold'
+                                  : preset.role === 'ADMIN'
+                                    ? 'bg-white text-brand-red hover:bg-red-50 border border-brand-red/30'
+                                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                            }`}
+                          >
+                            {isCustom && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
+                            <span>{preset.name}</span>
+                            <span className={`text-[9.5px] font-mono ${isPresetActive ? 'text-white/80' : 'text-slate-400'}`}>
+                              ({(preset.permissions || []).length})
+                            </span>
+                          </button>
+                        );
+                      })}
 
                       <button
                         type="button"
-                        onClick={() => applyPresetRole('DEPT_HEAD')}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 ${
-                          role === 'DEPT_HEAD' ? 'bg-brand-blue text-white shadow-2xs' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                        }`}
+                        onClick={() => setIsPresetModalOpen(true)}
+                        className="px-2 py-1 rounded text-[11px] font-semibold text-brand-blue hover:text-blue-800 hover:bg-blue-50 border border-dashed border-brand-blue/40 flex items-center gap-1 cursor-pointer ml-auto"
+                        title="Thêm hoặc cấu hình tick chọn quyền cho từng mẫu"
                       >
-                        Trưởng phòng
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => applyPresetRole('CHIEF_ACCOUNTANT')}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 ${
-                          role === 'CHIEF_ACCOUNTANT' ? 'bg-brand-blue text-white shadow-2xs' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                        }`}
-                      >
-                        Kế toán trưởng
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => applyPresetRole('LEGAL_DEPT')}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 ${
-                          role === 'LEGAL_DEPT' ? 'bg-brand-blue text-white shadow-2xs' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                        }`}
-                      >
-                        Pháp chế
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => applyPresetRole('DIRECTOR')}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 ${
-                          role === 'DIRECTOR' ? 'bg-brand-blue text-white shadow-2xs' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                        }`}
-                      >
-                        Ban Giám đốc
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => applyPresetRole('ADMIN')}
-                        className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 ${
-                          role === 'ADMIN' ? 'bg-brand-red text-white shadow-2xs' : 'bg-white text-brand-red hover:bg-red-50 border border-brand-red/30'
-                        }`}
-                      >
-                        Quản trị viên
+                        <Plus className="h-3 w-3" />
+                        <span>Tùy chỉnh mẫu</span>
                       </button>
                     </div>
 
@@ -1049,6 +1173,14 @@ export const UserManagementView: React.FC = () => {
           )}
         </AnimatePresence>
       </SafePortal>
+
+      {/* PERMISSION PRESETS CONFIG MODAL */}
+      <PermissionPresetModal
+        isOpen={isPresetModalOpen}
+        onClose={() => setIsPresetModalOpen(false)}
+        onSelectPreset={applyPreset}
+        initialPresetId={activePresetId}
+      />
 
     </div>
   );

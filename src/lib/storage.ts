@@ -1,6 +1,6 @@
-import { DocumentItem, NotificationItem, User, DepartmentItem, JobTitleItem } from '../types';
+import { DocumentItem, NotificationItem, User, DepartmentItem, JobTitleItem, PermissionPreset } from '../types';
 import { INITIAL_DOCUMENTS, INITIAL_NOTIFICATIONS, USERS, INITIAL_DEPARTMENTS, INITIAL_JOB_TITLES } from './initialData';
-import { ROLE_PRESET_PERMISSIONS } from './permissions';
+import { ROLE_PRESET_PERMISSIONS, DEFAULT_PERMISSION_PRESETS } from './permissions';
 
 const STORAGE_KEY_DOCS = 'trunghai_documents_v1';
 const STORAGE_KEY_NOTIFS = 'trunghai_notifications_v1';
@@ -8,9 +8,11 @@ const STORAGE_KEY_USER = 'trunghai_active_user_v1';
 const STORAGE_KEY_USERS_DB = 'trunghai_users_db_v1';
 const STORAGE_KEY_DEPTS = 'trunghai_departments_v1';
 const STORAGE_KEY_JOB_TITLES = 'trunghai_job_titles_v1';
+const STORAGE_KEY_PRESETS = 'trunghai_permission_presets_v1';
 const STORAGE_KEY_DELETED_USERS = 'trunghai_deleted_users_v1';
 const STORAGE_KEY_DELETED_DEPTS = 'trunghai_deleted_depts_v1';
 const STORAGE_KEY_DELETED_JOBS = 'trunghai_deleted_jobs_v1';
+const STORAGE_KEY_DELETED_PRESETS = 'trunghai_deleted_presets_v1';
 
 export const loadDeletedUserIds = (): string[] => {
   try {
@@ -102,6 +104,37 @@ export const removeDeletedJobId = (idOrCode: string) => {
     localStorage.setItem(STORAGE_KEY_DELETED_JOBS, JSON.stringify(Array.from(current)));
   } catch (e) {
     console.error('Failed to remove deleted job id', e);
+  }
+};
+
+export const loadDeletedPresetIds = (): string[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_DELETED_PRESETS);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const addDeletedPresetId = (id: string) => {
+  try {
+    if (!id) return;
+    const current = new Set(loadDeletedPresetIds().map(s => s.toLowerCase()));
+    current.add(id.toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DELETED_PRESETS, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.error('Failed to save deleted preset id', e);
+  }
+};
+
+export const removeDeletedPresetId = (id: string) => {
+  try {
+    if (!id) return;
+    const current = new Set(loadDeletedPresetIds().map(s => s.toLowerCase()));
+    current.delete(id.toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DELETED_PRESETS, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.error('Failed to remove deleted preset id', e);
   }
 };
 
@@ -291,6 +324,65 @@ export const saveJobTitles = (titles: JobTitleItem[]) => {
     localStorage.setItem(STORAGE_KEY_JOB_TITLES, JSON.stringify(cleanJobs));
   } catch (e) {
     console.error('Failed to save job titles', e);
+  }
+};
+
+/**
+ * Chuẩn hóa và loại bỏ trùng lặp trong danh sách mẫu phân quyền (Permission Presets).
+ * Lọc bỏ các mẫu đã bị người dùng xóa.
+ */
+export const deduplicatePresets = (presetsList: PermissionPreset[]): PermissionPreset[] => {
+  if (!Array.isArray(presetsList)) return [];
+  const deletedSet = new Set(loadDeletedPresetIds().map(s => s.toLowerCase()));
+  const map = new Map<string, PermissionPreset>();
+
+  for (const p of presetsList) {
+    if (!p || !p.id || !p.name) continue;
+    const idLower = p.id.toLowerCase();
+    if (deletedSet.has(idLower)) continue;
+    map.set(idLower, p);
+  }
+  return Array.from(map.values());
+};
+
+export const loadPermissionPresets = (): PermissionPreset[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_PRESETS);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const deletedSet = new Set(loadDeletedPresetIds().map(s => s.toLowerCase()));
+        const map = new Map<string, PermissionPreset>();
+        
+        // 1. Nạp baseline các mẫu mặc định ban đầu
+        for (const def of DEFAULT_PERMISSION_PRESETS) {
+          if (!deletedSet.has(def.id.toLowerCase())) {
+            map.set(def.id.toLowerCase(), def);
+          }
+        }
+        // 2. Ghi đè các cập nhật hoặc mẫu tùy chọn mới do người dùng lưu
+        for (const p of parsed) {
+          if (p && p.id && !deletedSet.has(p.id.toLowerCase())) {
+            map.set(p.id.toLowerCase(), p);
+          }
+        }
+        return Array.from(map.values());
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load permission presets', e);
+  }
+  const initial = deduplicatePresets(DEFAULT_PERMISSION_PRESETS);
+  savePermissionPresets(initial);
+  return initial;
+};
+
+export const savePermissionPresets = (presets: PermissionPreset[]) => {
+  try {
+    const clean = deduplicatePresets(presets);
+    localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(clean));
+  } catch (e) {
+    console.error('Failed to save permission presets', e);
   }
 };
 

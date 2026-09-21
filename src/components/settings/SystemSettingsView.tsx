@@ -27,13 +27,16 @@ import {
   Activity
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { DepartmentItem, JobTitleItem } from '../../types';
+import { DepartmentItem, JobTitleItem, PermissionPreset } from '../../types';
+import { PermissionPresetModal } from '../users/PermissionPresetModal';
+import { ALL_PERMISSIONS, PERMISSION_CATEGORIES } from '../../lib/permissions';
 import { NASBackupItem, MINIO_ENDPOINT, MINIO_BUCKET, MINIO_ACCESS_KEY, uploadFileToNAS } from '../../lib/nasStorageService';
 
 export const SystemSettingsView: React.FC = () => {
   const { 
     departments, 
     jobTitles, 
+    permissionPresets,
     users, 
     documents,
     createDepartment, 
@@ -54,8 +57,12 @@ export const SystemSettingsView: React.FC = () => {
     updateAutoBackupConfig
   } = useDocument();
 
-  const [activeSubTab, setActiveSubTab] = useState<'departments' | 'job-titles' | 'nas-storage'>('departments');
+  const [activeSubTab, setActiveSubTab] = useState<'departments' | 'job-titles' | 'permission-presets' | 'nas-storage'>('departments');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Permission Preset Modal State
+  const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
+  const [selectedPresetIdForModal, setSelectedPresetIdForModal] = useState<string>('');
   
   // NAS Storage Tab State
   const [isTestingNAS, setIsTestingNAS] = useState(false);
@@ -107,6 +114,16 @@ export const SystemSettingsView: React.FC = () => {
       (j.department && j.department.toLowerCase().includes(term))
     );
   }, [jobTitles, searchTerm]);
+
+  const filteredPermissionPresets = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return permissionPresets;
+    return permissionPresets.filter(p => 
+      p.name.toLowerCase().includes(term) || 
+      (p.roleTitle && p.roleTitle.toLowerCase().includes(term)) ||
+      (p.description && p.description.toLowerCase().includes(term))
+    );
+  }, [permissionPresets, searchTerm]);
 
   // Department Modal Handlers
   const handleOpenCreateDept = () => {
@@ -396,6 +413,17 @@ export const SystemSettingsView: React.FC = () => {
                 <span>Chức Vụ ({jobTitles.length})</span>
               </button>
               <button
+                onClick={() => { setActiveSubTab('permission-presets'); setSearchTerm(''); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  activeSubTab === 'permission-presets'
+                    ? 'bg-white text-brand-blue shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 text-brand-blue" />
+                <span>Mẫu Phân Quyền ({permissionPresets.length})</span>
+              </button>
+              <button
                 onClick={() => { setActiveSubTab('nas-storage'); setSearchTerm(''); }}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   activeSubTab === 'nas-storage'
@@ -423,6 +451,14 @@ export const SystemSettingsView: React.FC = () => {
               >
                 <Plus className="w-4 h-4" />
                 <span>Thêm Chức Vụ</span>
+              </button>
+            ) : activeSubTab === 'permission-presets' ? (
+              <button
+                onClick={() => { setSelectedPresetIdForModal(''); setIsPresetModalOpen(true); }}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-blue hover:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm Mẫu Quyền</span>
               </button>
             ) : (
               <div className="flex items-center gap-2">
@@ -507,7 +543,9 @@ export const SystemSettingsView: React.FC = () => {
               placeholder={
                 activeSubTab === 'departments' 
                   ? 'Tìm theo tên, mã phòng ban...' 
-                  : 'Tìm theo tên chức vụ, mã, phòng ban...'
+                  : activeSubTab === 'job-titles'
+                    ? 'Tìm theo tên chức vụ, mã, phòng ban...'
+                    : 'Tìm theo tên mẫu, chức danh, mô tả...'
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -526,7 +564,11 @@ export const SystemSettingsView: React.FC = () => {
           <div className="text-xs text-slate-500 flex items-center gap-2">
             <span>Hiển thị: </span>
             <span className="font-semibold text-slate-800">
-              {activeSubTab === 'departments' ? filteredDepartments.length : filteredJobTitles.length}
+              {activeSubTab === 'departments' 
+                ? filteredDepartments.length 
+                : activeSubTab === 'job-titles' 
+                  ? filteredJobTitles.length 
+                  : filteredPermissionPresets.length}
             </span>
             <span>mục</span>
           </div>
@@ -687,7 +729,97 @@ export const SystemSettingsView: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 3: NAS MINIO S3 STORAGE & DATABASE */}
+        {/* TAB: PERMISSION PRESETS */}
+        {activeSubTab === 'permission-presets' && (
+          <div className="p-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPermissionPresets.map((preset) => {
+                const isCustom = !preset.isSystem;
+                const permCount = (preset.permissions || []).length;
+                const percent = Math.round((permCount / ALL_PERMISSIONS.length) * 100);
+
+                return (
+                  <div
+                    key={preset.id}
+                    className="border border-slate-200 hover:border-brand-blue/50 rounded-lg p-4 bg-white hover:shadow-md transition-all flex flex-col justify-between group"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-sm text-slate-900 group-hover:text-brand-blue transition-colors">
+                              {preset.name}
+                            </h3>
+                            {preset.isSystem ? (
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[10px] font-medium">
+                                Hệ thống
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold">
+                                Tùy chọn
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Thẩm quyền: <strong className="text-slate-700">{preset.role}</strong>
+                            {preset.roleTitle && ` • Chức danh: ${preset.roleTitle}`}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="font-mono text-xs font-bold text-brand-blue">
+                            {permCount}/{ALL_PERMISSIONS.length}
+                          </span>
+                          <div className="text-[9.5px] text-slate-400">quyền hạn</div>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full ${preset.role === 'ADMIN' ? 'bg-brand-red' : 'bg-brand-blue'}`}
+                          style={{ width: `${percent}%` }}
+                        ></div>
+                      </div>
+
+                      {preset.description && (
+                        <p className="text-xs text-slate-600 line-clamp-2 italic bg-slate-50 p-2 rounded border border-slate-100">
+                          "{preset.description}"
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-4 mt-2 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400">
+                        {isCustom ? 'Mẫu tùy chỉnh' : 'Mẫu chuẩn hệ thống'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPresetIdForModal(preset.id);
+                          setIsPresetModalOpen(true);
+                        }}
+                        className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-brand-blue rounded text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-brand-blue/20"
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>Cấu hình & Phân quyền</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {filteredPermissionPresets.length === 0 && (
+              <div className="py-12 text-center text-slate-400">
+                <ShieldCheck className="w-10 h-10 mx-auto mb-2 text-slate-300 stroke-1" />
+                <p className="text-sm font-medium">Không tìm thấy mẫu phân quyền nào phù hợp</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: NAS MINIO S3 STORAGE & DATABASE */}
         {activeSubTab === 'nas-storage' && (
           <div className="p-6 space-y-6">
             
@@ -1257,6 +1389,13 @@ export const SystemSettingsView: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* PERMISSION PRESET MODAL */}
+      <PermissionPresetModal
+        isOpen={isPresetModalOpen}
+        onClose={() => setIsPresetModalOpen(false)}
+        initialPresetId={selectedPresetIdForModal}
+      />
     </div>
   );
 };

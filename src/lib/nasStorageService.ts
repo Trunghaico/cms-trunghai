@@ -6,7 +6,7 @@ import {
   ListObjectsV2Command,
   HeadObjectCommand
 } from '@aws-sdk/client-s3';
-import { DocumentItem, User, DepartmentItem, JobTitleItem, NotificationItem } from '../types';
+import { DocumentItem, User, DepartmentItem, JobTitleItem, NotificationItem, PermissionPreset } from '../types';
 
 export const MINIO_ENDPOINT = import.meta.env.VITE_MINIO_ENDPOINT || 'http://trunghaico.synology.me:9000';
 export const MINIO_BUCKET = import.meta.env.VITE_MINIO_BUCKET || 'crm.trunghaico.vn';
@@ -21,10 +21,12 @@ export interface DatabaseSnapshot {
   users: User[];
   departments: DepartmentItem[];
   jobTitles: JobTitleItem[];
+  permissionPresets?: PermissionPreset[];
   notifications?: NotificationItem[];
   deletedUserIds?: string[];
   deletedDepartmentIds?: string[];
   deletedJobTitleIds?: string[];
+  deletedPresetIds?: string[];
   meta?: {
     totalDocuments: number;
     totalUsers: number;
@@ -274,10 +276,12 @@ export const saveDatabaseToNAS = async (
     users: User[];
     departments: DepartmentItem[];
     jobTitles: JobTitleItem[];
+    permissionPresets?: PermissionPreset[];
     notifications?: NotificationItem[];
     deletedUserIds?: string[];
     deletedDepartmentIds?: string[];
     deletedJobTitleIds?: string[];
+    deletedPresetIds?: string[];
     savedBy?: string;
   }
 ): Promise<{ success: boolean; path?: string; message?: string }> => {
@@ -316,10 +320,12 @@ export const saveDatabaseToNAS = async (
       users: snapshotData.users,
       departments: snapshotData.departments,
       jobTitles: snapshotData.jobTitles,
+      permissionPresets: snapshotData.permissionPresets || [],
       notifications: snapshotData.notifications || [],
       deletedUserIds: snapshotData.deletedUserIds || [],
       deletedDepartmentIds: snapshotData.deletedDepartmentIds || [],
       deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],
+      deletedPresetIds: snapshotData.deletedPresetIds || [],
       meta: {
         totalDocuments: snapshotData.documents.length,
         totalUsers: snapshotData.users.length,
@@ -368,7 +374,8 @@ export const saveDatabaseToNAS = async (
       saveEntity('documents', snapshotData.documents),
       saveEntity('users', snapshotData.users),
       saveEntity('departments', snapshotData.departments),
-      saveEntity('job_titles', snapshotData.jobTitles)
+      saveEntity('job_titles', snapshotData.jobTitles),
+      saveEntity('permission_presets', snapshotData.permissionPresets || [])
     ]);
 
     return {
