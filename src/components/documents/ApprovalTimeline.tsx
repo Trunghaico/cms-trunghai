@@ -1,6 +1,7 @@
+import React from 'react';
 import { ApprovalStep, StepStatus, DocumentStatus } from '../../types';
 import { formatDate } from '../../lib/storage';
-import { CheckCircle2, Clock, XCircle, AlertCircle, ArrowRight, ShieldCheck, PenTool, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, AlertCircle, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
 
 interface ApprovalTimelineProps {
   steps: ApprovalStep[];
@@ -9,7 +10,17 @@ interface ApprovalTimelineProps {
 }
 
 export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, currentStepIndex, documentStatus }) => {
-  const getStepBadge = (status: StepStatus, isCurrent: boolean) => {
+  const getStepBadge = (step: ApprovalStep, isCurrent: boolean) => {
+    if (step.autoApprovedBySystem) {
+      return {
+        icon: Zap,
+        bgColor: 'bg-purple-600 text-white',
+        borderColor: 'border-purple-400',
+        textColor: 'text-purple-700 font-bold',
+        labelText: 'Tự động duyệt (Hệ thống)',
+      };
+    }
+
     if (isCurrent && documentStatus === 'ADDITIONAL_REQ') {
       return {
         icon: AlertCircle,
@@ -20,7 +31,17 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
       };
     }
 
-    switch (status) {
+    if (isCurrent && step.isOverdue) {
+      return {
+        icon: AlertTriangle,
+        bgColor: 'bg-red-600 text-white animate-pulse',
+        borderColor: 'border-red-500 ring-2 ring-red-300',
+        textColor: 'text-red-700 font-bold',
+        labelText: 'Quá hạn SLA',
+      };
+    }
+
+    switch (step.status) {
       case 'APPROVED':
         return {
           icon: CheckCircle2,
@@ -56,6 +77,26 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
     }
   };
 
+  // Helper tính thời gian SLA còn lại hoặc quá hạn
+  const formatSlaRemaining = (step: ApprovalStep) => {
+    if (!step.deadline || step.status !== 'CURRENT') return null;
+    const now = Date.now();
+    const deadline = new Date(step.deadline).getTime();
+    const diffMs = deadline - now;
+
+    if (diffMs < 0) {
+      const overHours = Math.max(1, Math.round(Math.abs(diffMs) / (1000 * 3600)));
+      return { isOverdue: true, text: `Quá hạn ${overHours}h` };
+    } else {
+      const remainingHours = Math.floor(diffMs / (1000 * 3600));
+      const remainingMins = Math.floor((diffMs % (1000 * 3600)) / (1000 * 60));
+      if (remainingHours > 0) {
+        return { isOverdue: false, text: `Còn ${remainingHours}h ${remainingMins}m` };
+      }
+      return { isOverdue: false, text: `Còn ${remainingMins}m` };
+    }
+  };
+
   return (
     <div className="py-2">
       <div className="relative">
@@ -66,14 +107,19 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative z-10">
           {steps.map((step, index) => {
             const isCurrent = index === currentStepIndex;
-            const badge = getStepBadge(step.status, isCurrent);
+            const badge = getStepBadge(step, isCurrent);
             const Icon = badge.icon;
+            const slaStatus = isCurrent ? formatSlaRemaining(step) : null;
 
             return (
               <div
                 key={step.id || index}
-                className={`p-3.5 rounded-[3px] border transition-all duration-200 hover:-translate-y-0.5 ${
-                  isCurrent
+                className={`p-3.5 rounded-[4px] border transition-all duration-200 hover:-translate-y-0.5 ${
+                  step.autoApprovedBySystem
+                    ? 'bg-purple-50/70 border-purple-300 shadow-sm ring-1 ring-purple-200'
+                    : isCurrent && step.isOverdue
+                    ? 'bg-red-50/80 border-red-400 shadow-md ring-2 ring-red-300'
+                    : isCurrent
                     ? 'bg-amber-50/70 border-amber-400 shadow-md ring-1 ring-amber-300/60'
                     : step.status === 'APPROVED'
                     ? 'bg-emerald-50/40 border-emerald-300 shadow-xs'
@@ -109,9 +155,11 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                 </div>
 
                 {/* Status Pill & Timestamp */}
-                <div className="mt-2.5 pt-2 border-t border-slate-200/60">
-                  <div className="flex items-center justify-between">
+                <div className="mt-2.5 pt-2 border-t border-slate-200/60 space-y-1.5">
+                  <div className="flex items-center justify-between gap-1 flex-wrap">
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] shadow-2xs ${
+                      step.autoApprovedBySystem ? 'bg-purple-100 text-purple-900 border border-purple-200' :
+                      step.isOverdue && isCurrent ? 'bg-red-100 text-red-900 border border-red-300 animate-pulse' :
                       step.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
                       step.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                       step.status === 'CURRENT' ? 'bg-amber-100 text-amber-900 animate-pulse' :
@@ -119,12 +167,28 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                     }`}>
                       {badge.labelText}
                     </span>
+
                     {step.slaHours && (
-                      <span className="text-[9px] text-slate-400 font-medium">
+                      <span className="text-[9px] text-slate-500 font-semibold bg-slate-100 px-1 py-0.5 rounded">
                         SLA: {step.slaHours}h
                       </span>
                     )}
                   </div>
+
+                  {/* SLA Countdown / Overdue Indicator */}
+                  {slaStatus && (
+                    <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      slaStatus.isOverdue 
+                        ? 'bg-red-100 text-red-700 border border-red-200' 
+                        : 'bg-amber-100/80 text-amber-800 border border-amber-200'
+                    }`}>
+                      <Clock className="w-3 h-3 shrink-0" />
+                      <span>{slaStatus.text}</span>
+                      {step.overdueAction === 'AUTO_APPROVE' && (
+                        <span className="text-[9px] ml-auto text-purple-700 font-semibold">(Tự động duyệt)</span>
+                      )}
+                    </div>
+                  )}
 
                   {step.decisionDate && (
                     <p className="text-[10px] text-slate-500 mt-1 font-mono">
@@ -141,9 +205,22 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
 
                   {/* Stamp / Signature Verification Badge */}
                   {step.status === 'APPROVED' && (
-                    <div className="mt-2 flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-100/90 border border-emerald-200 px-1.5 py-0.5 rounded-[3px] shadow-2xs animate-fade-in">
-                      <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
-                      <span>Chữ ký số hợp lệ</span>
+                    <div className={`mt-2 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[3px] shadow-2xs animate-fade-in ${
+                      step.autoApprovedBySystem 
+                        ? 'text-purple-800 bg-purple-100 border border-purple-200' 
+                        : 'text-emerald-700 bg-emerald-100/90 border border-emerald-200'
+                    }`}>
+                      {step.autoApprovedBySystem ? (
+                        <>
+                          <Zap className="h-3 w-3 text-purple-600 shrink-0" />
+                          <span>Hệ thống ký điện tử tự động</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
+                          <span>Chữ ký số hợp lệ</span>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

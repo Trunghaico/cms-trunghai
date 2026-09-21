@@ -363,7 +363,24 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
 
                       {/* Status */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {getStatusBadge(doc.status)}
+                        <div className="space-y-1">
+                          {getStatusBadge(doc.status)}
+                          {doc.isOverdue || (currentStep?.status === 'CURRENT' && currentStep?.deadline && new Date().getTime() > new Date(currentStep.deadline).getTime()) ? (
+                            <div>
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-800 border border-red-300 text-[9px] font-bold rounded-[2px] animate-pulse">
+                                <AlertCircle className="h-2.5 w-2.5 text-brand-red shrink-0" />
+                                <span>Trễ SLA ({doc.overdueDepartment || currentStep?.department})</span>
+                              </span>
+                            </div>
+                          ) : null}
+                          {doc.steps.some(s => s.autoApprovedBySystem) ? (
+                            <div>
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-bold rounded-[2px]">
+                                <span>⚡ Tự động duyệt</span>
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
 
                       {/* Date */}

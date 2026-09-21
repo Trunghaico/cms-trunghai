@@ -85,6 +85,7 @@ export const SystemSettingsView: React.FC = () => {
   const [editingDept, setEditingDept] = useState<DepartmentItem | null>(null);
   const [deptName, setDeptName] = useState('');
   const [deptCode, setDeptCode] = useState('');
+  const [deptSlaHours, setDeptSlaHours] = useState<number>(8);
 
   // Job Title Modal State
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
@@ -138,6 +139,7 @@ export const SystemSettingsView: React.FC = () => {
     setEditingDept(null);
     setDeptName('');
     setDeptCode('');
+    setDeptSlaHours(8);
     setIsDeptModalOpen(true);
   };
 
@@ -145,6 +147,7 @@ export const SystemSettingsView: React.FC = () => {
     setEditingDept(dept);
     setDeptName(dept.name);
     setDeptCode(dept.code);
+    setDeptSlaHours(dept.defaultSlaHours || 8);
     setIsDeptModalOpen(true);
   };
 
@@ -158,7 +161,8 @@ export const SystemSettingsView: React.FC = () => {
     if (editingDept) {
       const res = updateDepartment(editingDept.id, {
         name: deptName.trim(),
-        code: deptCode.trim().toUpperCase()
+        code: deptCode.trim().toUpperCase(),
+        defaultSlaHours: Number(deptSlaHours) || 8,
       });
       if (res.success) {
         showNotification('success', `Đã cập nhật phòng ban "${deptName.trim()}" thành công!`);
@@ -169,7 +173,8 @@ export const SystemSettingsView: React.FC = () => {
     } else {
       const res = createDepartment({
         name: deptName.trim(),
-        code: deptCode.trim().toUpperCase()
+        code: deptCode.trim().toUpperCase(),
+        defaultSlaHours: Number(deptSlaHours) || 8,
       });
       if (res.success) {
         showNotification('success', `Đã tạo mới phòng ban "${deptName.trim()}" thành công!`);
@@ -593,7 +598,8 @@ export const SystemSettingsView: React.FC = () => {
                   <th className="py-3 px-4 w-16 text-center">STT</th>
                   <th className="py-3 px-4 w-36">Mã Phòng</th>
                   <th className="py-3 px-4">Tên Phòng Ban</th>
-                  <th className="py-3 px-4 text-center w-44">Nhân sự trực thuộc</th>
+                  <th className="py-3 px-4 text-center w-36">SLA Cam Kết</th>
+                  <th className="py-3 px-4 text-center w-36">Nhân sự</th>
                   <th className="py-3 px-4 text-right w-28">Thao tác</th>
                 </tr>
               </thead>
@@ -620,6 +626,12 @@ export const SystemSettingsView: React.FC = () => {
                         <td className="py-3.5 px-4">
                           <div className="font-semibold text-slate-900 text-sm">{dept.name}</div>
                           <div className="text-[11px] text-slate-400 mt-0.5">ID: {dept.id}</div>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold font-mono">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            <span>{dept.defaultSlaHours || 8}h ({Math.max(1, Math.round((dept.defaultSlaHours || 8) / 8))}d)</span>
+                          </span>
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
@@ -1277,6 +1289,41 @@ export const SystemSettingsView: React.FC = () => {
                     className="w-full px-3.5 py-2 text-xs uppercase font-mono font-bold border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                   />
                   <p className="text-[11px] text-slate-400 mt-1">Mã dùng để phân loại hồ sơ và ký hiệu phân quyền</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Thời gian phê duyệt SLA mặc định (Giờ) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="720"
+                      value={deptSlaHours}
+                      onChange={(e) => setDeptSlaHours(Math.max(1, Number(e.target.value)))}
+                      className="w-32 px-3.5 py-2 text-xs font-bold font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                    />
+                    <span className="text-xs text-slate-500 font-medium">Giờ (~ {Math.max(1, Math.round(deptSlaHours / 8))} ngày làm việc)</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[4, 8, 12, 24, 48, 72].map(h => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => setDeptSlaHours(h)}
+                        className={`px-2 py-0.5 text-[11px] rounded border transition-colors cursor-pointer ${
+                          deptSlaHours === h
+                            ? 'bg-brand-blue text-white border-brand-blue font-bold shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {h}h ({h >= 8 ? `${Math.round(h / 8)}d` : `${h}h`})
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">Hạn SLA mặc định sẽ tự động điền khi người lập trình hồ sơ tới phòng ban này</p>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">

@@ -5,6 +5,7 @@ import {
   ChevronDown, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle,
   Clock, 
   Building2, 
   LogOut,
@@ -326,11 +327,13 @@ export const Header: React.FC = () => {
                         key={n.id}
                         onClick={() => handleNotificationClick(n.documentId, n.id)}
                         className={`p-3.5 hover:bg-slate-50 transition-colors duration-150 cursor-pointer flex gap-3 items-start ${
-                          !n.read ? 'bg-blue-50/50' : ''
+                          n.type === 'SLA_VIOLATION' ? 'bg-red-50/70 border-l-2 border-red-500' : !n.read ? 'bg-blue-50/50' : ''
                         }`}
                       >
                         <div className="mt-0.5 shrink-0">
-                          {n.type === 'ACTION_REQUIRED' ? (
+                          {n.type === 'SLA_VIOLATION' ? (
+                            <AlertTriangle className="h-4 w-4 text-brand-red animate-pulse" />
+                          ) : n.type === 'ACTION_REQUIRED' ? (
                             <Clock className="h-4 w-4 text-amber-500 animate-pulse" />
                           ) : n.type === 'APPROVED' ? (
                             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -339,10 +342,10 @@ export const Header: React.FC = () => {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-xs ${!n.read ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                          <p className={`text-xs ${!n.read || n.type === 'SLA_VIOLATION' ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
                             {n.title}
                           </p>
-                          <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                          <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-2">
                             {n.message}
                           </p>
                           <span className="text-[10px] text-slate-400 mt-1 block font-mono">

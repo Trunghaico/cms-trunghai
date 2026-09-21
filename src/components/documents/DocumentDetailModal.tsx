@@ -23,7 +23,9 @@ import {
   ChevronRight,
   Share2,
   RotateCcw,
-  Edit3
+  Edit3,
+  Undo2,
+  Zap
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { ApprovalTimeline } from './ApprovalTimeline';
@@ -33,7 +35,7 @@ import { PDFViewerModal } from '../common/PDFViewerModal';
 import { ResubmitDocumentModal } from './ResubmitDocumentModal';
 import { Attachment } from '../../types';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
-import { isUserApproverForStep } from '../../lib/permissions';
+import { isUserApproverForStep, canUserOverseeAllDocuments } from '../../lib/permissions';
 
 export const DocumentDetailModal: React.FC = () => {
   const { 
@@ -43,6 +45,7 @@ export const DocumentDetailModal: React.FC = () => {
     approveStep, 
     rejectDocument, 
     requestAdditionalInfo,
+    returnOverdueDocument,
     deleteDocument,
     hasPermission 
   } = useDocument();
@@ -125,6 +128,32 @@ export const DocumentDetailModal: React.FC = () => {
     window.print();
   };
 
+  const isCurrentStepOverdue = Boolean(
+    selectedDocument.status !== 'APPROVED' &&
+    selectedDocument.status !== 'REJECTED' &&
+    selectedDocument.status !== 'ADDITIONAL_REQ' &&
+    currentStep &&
+    currentStep.status === 'CURRENT' &&
+    (selectedDocument.isOverdue || currentStep.isOverdue || (currentStep.deadline && new Date().getTime() > new Date(currentStep.deadline).getTime()))
+  );
+
+  const canReturnOverdue = isCurrentStepOverdue && (
+    activeUser.role === 'ADMIN' ||
+    activeUser.role === 'DIRECTOR' ||
+    selectedDocument.creatorId === activeUser.id ||
+    canUserOverseeAllDocuments(activeUser)
+  );
+
+  const [returnOverdueReason, setReturnOverdueReason] = useState('');
+  const [isReturningOverdue, setIsReturningOverdue] = useState(false);
+
+  const handleReturnOverdueSubmit = () => {
+    const reason = returnOverdueReason.trim() || `Phòng ${currentStep?.department || ''} xử lý quá hạn cam kết SLA.`;
+    returnOverdueDocument(selectedDocument.id, reason);
+    setIsReturningOverdue(false);
+    setReturnOverdueReason('');
+  };
+
   return (
     <div 
       className={`fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto ${
@@ -158,6 +187,12 @@ export const DocumentDetailModal: React.FC = () => {
                   <span className="text-[10px] font-bold bg-amber-400 text-slate-900 px-1.5 py-0.5 rounded-[3px] flex items-center gap-1">
                     <Flame className="h-3 w-3" />
                     Hỏa tốc
+                  </span>
+                )}
+                {isCurrentStepOverdue && (
+                  <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-[3px] flex items-center gap-1 animate-pulse">
+                    <AlertTriangle className="h-3 w-3" />
+                    Quá hạn SLA ({currentStep?.department})
                   </span>
                 )}
               </div>
@@ -247,6 +282,75 @@ export const DocumentDetailModal: React.FC = () => {
           
           {activeTab === 'DETAILS' && (
             <div className="space-y-6">
+
+              {/* Alert Banner: CẢNH BÁO QUÁ HẠN SLA */}
+              {isCurrentStepOverdue && (
+                <div className="p-4 bg-red-50 border-2 border-red-400 rounded-[4px] shadow-sm space-y-3 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-red-200 pb-2">
+                    <div className="flex items-center gap-2 text-red-950 font-bold text-xs uppercase tracking-wider">
+                      <div className="h-6 w-6 rounded-[2px] bg-red-600 text-white flex items-center justify-center shrink-0 shadow-2xs animate-pulse">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      </div>
+                      <span>Cảnh Báo Vi Phạm Thời Gian Phê Duyệt (SLA)</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-red-800 bg-red-100 px-2 py-0.5 rounded border border-red-300">
+                      Phòng: {currentStep?.department} • SLA: {currentStep?.slaHours || 8}h
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-red-900 leading-relaxed font-medium">
+                    Hồ sơ đang bị tắc nghẽn tại <strong>Bước {selectedDocument.currentStepIndex + 1} ({currentStep?.title})</strong> do <strong>Phòng {currentStep?.department}</strong> chưa xử lý đúng thời hạn cam kết.
+                    {currentStep?.overdueAction === 'AUTO_APPROVE' ? ' Hệ thống sẽ tự động duyệt vượt cấp theo chính sách định sẵn.' : ' Ban Lãnh đạo hoặc Người lập có thể chỉ đạo hoặc Trả hồ sơ.'}
+                  </p>
+
+                  {canReturnOverdue && (
+                    <div className="pt-2 border-t border-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="text-[11px] text-red-800 font-semibold">
+                        Bạn có thẩm quyền Ban Lãnh đạo / Người lập để Trả hồ sơ ngay.
+                      </div>
+                      {!isReturningOverdue ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsReturningOverdue(true)}
+                          className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded-[3px] shadow transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                        >
+                          <Undo2 className="w-3.5 h-3.5" />
+                          <span>Trả Hồ Sơ Do Quá Hạn</span>
+                        </button>
+                      ) : (
+                        <div className="w-full space-y-2 bg-white p-3 rounded border border-red-300">
+                          <label className="block text-xs font-bold text-red-900">
+                            Lý do trả hồ sơ vi phạm SLA:
+                          </label>
+                          <input
+                            type="text"
+                            value={returnOverdueReason}
+                            onChange={(e) => setReturnOverdueReason(e.target.value)}
+                            placeholder={`Phòng ${currentStep?.department} xử lý quá hạn SLA cam kết...`}
+                            className="w-full px-2.5 py-1.5 text-xs border border-red-300 rounded focus:outline-none focus:ring-1 focus:ring-red-500"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleReturnOverdueSubmit}
+                              className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded cursor-pointer"
+                            >
+                              Xác Nhận Trả Hồ Sơ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsReturningOverdue(false)}
+                              className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded cursor-pointer"
+                            >
+                              Hủy
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* Alert Banner: Yêu cầu bổ sung thông tin */}
               {selectedDocument.status === 'ADDITIONAL_REQ' && (

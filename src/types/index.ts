@@ -113,6 +113,8 @@ export interface Attachment {
   isScan?: boolean;
 }
 
+export type OverdueAction = 'WARN_AND_RETURN' | 'AUTO_APPROVE';
+
 export interface ApprovalStep {
   id: string;
   stepOrder: number;
@@ -127,6 +129,11 @@ export interface ApprovalStep {
   decisionDate?: string;
   signatureImage?: string;
   slaHours?: number; // SLA thời gian duyệt tính theo giờ
+  overdueAction?: OverdueAction; // Hành vi khi quá hạn SLA
+  startedAt?: string; // Thời điểm bước chuyển sang CURRENT
+  deadline?: string; // Thời hạn duyệt cụ thể tính theo SLA
+  isOverdue?: boolean; // Cờ đánh dấu bước đã bị quá hạn
+  autoApprovedBySystem?: boolean; // Được duyệt tự động bởi hệ thống
 }
 
 export type ResubmitMode = 'CONTINUE_FROM_CURRENT' | 'RESTART_FROM_BEGINNING';
@@ -169,6 +176,10 @@ export interface DocumentItem {
   currentStepIndex: number;
   auditLogs: AuditLog[];
   signedPdfUrl?: string;
+  overdueAction?: OverdueAction; // Chính sách xử lý khi quá hạn
+  isOverdue?: boolean;          // Đang có bước bị quá hạn
+  overdueDepartment?: string;   // Tên phòng ban đang làm trễ hạn
+  overdueHours?: number;        // Số giờ đã quá hạn
 }
 
 export interface NotificationItem {
@@ -177,7 +188,7 @@ export interface NotificationItem {
   message: string;
   documentId: string;
   documentCode: string;
-  type: 'INFO' | 'ACTION_REQUIRED' | 'APPROVED' | 'REJECTED' | 'SLA_WARNING';
+  type: 'INFO' | 'ACTION_REQUIRED' | 'APPROVED' | 'REJECTED' | 'SLA_WARNING' | 'SLA_VIOLATION';
   read: boolean;
   createdAt: string;
   actorId?: string;           // ID người thực hiện hành động (để người thực hiện không tự nhận thông báo của chính mình)
@@ -186,6 +197,7 @@ export interface NotificationItem {
   recipientRole?: UserRole;   // Vai trò người nhận
   targetStepIndex?: number;   // Bước duyệt mục tiêu (người chịu trách nhiệm duyệt bước này sẽ nhận thông báo)
   targetDepartment?: string;  // Phòng ban duyệt mục tiêu
+  overdueHours?: number;      // Số giờ quá hạn (nếu có)
 }
 
 export interface WorkflowTemplate {
@@ -208,6 +220,7 @@ export interface DepartmentItem {
   name: string;
   code: string;
   description?: string;
+  defaultSlaHours?: number; // SLA duyệt mặc định theo giờ của phòng ban
   createdAt: string;
 }
 

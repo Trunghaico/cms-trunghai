@@ -88,7 +88,7 @@ interface DocumentContextType {
   // Settings: Departments, Job Titles & Permission Presets
   departments: DepartmentItem[];
   jobTitles: JobTitleItem[];
-  createDepartment: (deptData: { name: string; code: string; description?: string }) => { success: boolean; message?: string };
+  createDepartment: (deptData: { name: string; code: string; description?: string; defaultSlaHours?: number }) => { success: boolean; message?: string };
   updateDepartment: (id: string, deptData: Partial<DepartmentItem>) => { success: boolean; message?: string };
   deleteDepartment: (id: string) => { success: boolean; message?: string };
   createJobTitle: (titleData: { name: string; code: string; department: string; defaultRole?: UserRole; description?: string }) => { success: boolean; message?: string };
@@ -120,6 +120,7 @@ interface DocumentContextType {
   approveStep: (documentId: string, comment: string, signatureImage?: string) => void;
   rejectDocument: (documentId: string, reason: string) => void;
   requestAdditionalInfo: (documentId: string, note: string) => void;
+  returnOverdueDocument: (documentId: string, reason: string) => { success: boolean; message?: string };
   resubmitDocument: (
     documentId: string, 
     data: {
@@ -216,6 +217,168 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     saveNotifications(notifications);
   }, [notifications]);
+
+  // SLA & OVERDUE AUTOMATED ENGINE (Quét định kỳ tự động phê duyệt hoặc cảnh báo vi phạm SLA)
+  useEffect(() => {
+    const checkSlaInterval = setInterval(() => {
+      setDocuments(prevDocs => {
+        let hasChanges = false;
+        const now = Date.now();
+        const nowIso = new Date().toISOString();
+        const newNotifs: NotificationItem[] = [];
+
+        const updatedDocs = prevDocs.map(doc => {
+          if (doc.status !== 'PENDING' && doc.status !== 'IN_PROGRESS') {
+            return doc;
+          }
+
+          const currentStepIdx = doc.currentStepIndex;
+          const currentStep = doc.steps[currentStepIdx];
+          if (!currentStep || currentStep.status !== 'CURRENT') {
+            return doc;
+          }
+
+          // Kiểm tra deadline của bước hiện tại
+          const deadlineStr = currentStep.deadline || doc.deadline;
+          if (!deadlineStr) return doc;
+
+          const deadlineTime = new Date(deadlineStr).getTime();
+          if (isNaN(deadlineTime) || now <= deadlineTime) {
+            return doc;
+          }
+
+          // Bước này đã quá hạn SLA!
+          const overdueHours = Math.max(1, Math.round((now - deadlineTime) / (1000 * 3600)));
+          const action = currentStep.overdueAction || doc.overdueAction || 'WARN_AND_RETURN';
+
+          if (action === 'AUTO_APPROVE' && !currentStep.autoApprovedBySystem) {
+            // TỰ ĐỘNG PHÊ DUYỆT BỞI HỆ THỐNG
+            hasChanges = true;
+            const updatedSteps = [...doc.steps];
+            updatedSteps[currentStepIdx] = {
+              ...currentStep,
+              status: 'APPROVED',
+              comment: `⚡ Hệ thống TỰ ĐỘNG PHÊ DUYỆT do Phòng ${currentStep.department} chậm trễ quá hạn SLA cam kết (${currentStep.slaHours || 8}h).`,
+              decisionDate: nowIso,
+              signatureImage: 'system_auto_approved_stamp',
+              autoApprovedBySystem: true,
+              isOverdue: true,
+            };
+
+            const isLastStep = currentStepIdx === doc.steps.length - 1;
+            const nextStatus: DocumentStatus = isLastStep ? 'APPROVED' : 'IN_PROGRESS';
+            let nextStepIdx = currentStepIdx;
+
+            if (!isLastStep) {
+              nextStepIdx = currentStepIdx + 1;
+              const nextStepSla = updatedSteps[nextStepIdx].slaHours || 8;
+              updatedSteps[nextStepIdx] = {
+                ...updatedSteps[nextStepIdx],
+                status: 'CURRENT',
+                startedAt: nowIso,
+                deadline: new Date(now + nextStepSla * 3600 * 1000).toISOString(),
+                isOverdue: false,
+              };
+            }
+
+            const newLog: AuditLog = {
+              id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              documentId: doc.id,
+              action: 'APPROVE',
+              actorId: 'SYSTEM_BOT',
+              actorName: 'Robot Hệ Thống (SLA Engine)',
+              actorTitle: 'Tự Động Ký Duyệt',
+              timestamp: nowIso,
+              comment: `[HỆ THỐNG TỰ ĐỘNG DUYỆT BƯỚC ${currentStepIdx + 1}]: Phòng ${currentStep.department} vi phạm SLA quá hạn ${overdueHours} giờ.`,
+              previousStatus: doc.status,
+              newStatus: nextStatus,
+            };
+
+            const updatedDoc: DocumentItem = {
+              ...doc,
+              status: nextStatus,
+              currentStepIndex: nextStepIdx,
+              steps: updatedSteps,
+              deadline: isLastStep ? undefined : updatedSteps[nextStepIdx]?.deadline,
+              isOverdue: false,
+              overdueDepartment: undefined,
+              overdueHours: undefined,
+              updatedAt: nowIso,
+              auditLogs: [...doc.auditLogs, newLog],
+            };
+
+            // Gửi thông báo SLA_VIOLATION cho Ban Lãnh đạo & Người lập
+            newNotifs.push({
+              id: `notif-sla-auto-${Date.now()}-${doc.id}`,
+              title: '⚡ TỰ ĐỘNG PHÊ DUYỆT DO VI PHẠM SLA',
+              message: `Hệ thống đã tự động phê duyệt bước ${currentStepIdx + 1} của hồ sơ "${doc.code} - ${doc.title}" do Phòng ${currentStep.department} quá hạn SLA ${overdueHours} giờ.`,
+              documentId: doc.id,
+              documentCode: doc.code,
+              type: 'SLA_VIOLATION',
+              read: false,
+              createdAt: nowIso,
+              actorId: 'SYSTEM_BOT',
+              recipientId: doc.creatorId,
+              targetDepartment: currentStep.department,
+              overdueHours: overdueHours,
+            });
+
+            return updatedDoc;
+          } else if (action === 'WARN_AND_RETURN') {
+            // CẢNH BÁO QUÁ HẠN
+            if (!doc.isOverdue || !currentStep.isOverdue || doc.overdueHours !== overdueHours) {
+              hasChanges = true;
+              const updatedSteps = [...doc.steps];
+              updatedSteps[currentStepIdx] = {
+                ...currentStep,
+                isOverdue: true,
+              };
+
+              const updatedDoc: DocumentItem = {
+                ...doc,
+                isOverdue: true,
+                overdueDepartment: currentStep.department,
+                overdueHours: overdueHours,
+                steps: updatedSteps,
+                updatedAt: nowIso,
+              };
+
+              newNotifs.push({
+                id: `notif-sla-warn-${Date.now()}-${doc.id}`,
+                title: '⚠️ CẢNH BÁO QUÁ HẠN PHÊ DUYỆT (SLA)',
+                message: `Phòng ${currentStep.department} chưa xử lý hồ sơ "${doc.code} - ${doc.title}" đúng hạn (Đã quá hạn ${overdueHours} giờ). Ban Lãnh đạo có thể chỉ đạo hoặc Trả hồ sơ.`,
+                documentId: doc.id,
+                documentCode: doc.code,
+                type: 'SLA_VIOLATION',
+                read: false,
+                createdAt: nowIso,
+                actorId: 'SYSTEM_BOT',
+                recipientId: doc.creatorId,
+                targetDepartment: currentStep.department,
+                overdueHours: overdueHours,
+              });
+
+              return updatedDoc;
+            }
+          }
+
+          return doc;
+        });
+
+        if (newNotifs.length > 0) {
+          setNotifications(prevNotifs => {
+            const existingKeys = new Set(prevNotifs.slice(0, 15).map(n => `${n.documentId}-${n.type}`));
+            const filteredNew = newNotifs.filter(n => !existingKeys.has(`${n.documentId}-${n.type}`));
+            return filteredNew.length > 0 ? [...filteredNew, ...prevNotifs] : prevNotifs;
+          });
+        }
+
+        return hasChanges ? updatedDocs : prevDocs;
+      });
+    }, 10000);
+
+    return () => clearInterval(checkSlaInterval);
+  }, []);
 
   // Sync state to NAS
   const syncToNAS = useCallback(async (isAuto = false): Promise<{ success: boolean; message: string; path?: string }> => {
@@ -810,7 +973,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   // Department Management
-  const createDepartment = (deptData: { name: string; code: string; description?: string }): { success: boolean; message?: string } => {
+  const createDepartment = (deptData: { name: string; code: string; description?: string; defaultSlaHours?: number }): { success: boolean; message?: string } => {
     const trimmedName = deptData.name.trim();
     const trimmedCode = deptData.code.trim().toUpperCase();
     if (!trimmedName || !trimmedCode) {
@@ -827,6 +990,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       name: trimmedName,
       code: trimmedCode,
       description: deptData.description?.trim() || '',
+      defaultSlaHours: deptData.defaultSlaHours || 8,
       createdAt: new Date().toISOString()
     };
     const updatedDepts = [...departments, newDept];
@@ -1138,15 +1302,33 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const createDocument = (docData: Omit<DocumentItem, 'id' | 'createdAt' | 'updatedAt' | 'auditLogs'>): DocumentItem => {
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
     const newDocId = `doc-${Date.now()}`;
     const creator = activeUser || users[0];
+
+    const stepsWithDates: ApprovalStep[] = docData.steps.map((step, idx) => {
+      if (idx === 0) {
+        const sla = step.slaHours || 8;
+        return {
+          ...step,
+          status: 'CURRENT' as StepStatus,
+          startedAt: nowIso,
+          deadline: step.deadline || new Date(now.getTime() + sla * 3600 * 1000).toISOString(),
+          isOverdue: false,
+        };
+      }
+      return step;
+    });
     
     const newDoc: DocumentItem = {
       ...docData,
       id: newDocId,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      deadline: stepsWithDates[0]?.deadline || docData.deadline,
+      steps: stepsWithDates,
+      isOverdue: false,
       auditLogs: [
         {
           id: `log-${Date.now()}`,
@@ -1155,7 +1337,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           actorId: creator.id,
           actorName: creator.name,
           actorTitle: creator.roleTitle,
-          timestamp: now,
+          timestamp: nowIso,
           comment: 'Khởi tạo và trình ký hồ sơ mới',
           newStatus: docData.status,
         }
@@ -1165,17 +1347,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setDocuments(prev => [newDoc, ...prev]);
 
     // Thêm thông báo cho người có trách nhiệm duyệt bước 1
-    const firstApprover = docData.steps[0];
+    const firstApprover = stepsWithDates[0];
     if (firstApprover) {
       const newNotif: NotificationItem = {
         id: `notif-${Date.now()}`,
         title: 'Hồ sơ mới cần duyệt',
-        message: `Hồ sơ "${newDoc.code} - ${newDoc.title}" đang chờ bạn duyệt tại bước 1 (${firstApprover.title}).`,
+        message: `Hồ sơ "${newDoc.code} - ${newDoc.title}" đang chờ bạn duyệt tại bước 1 (${firstApprover.title}). SLA: ${firstApprover.slaHours || 8}h.`,
         documentId: newDoc.id,
         documentCode: newDoc.code,
         type: 'ACTION_REQUIRED',
         read: false,
-        createdAt: now,
+        createdAt: nowIso,
         actorId: creator.id,
         recipientId: firstApprover.approverId,
         recipientRole: firstApprover.approverRole,
@@ -1226,9 +1408,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (!isLastStep) {
           newStepIdx = currentStepIdx + 1;
+          const nextStepSla = updatedSteps[newStepIdx].slaHours || 8;
           updatedSteps[newStepIdx] = {
             ...updatedSteps[newStepIdx],
             status: 'CURRENT',
+            startedAt: now,
+            deadline: new Date(Date.now() + nextStepSla * 3600 * 1000).toISOString(),
+            isOverdue: false,
           };
         }
 
@@ -1250,6 +1436,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           status: newStatus,
           currentStepIndex: newStepIdx,
           steps: updatedSteps,
+          deadline: isLastStep ? undefined : updatedSteps[newStepIdx]?.deadline,
+          isOverdue: false,
+          overdueDepartment: undefined,
+          overdueHours: undefined,
           updatedAt: now,
           auditLogs: [...doc.auditLogs, newLog],
         };
@@ -1293,7 +1483,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             {
               id: `notif-${Date.now()}-next`,
               title: 'Hồ sơ mới cần duyệt',
-              message: `Hồ sơ "${doc.code} - ${doc.title}" đang chờ bạn phê duyệt tại bước ${newStepIdx + 1} (${nextApprover.title}).`,
+              message: `Hồ sơ "${doc.code} - ${doc.title}" đang chờ bạn phê duyệt tại bước ${newStepIdx + 1} (${nextApprover.title}). SLA: ${nextApprover.slaHours || 8}h.`,
               documentId: doc.id,
               documentCode: doc.code,
               type: 'ACTION_REQUIRED',
@@ -1312,6 +1502,67 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return updatedDoc;
       });
     });
+  };
+
+  const returnOverdueDocument = (documentId: string, reason: string): { success: boolean; message?: string } => {
+    if (!activeUser) return { success: false, message: 'Người dùng chưa đăng nhập.' };
+    const targetDoc = documents.find(d => d.id === documentId);
+    if (!targetDoc) return { success: false, message: 'Không tìm thấy hồ sơ.' };
+
+    const now = new Date().toISOString();
+    const currentStep = targetDoc.steps[targetDoc.currentStepIndex];
+    const deptName = currentStep?.department || 'Phòng ban liên quan';
+
+    setDocuments(prevDocs => {
+      return prevDocs.map(doc => {
+        if (doc.id !== documentId) return doc;
+
+        const newLog: AuditLog = {
+          id: `log-${Date.now()}`,
+          documentId: doc.id,
+          action: 'REQUEST_INFO',
+          actorId: activeUser.id,
+          actorName: activeUser.name,
+          actorTitle: activeUser.roleTitle,
+          timestamp: now,
+          comment: `[TRẢ HỒ SƠ DO QUÁ HẠN SLA - Phòng ${deptName}]: ${reason}`,
+          previousStatus: doc.status,
+          newStatus: 'ADDITIONAL_REQ',
+        };
+
+        const updatedDoc: DocumentItem = {
+          ...doc,
+          status: 'ADDITIONAL_REQ',
+          isOverdue: false,
+          overdueDepartment: undefined,
+          overdueHours: undefined,
+          updatedAt: now,
+          auditLogs: [...doc.auditLogs, newLog],
+        };
+
+        if (selectedDocument?.id === doc.id) {
+          setSelectedDocument(updatedDoc);
+        }
+
+        setNotifications(prev => [{
+          id: `notif-${Date.now()}`,
+          title: `Hồ sơ bị trả về do vi phạm SLA (${deptName})`,
+          message: `${activeUser.name} đã trả hồ sơ "${doc.code}" về cho người lập do phòng ${deptName} xử lý quá hạn SLA. Lý do: ${reason}`,
+          documentId: doc.id,
+          documentCode: doc.code,
+          type: 'SLA_VIOLATION',
+          read: false,
+          createdAt: now,
+          actorId: activeUser.id,
+          recipientId: doc.creatorId,
+          recipientIds: [doc.creatorId, ...(doc.ccUsers?.map(c => c.id) || [])],
+        }, ...prev]);
+
+        return updatedDoc;
+      });
+    });
+
+    return { success: true, message: 'Đã trả hồ sơ về cho người lập thành công.' };
   };
 
   const rejectDocument = (documentId: string, reason: string) => {
@@ -1696,6 +1947,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         approveStep,
         rejectDocument,
         requestAdditionalInfo,
+        returnOverdueDocument,
         resubmitDocument,
         deleteDocument,
         resetToSampleData,

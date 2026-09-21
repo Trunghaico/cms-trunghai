@@ -769,6 +769,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Phòng Kỹ thuật & Dự án',
     code: 'KTDA',
     description: 'Chịu trách nhiệm quản lý dự án, giải pháp kỹ thuật, giám sát thi công và nghiệm thu công trình.',
+    defaultSlaHours: 8,
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -776,6 +777,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Phòng Tài chính Kế toán',
     code: 'TCKT',
     description: 'Quản lý dòng tiền, quyết toán thuế, thẩm tra hồ sơ thanh toán và kiểm soát ngân sách chi tiêu.',
+    defaultSlaHours: 8,
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -783,6 +785,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Ban Quản lý Dự án',
     code: 'BQLDA',
     description: 'Chỉ đạo, điều hành toàn diện công tác quản lý dự án, giám sát chất lượng và tiến độ thi công.',
+    defaultSlaHours: 12,
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -790,6 +793,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Ban Pháp chế & Kiểm soát',
     code: 'PCKS',
     description: 'Thẩm định tính pháp lý hợp đồng kinh tế, quản trị rủi ro và kiểm soát tuân thủ nội bộ.',
+    defaultSlaHours: 12,
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -797,6 +801,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Ban Giám đốc',
     code: 'BGD',
     description: 'Ban điều hành cao nhất công ty, phê duyệt chủ trương, hợp đồng lớn và chiến lược kinh doanh.',
+    defaultSlaHours: 24,
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -804,6 +809,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Phòng CNTT & Hạ tầng',
     code: 'CNTT',
     description: 'Quản trị hệ thống máy chủ, an ninh mạng, phần mềm nghiệp vụ và chuyển đổi số.',
+    defaultSlaHours: 8,
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -811,6 +817,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Phòng Cung ứng & Vật tư',
     code: 'CUVT',
     description: 'Tìm kiếm nhà cung cấp, đấu thầu mua sắm thiết bị máy móc và quản trị kho vận.',
+    defaultSlaHours: 8,
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -818,6 +825,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     name: 'Phòng Hành chính Nhân sự',
     code: 'HCNS',
     description: 'Quản trị nhân lực, tuyển dụng, đào tạo, chế độ chính sách và công tác hành chính văn phòng.',
+    defaultSlaHours: 8,
     createdAt: '2026-01-01T08:00:00+07:00'
   }
 ];
