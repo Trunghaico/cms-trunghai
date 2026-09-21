@@ -97,23 +97,27 @@ async function socketHttp(
     ? Object.fromEntries(options.headers.entries()) 
     : (options.headers || {});
 
+  const reqBodyBytes = options.body 
+    ? (typeof options.body === 'string' ? new TextEncoder().encode(options.body) : options.body)
+    : null;
+
   for (const [k, v] of Object.entries(headersObj)) {
     const lk = k.toLowerCase();
     if (lk !== 'host' && lk !== 'connection') {
       headerStr += `${k}: ${v}\r\n`;
     }
   }
+
+  if (reqBodyBytes && !headersObj['content-length'] && !headersObj['Content-Length']) {
+    headerStr += `Content-Length: ${reqBodyBytes.length}\r\n`;
+  }
   headerStr += '\r\n';
 
   await writer.write(new TextEncoder().encode(headerStr));
-  if (options.body) {
-    if (typeof options.body === 'string') {
-      await writer.write(new TextEncoder().encode(options.body));
-    } else {
-      await writer.write(options.body);
-    }
+  if (reqBodyBytes) {
+    await writer.write(reqBodyBytes);
   }
-  await writer.close();
+  writer.releaseLock();
 
   const reader = socket.readable.getReader();
   const chunks: Uint8Array[] = [];
@@ -148,11 +152,12 @@ async function socketHttp(
   }
 
   if (headerEnd === -1) {
-    throw new Error('Phản hồi không hợp lệ từ MinIO NAS (No HTTP header boundary)');
+    const preview = new TextDecoder().decode(fullBytes.subarray(0, 200));
+    throw new Error(`MinIO socket response has no boundary (total bytes: ${totalLen}): ${preview}`);
   }
 
   const headerText = new TextDecoder().decode(fullBytes.subarray(0, headerEnd));
-  let bodyBytes = fullBytes.subarray(headerEnd + 4);
+  let resBodyBytes = fullBytes.subarray(headerEnd + 4);
 
   const lines = headerText.split('\r\n');
   const statusLine = lines[0] || '';
@@ -171,17 +176,17 @@ async function socketHttp(
   }
 
   if (headers.get('transfer-encoding')?.includes('chunked')) {
-    bodyBytes = decodeChunked(bodyBytes);
+    resBodyBytes = decodeChunked(resBodyBytes);
   }
 
   return {
     status,
     statusText,
     headers,
-    body: bodyBytes,
+    body: resBodyBytes,
     ok: status >= 200 && status < 300,
-    text: async () => new TextDecoder().decode(bodyBytes),
-    json: async () => JSON.parse(new TextDecoder().decode(bodyBytes)),
+    text: async () => new TextDecoder().decode(resBodyBytes),
+    json: async () => JSON.parse(new TextDecoder().decode(resBodyBytes)),
   };
 }
 
