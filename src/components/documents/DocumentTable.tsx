@@ -75,8 +75,18 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
       const isCreator = doc.creatorId === activeUser.id;
       const isCc = doc.ccUsers?.some(cc => cc.id === activeUser.id);
       const isAssignedUser = doc.steps?.some(s => s.approverId === activeUser.id);
-      const isDeptMember = doc.steps?.some(s => s.department && s.department.toLowerCase() === activeUser.department.toLowerCase());
-      const isCreatorDeptHead = doc.department.toLowerCase() === activeUser.department.toLowerCase() && (activeUser.role === 'DEPT_HEAD' || activeUser.role === 'DIRECTOR');
+
+      const userPositions = [
+        { department: activeUser.department, role: activeUser.role, roleTitle: activeUser.roleTitle },
+        ...(activeUser.secondaryPositions || [])
+      ];
+
+      const isDeptMember = doc.steps?.some(s => 
+        s.department && userPositions.some(p => p.department.toLowerCase() === s.department.toLowerCase())
+      );
+      const isCreatorDeptHead = userPositions.some(p => 
+        p.department.toLowerCase() === doc.department.toLowerCase() && (p.role === 'DEPT_HEAD' || p.role === 'DIRECTOR')
+      );
       const hasViewAll = activeUser.role === 'ADMIN' || activeUser.role === 'DIRECTOR' || hasPermission('doc.view_all');
 
       const canView = hasViewAll || isCreator || isCc || isAssignedUser || isDeptMember || isCreatorDeptHead;
@@ -95,23 +105,25 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         if (!currentStep || currentStep.status !== 'CURRENT') return false;
 
         const isExactUser = currentStep.approverId ? currentStep.approverId === activeUser.id : false;
-        const isDeptApprover = !currentStep.approverId && (
-          currentStep.department.toLowerCase() === activeUser.department.toLowerCase() ||
-          activeUser.role === currentStep.approverRole ||
-          (currentStep.department.includes('Pháp chế') && activeUser.role === 'LEGAL_DEPT') ||
-          (currentStep.department.includes('Kế toán') && activeUser.role === 'CHIEF_ACCOUNTANT') ||
-          (currentStep.department.includes('Giám Đốc') && activeUser.role === 'DIRECTOR')
-        );
+        const isDeptApprover = !currentStep.approverId && userPositions.some(pos => {
+          const matchesDept = (pos.department && currentStep.department && pos.department.toLowerCase() === currentStep.department.toLowerCase()) ||
+            pos.role === currentStep.approverRole ||
+            (currentStep.department?.includes('Pháp chế') && pos.role === 'LEGAL_DEPT') ||
+            (currentStep.department?.includes('Kế toán') && pos.role === 'CHIEF_ACCOUNTANT') ||
+            (currentStep.department?.includes('Giám Đốc') && pos.role === 'DIRECTOR');
 
-        const isAuthorizedToSign = 
-          activeUser.role === 'DIRECTOR' || 
-          activeUser.role === 'ADMIN' || 
-          activeUser.role === 'DEPT_HEAD' || 
-          activeUser.role === 'CHIEF_ACCOUNTANT' || 
-          activeUser.role === 'LEGAL_DEPT' ||
-          activeUser.role === currentStep.approverRole;
+          const isAuthorizedToSign = 
+            pos.role === 'DIRECTOR' || 
+            pos.role === 'ADMIN' || 
+            pos.role === 'DEPT_HEAD' || 
+            pos.role === 'CHIEF_ACCOUNTANT' || 
+            pos.role === 'LEGAL_DEPT' ||
+            pos.role === currentStep.approverRole;
 
-        const isMyTurn = (canApprove && (isExactUser || (isDeptApprover && isAuthorizedToSign))) || canOverride;
+          return matchesDept && isAuthorizedToSign;
+        });
+
+        const isMyTurn = (canApprove && (isExactUser || isDeptApprover)) || canOverride;
         if (!isMyTurn) return false;
       }
 

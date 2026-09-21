@@ -68,6 +68,12 @@ export interface PermissionDefinition {
   category: PermissionCategory;
 }
 
+export interface UserPosition {
+  roleTitle: string;     // Chức vụ kiêm nhiệm
+  department: string;    // Phòng ban kiêm nhiệm
+  role: UserRole;        // Nhóm vai trò thẩm quyền của vị trí kiêm nhiệm
+}
+
 export interface User {
   id: string;
   name: string;          // Họ và tên
@@ -80,6 +86,7 @@ export interface User {
   avatar: string;
   signatureUrl?: string;
   permissions: PermissionId[]; // Danh sách các quyền chi tiết (Permission Matrix)
+  secondaryPositions?: UserPosition[]; // Vị trí & phòng ban kiêm nhiệm (nếu có)
 }
 
 export interface Attachment {

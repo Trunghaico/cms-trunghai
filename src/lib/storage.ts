@@ -15,13 +15,26 @@ export const loadUsers = (): User[] => {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Ensure all users have permissions array
-        return parsed.map((u: User) => ({
-          ...u,
-          permissions: Array.isArray(u.permissions) && u.permissions.length > 0
-            ? u.permissions 
-            : (ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF)
-        }));
+        // Merge missing default initial users if any
+        const existingIds = new Set(parsed.map((u: User) => (u.username || u.id)?.toLowerCase()));
+        const missingInitialUsers = USERS.filter(u => !existingIds.has(u.username.toLowerCase()) && !existingIds.has(u.id.toLowerCase()));
+        
+        const combined = [...parsed, ...missingInitialUsers];
+        return combined.map((u: User) => {
+          // If user matches an initial user, make sure secondaryPositions is populated if not yet set
+          const initialMatch = USERS.find(init => init.username.toLowerCase() === u.username?.toLowerCase() || init.id === u.id);
+          const secondaryPositions = Array.isArray(u.secondaryPositions)
+            ? u.secondaryPositions
+            : (initialMatch?.secondaryPositions || []);
+
+          return {
+            ...u,
+            permissions: Array.isArray(u.permissions) && u.permissions.length > 0
+              ? u.permissions 
+              : (ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF),
+            secondaryPositions
+          };
+        });
       }
     }
   } catch (e) {

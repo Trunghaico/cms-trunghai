@@ -63,6 +63,25 @@ export const USERS: User[] = [
     permissions: [...ROLE_PRESET_PERMISSIONS.DIRECTOR]
   },
   {
+    id: 'user-khai',
+    name: 'Hoàng Văn Khải',
+    username: 'khai.hv',
+    pass: '123456',
+    email: 'khai.hv@trunghai.com.vn',
+    role: 'DEPT_HEAD',
+    roleTitle: 'Phó Trưởng phòng Kỹ thuật & Dự án',
+    department: 'Phòng Kỹ thuật & Dự án',
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
+    permissions: [...ROLE_PRESET_PERMISSIONS.DEPT_HEAD],
+    secondaryPositions: [
+      {
+        roleTitle: 'Trưởng phòng Cung ứng & Vật tư',
+        department: 'Phòng Cung ứng & Vật tư',
+        role: 'DEPT_HEAD'
+      }
+    ]
+  },
+  {
     id: 'user-admin',
     name: 'Quản Trị Viên',
     username: 'admin',

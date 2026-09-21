@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, NotificationItem, User, DocumentStatus, UserRole, PermissionId, DepartmentItem, JobTitleItem } from '../types';
+import { DocumentItem, NotificationItem, User, DocumentStatus, UserRole, PermissionId, DepartmentItem, JobTitleItem, UserPosition } from '../types';
 import { 
   loadDocuments, 
   saveDocuments, 
@@ -25,6 +25,19 @@ import {
   saveUserToDB,
   deleteUserFromDB
 } from '../lib/databaseService';
+import {
+  saveDatabaseToNAS,
+  fetchDatabaseFromNAS,
+  testNASConnection,
+  listNASBackups,
+  getLatestNASDatabaseInfo,
+  loadAutoBackupConfig,
+  saveAutoBackupConfig,
+  AutoBackupConfig,
+  DEFAULT_AUTO_BACKUP_CONFIG,
+  NASBackupItem,
+  DatabaseSnapshot
+} from '../lib/nasStorageService';
 import { USERS } from '../lib/initialData';
 import { 
   hasPermission as checkHasPermission, 
@@ -42,11 +55,23 @@ interface DocumentContextType {
   hasPermission: (permissionId: PermissionId) => boolean;
   hasAnyPermission: (permissionIds: PermissionId[]) => boolean;
   hasAllPermissions: (permissionIds: PermissionId[]) => boolean;
-  createUser: (userData: { name: string; username: string; pass: string; roleTitle: string; department: string; role?: UserRole; permissions?: PermissionId[] }) => { success: boolean; message?: string };
+  createUser: (userData: { name: string; username: string; pass: string; roleTitle: string; department: string; role?: UserRole; permissions?: PermissionId[]; secondaryPositions?: UserPosition[] }) => { success: boolean; message?: string };
   updateUser: (userId: string, userData: Partial<User>) => { success: boolean; message?: string };
   deleteUser: (userId: string) => { success: boolean; message?: string };
-  registerUser?: (userData: { name: string; username: string; pass: string; roleTitle: string; department: string; role?: UserRole; permissions?: PermissionId[] }) => { success: boolean; message?: string };
+  registerUser?: (userData: { name: string; username: string; pass: string; roleTitle: string; department: string; role?: UserRole; permissions?: PermissionId[]; secondaryPositions?: UserPosition[] }) => { success: boolean; message?: string };
   
+  // NAS Synology MinIO Storage & Database Sync & Auto-Backup
+  isNASSyncing: boolean;
+  lastNASSyncTime: string | null;
+  nasSyncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+  autoBackupConfig: AutoBackupConfig;
+  autoBackupCountdown: number;
+  updateAutoBackupConfig: (config: Partial<AutoBackupConfig>) => void;
+  syncToNAS: (isAuto?: boolean) => Promise<{ success: boolean; message: string; path?: string }>;
+  syncFromNAS: (backupKey?: string) => Promise<{ success: boolean; message: string }>;
+  testNAS: () => Promise<{ success: boolean; message: string; latencyMs?: number; bucket?: string }>;
+  listBackups: () => Promise<NASBackupItem[]>;
+
   // Settings: Departments & Job Titles
   departments: DepartmentItem[];
   jobTitles: JobTitleItem[];
@@ -107,6 +132,29 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  const [isNASSyncing, setIsNASSyncing] = useState(false);
+  const [nasSyncStatus, setNasSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+  const [lastNASSyncTime, setLastNASSyncTime] = useState<string | null>(() => localStorage.getItem('trunghai_last_nas_sync'));
+  
+  // Auto Backup Configuration
+  const [autoBackupConfig, setAutoBackupConfigState] = useState<AutoBackupConfig>(() => loadAutoBackupConfig());
+  const [autoBackupCountdown, setAutoBackupCountdown] = useState<number>(() => autoBackupConfig.intervalMinutes * 60);
+
+  const isInitialLoadDone = React.useRef(false);
+  const isSyncInProgress = React.useRef(false);
+  const mutationDebounceTimerRef = React.useRef<any>(null);
+
+  const updateAutoBackupConfig = useCallback((newConfig: Partial<AutoBackupConfig>) => {
+    setAutoBackupConfigState(prev => {
+      const updated = { ...prev, ...newConfig };
+      saveAutoBackupConfig(updated);
+      if (newConfig.intervalMinutes && newConfig.intervalMinutes !== prev.intervalMinutes) {
+        setAutoBackupCountdown(newConfig.intervalMinutes * 60);
+      }
+      return updated;
+    });
+  }, []);
+
   // Sync users to storage
   useEffect(() => {
     saveUsers(users);
@@ -132,11 +180,121 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveNotifications(notifications);
   }, [notifications]);
 
-  // Initial Sync from Supabase DB on startup
+  // Sync state to NAS
+  const syncToNAS = useCallback(async (isAuto = false): Promise<{ success: boolean; message: string; path?: string }> => {
+    if (isSyncInProgress.current) {
+      return { success: false, message: 'Đang có tiến trình đồng bộ khác chạy' };
+    }
+    isSyncInProgress.current = true;
+    setIsNASSyncing(true);
+    setNasSyncStatus('syncing');
+    try {
+      const res = await saveDatabaseToNAS({
+        documents,
+        users,
+        departments,
+        jobTitles,
+        notifications,
+        savedBy: isAuto ? 'Tự động sao lưu hệ thống' : (activeUser?.name || 'Tài khoản quản trị'),
+      });
+      if (res.success) {
+        const nowStr = new Date().toISOString();
+        setLastNASSyncTime(nowStr);
+        localStorage.setItem('trunghai_last_nas_sync', nowStr);
+        setNasSyncStatus('synced');
+        // Reset countdown timer
+        setAutoBackupCountdown(autoBackupConfig.intervalMinutes * 60);
+      } else {
+        setNasSyncStatus('error');
+      }
+      setIsNASSyncing(false);
+      isSyncInProgress.current = false;
+      return {
+        success: res.success,
+        message: res.message || (res.success ? 'Đã sao lưu lên NAS thành công' : 'Lỗi khi sao lưu'),
+        path: res.path
+      };
+    } catch (e: any) {
+      setIsNASSyncing(false);
+      setNasSyncStatus('error');
+      isSyncInProgress.current = false;
+      return { success: false, message: e.message || 'Lỗi không xác định khi đồng bộ lên NAS' };
+    }
+  }, [documents, users, departments, jobTitles, notifications, activeUser, autoBackupConfig.intervalMinutes]);
+
+  // Sync state from NAS
+  const syncFromNAS = useCallback(async (backupKey?: string): Promise<{ success: boolean; message: string }> => {
+    setIsNASSyncing(true);
+    setNasSyncStatus('syncing');
+    try {
+      const snapshot = await fetchDatabaseFromNAS(backupKey);
+      if (!snapshot) {
+        setIsNASSyncing(false);
+        setNasSyncStatus('error');
+        return { success: false, message: 'Không tìm thấy dữ liệu trên MinIO NAS hoặc không thể đọc file.' };
+      }
+
+      if (Array.isArray(snapshot.documents) && snapshot.documents.length > 0) setDocuments(snapshot.documents);
+      if (Array.isArray(snapshot.users) && snapshot.users.length > 0) setUsers(snapshot.users);
+      if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) setDepartments(snapshot.departments);
+      if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) setJobTitles(snapshot.jobTitles);
+      if (Array.isArray(snapshot.notifications)) setNotifications(snapshot.notifications);
+
+      const nowStr = new Date().toISOString();
+      setLastNASSyncTime(nowStr);
+      localStorage.setItem('trunghai_last_nas_sync', nowStr);
+      setIsNASSyncing(false);
+      setNasSyncStatus('synced');
+      return { 
+        success: true, 
+        message: `Khôi phục thành công ${snapshot.documents?.length || 0} hồ sơ, ${snapshot.users?.length || 0} tài khoản từ NAS (${new Date(snapshot.savedAt).toLocaleString('vi-VN')}).` 
+      };
+    } catch (e: any) {
+      setIsNASSyncing(false);
+      setNasSyncStatus('error');
+      return { success: false, message: e.message || 'Lỗi khi khôi phục từ NAS' };
+    }
+  }, []);
+
+  const testNAS = useCallback(async () => {
+    return await testNASConnection();
+  }, []);
+
+  const listBackups = useCallback(async () => {
+    return await listNASBackups();
+  }, []);
+
+  // 1. Initial Sync from MinIO NAS on startup
   useEffect(() => {
     let isMounted = true;
-    const syncFromDB = async () => {
+    const initNASAndDB = async () => {
       try {
+        if (autoBackupConfig.syncOnStartup) {
+          const snapshot = await fetchDatabaseFromNAS();
+          if (!isMounted) return;
+          if (snapshot && Array.isArray(snapshot.documents) && snapshot.documents.length > 0) {
+            setDocuments(snapshot.documents);
+            if (Array.isArray(snapshot.users) && snapshot.users.length > 0) setUsers(snapshot.users);
+            if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) setDepartments(snapshot.departments);
+            if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) setJobTitles(snapshot.jobTitles);
+            const nowStr = new Date().toISOString();
+            setLastNASSyncTime(nowStr);
+            localStorage.setItem('trunghai_last_nas_sync', nowStr);
+            setNasSyncStatus('synced');
+          } else {
+            // Push initial baseline if none exists
+            saveDatabaseToNAS({
+              documents,
+              users,
+              departments,
+              jobTitles,
+              notifications,
+              savedBy: 'Khởi tạo hệ thống ban đầu'
+            }).catch(e => console.warn('Khởi tạo baseline NAS:', e));
+          }
+        }
+
+        // Secondary fallback sync from Supabase if configured
         const [dbDepts, dbJobs, dbUsers] = await Promise.all([
           fetchDepartmentsFromDB(),
           fetchJobTitlesFromDB(),
@@ -163,14 +321,87 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           });
         }
       } catch (err) {
-        console.warn('Supabase DB sync notification:', err);
+        console.warn('Sync notification:', err);
+      } finally {
+        isInitialLoadDone.current = true;
       }
     };
-    syncFromDB();
+    initNASAndDB();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [autoBackupConfig.syncOnStartup]);
+
+  // 2. Periodic Auto-Backup Interval Timer (Counts down every second)
+  useEffect(() => {
+    if (!autoBackupConfig.enabled) return;
+
+    const timer = setInterval(() => {
+      setAutoBackupCountdown(prev => {
+        if (prev <= 1) {
+          // Trigger periodic background backup
+          syncToNAS(true).catch(err => console.warn('Auto backup interval error:', err));
+          return autoBackupConfig.intervalMinutes * 60;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [autoBackupConfig.enabled, autoBackupConfig.intervalMinutes, syncToNAS]);
+
+  // 3. Debounced Auto-Backup on Data Mutation (Triggered after user changes documents/users/departments)
+  useEffect(() => {
+    if (!isInitialLoadDone.current || !autoBackupConfig.enabled || !autoBackupConfig.backupOnChange) {
+      return;
+    }
+
+    if (mutationDebounceTimerRef.current) {
+      clearTimeout(mutationDebounceTimerRef.current);
+    }
+
+    mutationDebounceTimerRef.current = setTimeout(() => {
+      syncToNAS(true).catch(err => console.warn('Auto backup on change error:', err));
+    }, 5000); // 5 seconds debounce
+
+    return () => {
+      if (mutationDebounceTimerRef.current) {
+        clearTimeout(mutationDebounceTimerRef.current);
+      }
+    };
+  }, [documents, users, departments, jobTitles, autoBackupConfig.enabled, autoBackupConfig.backupOnChange, syncToNAS]);
+
+  // 4. Remote Polling: Check if NAS has newer snapshot from other clients
+  useEffect(() => {
+    if (!autoBackupConfig.enabled) return;
+
+    const checkRemoteNAS = async () => {
+      try {
+        const info = await getLatestNASDatabaseInfo();
+        if (info && info.exists && info.lastModified && lastNASSyncTime) {
+          const remoteTime = new Date(info.lastModified).getTime();
+          const localTime = new Date(lastNASSyncTime).getTime();
+          // If remote is at least 10s newer than our last sync, sync it quietly
+          if (remoteTime - localTime > 10000 && !isSyncInProgress.current) {
+            const snapshot = await fetchDatabaseFromNAS();
+            if (snapshot && Array.isArray(snapshot.documents) && snapshot.documents.length > 0) {
+              setDocuments(snapshot.documents);
+              if (Array.isArray(snapshot.users) && snapshot.users.length > 0) setUsers(snapshot.users);
+              if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) setDepartments(snapshot.departments);
+              if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) setJobTitles(snapshot.jobTitles);
+              setLastNASSyncTime(info.lastModified);
+              localStorage.setItem('trunghai_last_nas_sync', info.lastModified);
+            }
+          }
+        }
+      } catch (err) {
+        // Quiet fail for remote poll
+      }
+    };
+
+    const pollInterval = setInterval(checkRemoteNAS, 45000); // Poll every 45s
+    return () => clearInterval(pollInterval);
+  }, [autoBackupConfig.enabled, lastNASSyncTime]);
 
   const login = (username: string, pass: string): { success: boolean; message?: string } => {
     const trimmed = username.trim().toLowerCase();
@@ -216,6 +447,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     department: string; 
     role?: UserRole; 
     permissions?: PermissionId[];
+    secondaryPositions?: UserPosition[];
   }): { success: boolean; message?: string } => {
     const trimmedUsername = userData.username.trim().toLowerCase();
     if (users.some(u => u.username.toLowerCase() === trimmedUsername)) {
@@ -238,6 +470,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       department: userData.department.trim() || 'Phòng Kỹ thuật & Dự án',
       avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
       permissions: assignedPermissions,
+      secondaryPositions: userData.secondaryPositions || []
     };
 
     setUsers(prev => [...prev, newUser]);
@@ -288,7 +521,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     pass: string; 
     roleTitle: string; 
     department: string; 
-    role?: UserRole 
+    role?: UserRole;
+    permissions?: PermissionId[];
+    secondaryPositions?: UserPosition[];
   }): { success: boolean; message?: string } => {
     return createUser({
       ...userData,
@@ -706,7 +941,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const additionalReq = documents.filter(d => d.status === 'ADDITIONAL_REQ').length;
     const urgentCount = documents.filter(d => (d.priority === 'URGENT' || d.priority === 'VERY_URGENT') && d.status !== 'APPROVED').length;
     
-    // Đếm số hồ sơ cần người dùng hiện tại duyệt dựa trên thẩm quyền
+    // Đếm số hồ sơ cần người dùng hiện tại duyệt dựa trên thẩm quyền (xét cả chức vụ chính & kiêm nhiệm)
     const myPendingApprovalsCount = activeUser ? documents.filter(doc => {
       if (doc.status === 'APPROVED' || doc.status === 'REJECTED') return false;
       const currentStep = doc.steps[doc.currentStepIndex];
@@ -715,23 +950,31 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const canOverride = checkHasPermission(activeUser, 'approval.override');
 
       const isExactUser = currentStep.approverId ? currentStep.approverId === activeUser.id : false;
-      const isDeptApprover = !currentStep.approverId && (
-        (currentStep.department && currentStep.department.toLowerCase() === activeUser.department.toLowerCase()) ||
-        activeUser.role === currentStep.approverRole ||
-        (currentStep.department?.includes('Pháp chế') && activeUser.role === 'LEGAL_DEPT') ||
-        (currentStep.department?.includes('Kế toán') && activeUser.role === 'CHIEF_ACCOUNTANT') ||
-        (currentStep.department?.includes('Giám Đốc') && activeUser.role === 'DIRECTOR')
-      );
 
-      const isAuthorizedToSign = 
-        activeUser.role === 'DIRECTOR' || 
-        activeUser.role === 'ADMIN' || 
-        activeUser.role === 'DEPT_HEAD' || 
-        activeUser.role === 'CHIEF_ACCOUNTANT' || 
-        activeUser.role === 'LEGAL_DEPT' ||
-        activeUser.role === currentStep.approverRole;
+      const userPositions = [
+        { department: activeUser.department, role: activeUser.role, roleTitle: activeUser.roleTitle },
+        ...(activeUser.secondaryPositions || [])
+      ];
 
-      return (canApprove && (isExactUser || (isDeptApprover && isAuthorizedToSign))) || canOverride;
+      const isDeptApprover = !currentStep.approverId && userPositions.some(pos => {
+        const matchesDept = (pos.department && currentStep.department && pos.department.toLowerCase() === currentStep.department.toLowerCase()) ||
+          pos.role === currentStep.approverRole ||
+          (currentStep.department?.includes('Pháp chế') && pos.role === 'LEGAL_DEPT') ||
+          (currentStep.department?.includes('Kế toán') && pos.role === 'CHIEF_ACCOUNTANT') ||
+          (currentStep.department?.includes('Giám Đốc') && pos.role === 'DIRECTOR');
+
+        const isAuthorizedToSign = 
+          pos.role === 'DIRECTOR' || 
+          pos.role === 'ADMIN' || 
+          pos.role === 'DEPT_HEAD' || 
+          pos.role === 'CHIEF_ACCOUNTANT' || 
+          pos.role === 'LEGAL_DEPT' ||
+          pos.role === currentStep.approverRole;
+
+        return matchesDept && isAuthorizedToSign;
+      });
+
+      return (canApprove && (isExactUser || isDeptApprover)) || canOverride;
     }).length : 0;
 
     const myCreatedCount = activeUser ? documents.filter(d => d.creatorId === activeUser.id).length : 0;
@@ -796,6 +1039,16 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         deleteDocument,
         resetToSampleData,
         stats,
+        isNASSyncing,
+        lastNASSyncTime,
+        nasSyncStatus,
+        autoBackupConfig,
+        autoBackupCountdown,
+        updateAutoBackupConfig,
+        syncToNAS,
+        syncFromNAS,
+        testNAS,
+        listBackups,
       }}
     >
       {children}

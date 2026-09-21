@@ -10,7 +10,11 @@ import {
   LogOut,
   ExternalLink,
   X,
-  User as UserIcon
+  User as UserIcon,
+  Server,
+  UploadCloud,
+  RefreshCw,
+  Database
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { formatDate } from '../../lib/storage';
@@ -26,14 +30,23 @@ export const Header: React.FC = () => {
     searchQuery, 
     setSearchQuery,
     setSelectedDocument,
-    documents
+    documents,
+    isNASSyncing,
+    lastNASSyncTime,
+    nasSyncStatus,
+    autoBackupConfig,
+    autoBackupCountdown,
+    syncToNAS,
+    setActiveTab
   } = useDocument();
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNASMenuOpen, setIsNASMenuOpen] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const nasMenuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Close dropdowns on outside click
@@ -45,10 +58,19 @@ export const Header: React.FC = () => {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
       }
+      if (nasMenuRef.current && !nasMenuRef.current.contains(event.target as Node)) {
+        setIsNASMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const formatCountdown = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // Keyboard shortcut for quick search: Ctrl+K or Cmd+K
   useEffect(() => {
@@ -146,8 +168,113 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Notifications & User Profile with Logout */}
-        <div className="flex items-center gap-3">
+        {/* Right: NAS Auto-Sync, Notifications & User Profile with Logout */}
+        <div className="flex items-center gap-2 sm:gap-3">
+
+          {/* NAS Synology MinIO Live Auto-Backup & Sync Indicator */}
+          <div className="relative" ref={nasMenuRef}>
+            <button
+              onClick={() => setIsNASMenuOpen(!isNASMenuOpen)}
+              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] border text-xs font-semibold transition-all cursor-pointer select-none ${
+                isNASSyncing 
+                  ? 'bg-blue-50 border-blue-300 text-brand-blue animate-pulse' 
+                  : nasSyncStatus === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                  : 'bg-emerald-50/80 hover:bg-emerald-100/90 border-emerald-200 text-emerald-800'
+              }`}
+              title="Trạng thái tự động đồng bộ & sao lưu lên MinIO NAS"
+            >
+              <div className="relative flex items-center justify-center">
+                {isNASSyncing ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-brand-blue animate-spin" />
+                ) : (
+                  <>
+                    <Server className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                  </>
+                )}
+              </div>
+              <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium">
+                <span className="font-bold">NAS MinIO</span>
+                {isNASSyncing ? (
+                  <span className="text-brand-blue font-semibold">Đang sao lưu...</span>
+                ) : autoBackupConfig.enabled ? (
+                  <span className="text-emerald-700 font-mono text-[10px] bg-emerald-200/60 px-1 py-0.2 rounded">
+                    {formatCountdown(autoBackupCountdown)}
+                  </span>
+                ) : (
+                  <span className="text-slate-500 text-[10px]">Tắt auto</span>
+                )}
+              </div>
+            </button>
+
+            {/* NAS Auto-Sync Dropdown */}
+            {isNASMenuOpen && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-2xl z-50 overflow-hidden animate-slide-down">
+                <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-b border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-emerald-600 text-white rounded-md">
+                        <Database className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-xs">MinIO NAS Auto-Backup</h4>
+                        <p className="text-[10px] text-slate-500">Synology NAS (113.161.53.133)</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-[10px] font-bold">
+                      Online
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 space-y-3 text-xs">
+                  <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-md border border-slate-200">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-500">Tự động sao lưu:</span>
+                      <span className={`font-bold ${autoBackupConfig.enabled ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {autoBackupConfig.enabled ? `Bật (Mỗi ${autoBackupConfig.intervalMinutes} phút)` : 'Đang tắt'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-500">Lần sao lưu tới sau:</span>
+                      <span className="font-mono font-bold text-brand-blue">
+                        {autoBackupConfig.enabled ? formatCountdown(autoBackupCountdown) : '--:--'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-500">Sao lưu gần nhất:</span>
+                      <span className="text-slate-700 font-medium truncate max-w-[140px]" title={lastNASSyncTime || ''}>
+                        {lastNASSyncTime ? new Date(lastNASSyncTime).toLocaleTimeString('vi-VN') : 'Chưa có'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        syncToNAS(false);
+                      }}
+                      disabled={isNASSyncing}
+                      className="flex-1 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <UploadCloud className={`w-3.5 h-3.5 ${isNASSyncing ? 'animate-bounce' : ''}`} />
+                      <span>{isNASSyncing ? 'Đang lưu...' : 'Sao lưu ngay'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTab('settings');
+                        setIsNASMenuOpen(false);
+                      }}
+                      className="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-xs transition-colors cursor-pointer"
+                    >
+                      Cài đặt NAS
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Notifications Center */}
           <div className="relative" ref={notifRef}>

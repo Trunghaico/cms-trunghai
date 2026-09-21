@@ -377,18 +377,26 @@ export const CreateDocumentModal: React.FC = () => {
     d.code.toLowerCase().includes(searchFilterText)
   );
 
-  const matchedUsers = users.filter(u => 
-    !searchFilterText || 
-    u.name.toLowerCase().includes(searchFilterText) || 
-    u.username.toLowerCase().includes(searchFilterText) ||
-    u.roleTitle.toLowerCase().includes(searchFilterText) ||
-    u.department.toLowerCase().includes(searchFilterText)
-  );
+  const matchedUsers = users.filter(u => {
+    if (!searchFilterText) return true;
+    const matchMain = 
+      u.name.toLowerCase().includes(searchFilterText) || 
+      u.username.toLowerCase().includes(searchFilterText) ||
+      u.roleTitle.toLowerCase().includes(searchFilterText) ||
+      u.department.toLowerCase().includes(searchFilterText);
+    const matchSecondary = u.secondaryPositions?.some(p => 
+      p.roleTitle.toLowerCase().includes(searchFilterText) ||
+      p.department.toLowerCase().includes(searchFilterText)
+    );
+    return matchMain || matchSecondary;
+  });
 
   const filteredCcCandidates = users.filter(u => {
     if (!ccSearchQuery) return true;
     const q = ccSearchQuery.toLowerCase();
-    return u.name.toLowerCase().includes(q) || u.department.toLowerCase().includes(q);
+    const matchMain = u.name.toLowerCase().includes(q) || u.department.toLowerCase().includes(q);
+    const matchSecondary = u.secondaryPositions?.some(p => p.department.toLowerCase().includes(q) || p.roleTitle.toLowerCase().includes(q));
+    return matchMain || matchSecondary;
   });
 
   return (

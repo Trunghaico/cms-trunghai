@@ -69,30 +69,38 @@ export const DocumentDetailModal: React.FC = () => {
   const canDelete = hasPermission('doc.delete');
   const canPrint = hasPermission('doc.print_export');
 
-  // Kiểm tra xem người dùng hiện tại có quyền duyệt bước này không
+  // Kiểm tra xem người dùng hiện tại có quyền duyệt bước này không (xét cả chức vụ chính & kiêm nhiệm)
   const isExactUser = currentStep && currentStep.approverId ? currentStep.approverId === activeUser.id : false;
-  const isDeptApprover = currentStep && !currentStep.approverId && (
-    (currentStep.department && currentStep.department.toLowerCase() === activeUser.department.toLowerCase()) ||
-    activeUser.role === currentStep.approverRole ||
-    (currentStep.department?.includes('Pháp chế') && activeUser.role === 'LEGAL_DEPT') ||
-    (currentStep.department?.includes('Kế toán') && activeUser.role === 'CHIEF_ACCOUNTANT') ||
-    (currentStep.department?.includes('Giám Đốc') && activeUser.role === 'DIRECTOR')
-  );
 
-  const isAuthorizedToSign = 
-    activeUser.role === 'DIRECTOR' || 
-    activeUser.role === 'ADMIN' || 
-    activeUser.role === 'DEPT_HEAD' || 
-    activeUser.role === 'CHIEF_ACCOUNTANT' || 
-    activeUser.role === 'LEGAL_DEPT' ||
-    activeUser.role === currentStep?.approverRole;
+  const userPositions = [
+    { department: activeUser.department, role: activeUser.role, roleTitle: activeUser.roleTitle },
+    ...(activeUser.secondaryPositions || [])
+  ];
+
+  const isDeptApprover = currentStep && !currentStep.approverId && userPositions.some(pos => {
+    const matchesDept = (pos.department && currentStep.department && pos.department.toLowerCase() === currentStep.department.toLowerCase()) ||
+      pos.role === currentStep.approverRole ||
+      (currentStep.department?.includes('Pháp chế') && pos.role === 'LEGAL_DEPT') ||
+      (currentStep.department?.includes('Kế toán') && pos.role === 'CHIEF_ACCOUNTANT') ||
+      (currentStep.department?.includes('Giám Đốc') && pos.role === 'DIRECTOR');
+
+    const isAuthorizedToSign = 
+      pos.role === 'DIRECTOR' || 
+      pos.role === 'ADMIN' || 
+      pos.role === 'DEPT_HEAD' || 
+      pos.role === 'CHIEF_ACCOUNTANT' || 
+      pos.role === 'LEGAL_DEPT' ||
+      pos.role === currentStep.approverRole;
+
+    return matchesDept && isAuthorizedToSign;
+  });
 
   const canUserApprove = 
     selectedDocument.status !== 'APPROVED' &&
     selectedDocument.status !== 'REJECTED' &&
     currentStep &&
     currentStep.status === 'CURRENT' &&
-    ((canApprove && (isExactUser || (isDeptApprover && isAuthorizedToSign))) || canOverride);
+    ((canApprove && (isExactUser || isDeptApprover)) || canOverride);
 
   const handleApproveSubmit = () => {
     setIsSubmitting(true);

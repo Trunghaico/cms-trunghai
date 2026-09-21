@@ -139,6 +139,48 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
+          {/* Quick Demo Accounts Toggle */}
+          <div className="mt-6 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+              className="w-full flex items-center justify-between text-xs font-semibold text-[#203a7a] hover:text-[#182e63] py-1 cursor-pointer"
+            >
+              <span>Chọn tài khoản mẫu đăng nhập nhanh</span>
+              {showDemoAccounts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+
+            {showDemoAccounts && (
+              <div className="mt-2.5 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {users.map(u => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => handleQuickLogin(u.username, u.pass)}
+                    className="w-full text-left p-2 rounded bg-slate-50 hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 transition-colors flex items-center justify-between group cursor-pointer"
+                  >
+                    <div>
+                      <div className="text-[12px] font-bold text-slate-800 group-hover:text-[#203a7a]">
+                        {u.name}
+                        {u.secondaryPositions && u.secondaryPositions.length > 0 && (
+                          <span className="ml-1.5 text-[9.5px] bg-amber-100 text-amber-900 border border-amber-300 px-1 py-0.2 rounded font-bold">
+                            Kiêm 2 phòng ban
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        @{u.username} • {u.roleTitle} ({u.department})
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Đăng nhập →
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
       </div>

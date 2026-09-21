@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Building2, 
@@ -11,26 +11,59 @@ import {
   AlertCircle, 
   X, 
   Users, 
-  Sliders
+  Sliders,
+  HardDrive,
+  Database,
+  RefreshCw,
+  UploadCloud,
+  CheckCircle,
+  Wifi,
+  WifiOff,
+  Clock,
+  DownloadCloud,
+  Server,
+  Zap,
+  ShieldCheck,
+  Activity
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { DepartmentItem, JobTitleItem } from '../../types';
+import { NASBackupItem, MINIO_ENDPOINT, MINIO_BUCKET, MINIO_ACCESS_KEY, uploadFileToNAS } from '../../lib/nasStorageService';
 
 export const SystemSettingsView: React.FC = () => {
   const { 
     departments, 
     jobTitles, 
     users, 
+    documents,
     createDepartment, 
     updateDepartment, 
     deleteDepartment, 
     createJobTitle, 
     updateJobTitle, 
-    deleteJobTitle 
+    deleteJobTitle,
+    syncToNAS,
+    syncFromNAS,
+    testNAS,
+    listBackups,
+    isNASSyncing,
+    lastNASSyncTime,
+    nasSyncStatus,
+    autoBackupConfig,
+    autoBackupCountdown,
+    updateAutoBackupConfig
   } = useDocument();
 
-  const [activeSubTab, setActiveSubTab] = useState<'departments' | 'job-titles'>('departments');
+  const [activeSubTab, setActiveSubTab] = useState<'departments' | 'job-titles' | 'nas-storage'>('departments');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // NAS Storage Tab State
+  const [isTestingNAS, setIsTestingNAS] = useState(false);
+  const [nasTestResult, setNasTestResult] = useState<{ success: boolean; message: string; latencyMs?: number; bucket?: string } | null>(null);
+  const [backups, setBackups] = useState<NASBackupItem[]>([]);
+  const [isLoadingBackups, setIsLoadingBackups] = useState(false);
+  const [testUploadMsg, setTestUploadMsg] = useState<{ url: string; size: number } | null>(null);
+  const [isUploadingTest, setIsUploadingTest] = useState(false);
   
   // Department Modal State
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
@@ -207,6 +240,89 @@ export const SystemSettingsView: React.FC = () => {
     }
   };
 
+  // Load backups when switching to nas-storage tab
+  useEffect(() => {
+    if (activeSubTab === 'nas-storage') {
+      handleLoadBackups();
+    }
+  }, [activeSubTab]);
+
+  const handleTestNAS = async () => {
+    setIsTestingNAS(true);
+    setNasTestResult(null);
+    try {
+      const res = await testNAS();
+      setNasTestResult(res);
+      if (res.success) {
+        showNotification('success', res.message);
+      } else {
+        showNotification('error', res.message);
+      }
+    } catch (e: any) {
+      setNasTestResult({ success: false, message: e.message || 'Lỗi kiểm tra' });
+      showNotification('error', e.message || 'Lỗi kiểm tra');
+    } finally {
+      setIsTestingNAS(false);
+    }
+  };
+
+  const handleLoadBackups = async () => {
+    setIsLoadingBackups(true);
+    try {
+      const list = await listBackups();
+      setBackups(list);
+    } catch (e) {
+      console.error('Lỗi tải danh sách backup NAS:', e);
+    } finally {
+      setIsLoadingBackups(false);
+    }
+  };
+
+  const handleSyncToNAS = async () => {
+    const res = await syncToNAS();
+    if (res.success) {
+      showNotification('success', res.message || 'Sao lưu database lên NAS thành công!');
+      handleLoadBackups();
+    } else {
+      showNotification('error', res.message || 'Lỗi sao lưu lên NAS.');
+    }
+  };
+
+  const handleRestoreFromNAS = async (backupKey?: string) => {
+    const confirmMsg = backupKey 
+      ? `Bạn có chắc muốn khôi phục dữ liệu từ bản sao lưu:\n${backupKey}?\n\nDữ liệu hiện tại trên ứng dụng sẽ được thay thế theo bản sao lưu này.`
+      : 'Bạn có chắc muốn đồng bộ và khôi phục toàn bộ database từ bản mới nhất trên MinIO NAS?';
+    if (confirm(confirmMsg)) {
+      const res = await syncFromNAS(backupKey);
+      if (res.success) {
+        showNotification('success', res.message);
+      } else {
+        showNotification('error', res.message);
+      }
+    }
+  };
+
+  const handleTestFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    setIsUploadingTest(true);
+    setTestUploadMsg(null);
+    try {
+      const res = await uploadFileToNAS(file);
+      if (res) {
+        setTestUploadMsg({ url: res.url, size: res.size });
+        showNotification('success', `Đã tải file "${file.name}" lên MinIO NAS thành công!`);
+      } else {
+        showNotification('error', 'Không thể tải file lên MinIO NAS.');
+      }
+    } catch (err: any) {
+      showNotification('error', err.message || 'Lỗi upload');
+    } finally {
+      setIsUploadingTest(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
@@ -255,11 +371,11 @@ export const SystemSettingsView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
               <button
                 onClick={() => { setActiveSubTab('departments'); setSearchTerm(''); }}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   activeSubTab === 'departments'
                     ? 'bg-white text-brand-blue shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -270,7 +386,7 @@ export const SystemSettingsView: React.FC = () => {
               </button>
               <button
                 onClick={() => { setActiveSubTab('job-titles'); setSearchTerm(''); }}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   activeSubTab === 'job-titles'
                     ? 'bg-white text-brand-blue shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -278,6 +394,17 @@ export const SystemSettingsView: React.FC = () => {
               >
                 <Briefcase className="w-4 h-4" />
                 <span>Chức Vụ ({jobTitles.length})</span>
+              </button>
+              <button
+                onClick={() => { setActiveSubTab('nas-storage'); setSearchTerm(''); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  activeSubTab === 'nas-storage'
+                    ? 'bg-white text-brand-blue shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <HardDrive className="w-4 h-4 text-emerald-600" />
+                <span>Lưu Trữ NAS MinIO</span>
               </button>
             </div>
 
@@ -289,7 +416,7 @@ export const SystemSettingsView: React.FC = () => {
                 <Plus className="w-4 h-4" />
                 <span>Thêm Phòng Ban</span>
               </button>
-            ) : (
+            ) : activeSubTab === 'job-titles' ? (
               <button
                 onClick={handleOpenCreateJob}
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-blue hover:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
@@ -297,12 +424,31 @@ export const SystemSettingsView: React.FC = () => {
                 <Plus className="w-4 h-4" />
                 <span>Thêm Chức Vụ</span>
               </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleTestNAS}
+                  disabled={isTestingNAS}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isTestingNAS ? 'animate-spin' : ''}`} />
+                  <span>{isTestingNAS ? 'Đang test...' : 'Test kết nối NAS'}</span>
+                </button>
+                <button
+                  onClick={handleSyncToNAS}
+                  disabled={isNASSyncing}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <UploadCloud className={`w-4 h-4 ${isNASSyncing ? 'animate-bounce' : ''}`} />
+                  <span>{isNASSyncing ? 'Đang lưu...' : 'Sao Lưu Lên NAS'}</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
 
         {/* Quick Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-5 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-5 border-t border-slate-100">
           <div className="flex items-center gap-3.5 p-3.5 rounded-lg bg-blue-50/50 border border-blue-100">
             <div className="p-2 bg-blue-100 text-blue-700 rounded-md">
               <Building2 className="w-5 h-5" />
@@ -330,6 +476,21 @@ export const SystemSettingsView: React.FC = () => {
             <div>
               <div className="text-lg font-bold text-slate-900">{users.length}</div>
               <div className="text-[11px] font-medium text-slate-500">Nhân sự trong hệ thống</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3.5 p-3.5 rounded-lg bg-amber-50/50 border border-amber-200">
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-md">
+              <HardDrive className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-xs font-bold text-slate-900">MinIO NAS Online</span>
+              </div>
+              <div className="text-[10.5px] font-medium text-slate-500 truncate max-w-[140px]" title="crm.trunghaico.vn">
+                Bucket: {MINIO_BUCKET}
+              </div>
             </div>
           </div>
         </div>
@@ -523,6 +684,393 @@ export const SystemSettingsView: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* TAB 3: NAS MINIO S3 STORAGE & DATABASE */}
+        {activeSubTab === 'nas-storage' && (
+          <div className="p-6 space-y-6">
+            
+            {/* 1. AUTO-BACKUP & SYNC ENGINE CONTROL PANEL */}
+            <div className="p-5 rounded-xl bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-emerald-50/60 border border-brand-blue/20 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-brand-blue/15">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-brand-blue text-white rounded-xl shadow-xs">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                      <span>Cơ Chế Tự Động Sao Lưu & Tải Lên MinIO NAS</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10.5px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        2-Way Auto Sync
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Tự động đồng bộ 2 chiều giữa Website và MinIO Database trên Synology NAS theo thời gian thực
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                    isNASSyncing
+                      ? 'bg-blue-100 text-brand-blue border-blue-300 animate-pulse'
+                      : autoBackupConfig.enabled
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                      : 'bg-slate-100 text-slate-500 border-slate-300'
+                  }`}>
+                    {isNASSyncing ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang đồng bộ...</span>
+                      </>
+                    ) : autoBackupConfig.enabled ? (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Auto-Backup: BẬT</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                        <span>Auto-Backup: TẮT</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 Core Auto-Backup Configuration Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                {/* Setting 1: Periodic Auto Backup */}
+                <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-brand-blue" />
+                      <span>Sao lưu định kỳ</span>
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoBackupConfig.enabled}
+                        onChange={(e) => updateAutoBackupConfig({ enabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] text-slate-500 font-medium block">Chu kỳ sao lưu tự động:</label>
+                    <select
+                      value={autoBackupConfig.intervalMinutes}
+                      onChange={(e) => updateAutoBackupConfig({ intervalMinutes: Number(e.target.value) })}
+                      disabled={!autoBackupConfig.enabled}
+                      className="w-full text-xs font-semibold p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-brand-blue disabled:opacity-50"
+                    >
+                      <option value={1}>Mỗi 1 phút (Test / Realtime)</option>
+                      <option value={5}>Mỗi 5 phút</option>
+                      <option value={10}>Mỗi 10 phút (Khuyến nghị)</option>
+                      <option value={15}>Mỗi 15 phút</option>
+                      <option value={30}>Mỗi 30 phút</option>
+                      <option value={60}>Mỗi 1 giờ</option>
+                    </select>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Đếm ngược:</span>
+                    <span className="font-mono font-bold text-brand-blue bg-blue-50 px-2 py-0.5 rounded">
+                      {autoBackupConfig.enabled 
+                        ? `${Math.floor(autoBackupCountdown / 60).toString().padStart(2, '0')}:${(autoBackupCountdown % 60).toString().padStart(2, '0')}`
+                        : '--:--'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Setting 2: Backup on Data Mutation */}
+                <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Activity className="w-4 h-4 text-purple-600" />
+                        <span>Lưu khi có dữ liệu mới</span>
+                      </span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={autoBackupConfig.backupOnChange}
+                          onChange={(e) => updateAutoBackupConfig({ backupOnChange: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Tự động sao lưu lên NAS sau 5 giây ngay khi tạo hồ sơ, phê duyệt, từ chối hoặc cập nhật phòng ban / nhân sự.
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 text-[11px] text-purple-700 font-semibold flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Debounce 5s thông minh</span>
+                  </div>
+                </div>
+
+                {/* Setting 3: Sync on Startup */}
+                <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <DownloadCloud className="w-4 h-4 text-emerald-600" />
+                        <span>Đồng bộ khi mở Web</span>
+                      </span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={autoBackupConfig.syncOnStartup}
+                          onChange={(e) => updateAutoBackupConfig({ syncOnStartup: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Tự động tải snapshot cơ sở dữ liệu mới nhất từ MinIO NAS về trình duyệt khi khởi động hoặc tải lại trang web.
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Dữ liệu luôn đồng nhất</span>
+                  </div>
+                </div>
+
+                {/* Setting 4: Auto-upload Attachments */}
+                <div className="p-4 bg-white rounded-xl border border-slate-200/90 shadow-2xs space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <UploadCloud className="w-4 h-4 text-blue-600" />
+                        <span>Tự tải tệp lên NAS</span>
+                      </span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={autoBackupConfig.autoUploadFiles}
+                          onChange={(e) => updateAutoBackupConfig({ autoUploadFiles: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Mọi file scan OCR, PDF, ảnh đính kèm khi tạo hoặc duyệt hồ sơ sẽ được lưu trực tiếp vào bucket NAS <code className="font-mono text-[10px]">crm.trunghaico.vn</code>.
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 text-[11px] text-blue-700 font-semibold flex items-center gap-1">
+                    <Server className="w-3.5 h-3.5" />
+                    <span>Lưu trữ vĩnh viễn trên NAS</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* 2. SERVER STATUS & CREDENTIALS CARD */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="md:col-span-2 p-5 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-emerald-100 text-emerald-800 rounded-lg">
+                      <Server className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm">Thông Số MinIO S3 API (Synology NAS)</h3>
+                      <p className="text-[11px] text-slate-500">Cổng lưu trữ chuẩn S3 tốc độ cao</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleTestNAS}
+                    disabled={isTestingNAS}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-brand-blue ${isTestingNAS ? 'animate-spin' : ''}`} />
+                    <span>{isTestingNAS ? 'Đang kiểm tra...' : 'Kiểm Tra Kết Nối'}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 bg-white rounded-lg border border-slate-200">
+                    <span className="text-slate-400 text-[10.5px] font-medium block">Endpoint S3 API</span>
+                    <span className="font-mono font-bold text-slate-800 text-xs">{MINIO_ENDPOINT}</span>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg border border-slate-200">
+                    <span className="text-slate-400 text-[10.5px] font-medium block">Bucket Lưu Trữ</span>
+                    <span className="font-mono font-bold text-brand-blue text-xs">{MINIO_BUCKET}</span>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg border border-slate-200">
+                    <span className="text-slate-400 text-[10.5px] font-medium block">Access Key ID</span>
+                    <span className="font-mono font-bold text-slate-800 text-xs">{MINIO_ACCESS_KEY}</span>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg border border-slate-200">
+                    <span className="text-slate-400 text-[10.5px] font-medium block">Secret Key</span>
+                    <span className="font-mono font-bold text-slate-800 text-xs">•••••••• (Đã bảo mật)</span>
+                  </div>
+                </div>
+
+                {nasTestResult && (
+                  <div className={`p-3 rounded-lg text-xs flex items-center gap-2 border ${
+                    nasTestResult.success ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+                  }`}>
+                    {nasTestResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{nasTestResult.message}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Actions Panel */}
+              <div className="p-5 rounded-xl bg-gradient-to-br from-brand-blue/5 to-slate-50 border border-brand-blue/20 flex flex-col justify-between space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 font-bold text-slate-900 text-sm mb-2">
+                    <Database className="w-4 h-4 text-brand-blue" />
+                    <span>Dung Lượng & Thống Kê Database</span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Đang quản lý <strong>{documents.length}</strong> hồ sơ, <strong>{users.length}</strong> nhân sự, <strong>{departments.length}</strong> phòng ban và <strong>{jobTitles.length}</strong> chức vụ.
+                  </p>
+                  <div className="mt-3 text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">Lần sao lưu gần nhất: {lastNASSyncTime ? new Date(lastNASSyncTime).toLocaleString('vi-VN') : 'Chưa đồng bộ'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <button
+                    onClick={handleSyncToNAS}
+                    disabled={isNASSyncing}
+                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <UploadCloud className={`w-4 h-4 ${isNASSyncing ? 'animate-bounce' : ''}`} />
+                    <span>{isNASSyncing ? 'Đang sao lưu...' : 'Sao Lưu Database Ngay'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleRestoreFromNAS()}
+                    disabled={isNASSyncing}
+                    className="w-full py-2 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <DownloadCloud className="w-4 h-4 text-brand-blue" />
+                    <span>Khôi Phục Bản Mới Nhất</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. File Upload Test on NAS */}
+            <div className="p-5 rounded-xl bg-white border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                  <UploadCloud className="w-4 h-4 text-emerald-600" />
+                  <span>Test Tải Tệp / Đính Kèm Trực Tiếp Lên MinIO NAS</span>
+                </div>
+                <span className="text-[11px] text-slate-400">Hỗ trợ PDF, hình ảnh, tài liệu scan...</span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <label className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer transition-colors">
+                  <UploadCloud className="w-4 h-4 text-brand-blue" />
+                  <span>{isUploadingTest ? 'Đang tải lên NAS...' : 'Chọn file test upload lên NAS'}</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleTestFileUpload}
+                    disabled={isUploadingTest}
+                  />
+                </label>
+
+                {testUploadMsg && (
+                  <div className="flex-1 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center justify-between gap-2 overflow-hidden">
+                    <span className="truncate font-mono text-[11px]">{testUploadMsg.url}</span>
+                    <a
+                      href={testUploadMsg.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-[11px] shrink-0"
+                    >
+                      Mở file ↗
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 4. Historical Backups on NAS Table */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                  <Database className="w-4 h-4 text-purple-600" />
+                  <span>Lịch Sử Các Bản Sao Lưu Database Trên MinIO NAS ({backups.length})</span>
+                </div>
+                <button
+                  onClick={handleLoadBackups}
+                  disabled={isLoadingBackups}
+                  className="flex items-center gap-1 text-xs text-brand-blue font-semibold hover:underline cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBackups ? 'animate-spin' : ''}`} />
+                  <span>Làm mới danh sách</span>
+                </button>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                      <th className="py-3 px-4 w-12 text-center">STT</th>
+                      <th className="py-3 px-4">Tên File Bản Sao Lưu Trên NAS</th>
+                      <th className="py-3 px-4">Thời Điểm Sao Lưu</th>
+                      <th className="py-3 px-4 text-right">Dung Lượng</th>
+                      <th className="py-3 px-4 text-right">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {backups.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-400">
+                          {isLoadingBackups ? 'Đang tải danh sách bản sao lưu từ NAS...' : 'Chưa có bản sao lưu lịch sử nào. Nhấn "Sao Lưu Lên NAS" để tạo bản snapshot đầu tiên!'}
+                        </td>
+                      </tr>
+                    ) : (
+                      backups.map((b, idx) => (
+                        <tr key={b.key} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4 text-center font-mono text-slate-400">{idx + 1}</td>
+                          <td className="py-3 px-4">
+                            <span className="font-mono font-bold text-brand-blue">{b.fileName}</span>
+                            <div className="text-[10px] text-slate-400 font-mono">{b.key}</div>
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {new Date(b.lastModified).toLocaleString('vi-VN')}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-600">
+                            {(b.size / 1024).toFixed(1)} KB
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => handleRestoreFromNAS(b.key)}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-brand-blue border border-brand-blue/30 rounded text-xs font-semibold transition-colors cursor-pointer"
+                              title="Khôi phục database từ snapshot này"
+                            >
+                              Khôi phục bản này
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>

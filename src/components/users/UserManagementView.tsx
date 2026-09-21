@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocument } from '../../context/DocumentContext';
-import { User, UserRole, PermissionId } from '../../types';
+import { User, UserRole, PermissionId, UserPosition } from '../../types';
 import { 
   ALL_PERMISSIONS, 
   PERMISSION_CATEGORIES, 
@@ -75,6 +75,7 @@ export const UserManagementView: React.FC = () => {
   const [department, setDepartment] = useState('Phòng Kỹ thuật & Dự án');
   const [role, setRole] = useState<UserRole>('STAFF');
   const [selectedPermissions, setSelectedPermissions] = useState<PermissionId[]>([]);
+  const [secondaryPositions, setSecondaryPositions] = useState<UserPosition[]>([]);
 
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [errorMsg, setErrorMsg] = useState('');
@@ -98,6 +99,28 @@ export const UserManagementView: React.FC = () => {
     setEditingUser(null);
   };
 
+  const addSecondaryPosition = () => {
+    setSecondaryPositions(prev => [
+      ...prev,
+      {
+        roleTitle: '',
+        department: departments[0] || 'Phòng Kỹ thuật & Dự án',
+        role: 'DEPT_HEAD'
+      }
+    ]);
+  };
+
+  const updateSecondaryPosition = (index: number, field: keyof UserPosition, value: any) => {
+    setSecondaryPositions(prev => prev.map((pos, idx) => {
+      if (idx !== index) return pos;
+      return { ...pos, [field]: value };
+    }));
+  };
+
+  const removeSecondaryPosition = (index: number) => {
+    setSecondaryPositions(prev => prev.filter((_, idx) => idx !== index));
+  };
+
   const openCreateModal = () => {
     setEditingUser(null);
     setFullName('');
@@ -107,6 +130,7 @@ export const UserManagementView: React.FC = () => {
     setDepartment('Phòng Kỹ thuật & Dự án');
     setRole('STAFF');
     setSelectedPermissions([...ROLE_PRESET_PERMISSIONS.STAFF]);
+    setSecondaryPositions([]);
     setErrorMsg('');
     setIsModalOpen(true);
   };
@@ -120,6 +144,7 @@ export const UserManagementView: React.FC = () => {
     setDepartment(user.department);
     setRole(user.role);
     setSelectedPermissions(user.permissions || ROLE_PRESET_PERMISSIONS[user.role] || [...ROLE_PRESET_PERMISSIONS.STAFF]);
+    setSecondaryPositions(user.secondaryPositions ? [...user.secondaryPositions] : []);
     setErrorMsg('');
     setIsModalOpen(true);
   };
@@ -168,6 +193,14 @@ export const UserManagementView: React.FC = () => {
       return;
     }
 
+    const validSecondaryPositions = secondaryPositions
+      .map(p => ({
+        roleTitle: p.roleTitle.trim(),
+        department: p.department.trim(),
+        role: p.role || 'STAFF'
+      }))
+      .filter(p => p.roleTitle && p.department);
+
     if (editingUser) {
       const result = updateUser(editingUser.id, {
         name: fullName.trim(),
@@ -177,6 +210,7 @@ export const UserManagementView: React.FC = () => {
         department: department.trim(),
         role: role,
         permissions: selectedPermissions,
+        secondaryPositions: validSecondaryPositions,
       });
 
       if (result.success) {
@@ -193,6 +227,7 @@ export const UserManagementView: React.FC = () => {
         department: department.trim(),
         role: role,
         permissions: selectedPermissions,
+        secondaryPositions: validSecondaryPositions,
       });
 
       if (result.success) {
@@ -388,13 +423,33 @@ export const UserManagementView: React.FC = () => {
                       </td>
 
                       {/* 5. Chức vụ */}
-                      <td className="px-4 py-2.5 font-medium text-slate-800 whitespace-nowrap">
-                        {user.roleTitle}
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <div className="font-bold text-slate-800">{user.roleTitle}</div>
+                        {user.secondaryPositions && user.secondaryPositions.length > 0 && (
+                          <div className="mt-1 flex flex-col gap-0.5">
+                            {user.secondaryPositions.map((sp, sIdx) => (
+                              <span key={sIdx} className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-[2px] w-fit">
+                                <Briefcase className="h-2.5 w-2.5 text-amber-600 shrink-0" />
+                                <span>Kiêm: {sp.roleTitle}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
 
                       {/* 6. Phòng ban */}
-                      <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
-                        {user.department}
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <div className="text-slate-700 font-medium">{user.department}</div>
+                        {user.secondaryPositions && user.secondaryPositions.length > 0 && (
+                          <div className="mt-1 flex flex-col gap-0.5">
+                            {user.secondaryPositions.map((sp, sIdx) => (
+                              <span key={sIdx} className="inline-flex items-center gap-1 text-[10px] text-amber-800 font-medium">
+                                <Building2 className="h-2.5 w-2.5 text-amber-500 shrink-0" />
+                                <span>{sp.department}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
 
                       {/* 7. Ma trận quyền */}
@@ -490,7 +545,10 @@ export const UserManagementView: React.FC = () => {
                         Quyền hạn: {inspectingUser.name}
                       </h3>
                       <p className="text-[10px] text-blue-100">
-                        @{inspectingUser.username} • {inspectingUser.roleTitle}
+                        @{inspectingUser.username} • {inspectingUser.roleTitle} ({inspectingUser.department})
+                        {inspectingUser.secondaryPositions && inspectingUser.secondaryPositions.length > 0 && (
+                          <span className="text-amber-200"> • Kiêm: {inspectingUser.secondaryPositions.map(s => `${s.roleTitle} (${s.department})`).join(', ')}</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -716,6 +774,91 @@ export const UserManagementView: React.FC = () => {
                         </datalist>
                       </div>
                     </div>
+                  </div>
+
+                  {/* 1.1 Vị Trí & Phòng Ban Kiêm Nhiệm */}
+                  <div className="p-3.5 bg-amber-50/60 border border-amber-200/90 rounded-[3px] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                        <Briefcase className="h-3.5 w-3.5 text-amber-600" />
+                        <span>Vị Trí & Phòng Ban Kiêm Nhiệm (Tùy chọn)</span>
+                        {secondaryPositions.length > 0 && (
+                          <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-1.5 py-0.2 rounded-full">
+                            {secondaryPositions.length}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addSecondaryPosition}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300/80 px-2 py-0.5 rounded-[2px] cursor-pointer transition-colors"
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>Thêm vị trí kiêm nhiệm</span>
+                      </button>
+                    </div>
+
+                    {secondaryPositions.length === 0 ? (
+                      <p className="text-[11px] text-slate-500 italic">
+                        Nhân sự này hiện chưa kiêm nhiệm chức vụ nào khác. Nhấn <strong>"Thêm vị trí kiêm nhiệm"</strong> để phân công nhân sự nắm giữ thêm chức vụ ở phòng ban thứ 2.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 pt-1">
+                        {secondaryPositions.map((pos, pIdx) => (
+                          <div key={pIdx} className="p-2.5 bg-white border border-amber-200 rounded-[3px] grid grid-cols-1 sm:grid-cols-12 gap-2 items-center shadow-2xs">
+                            <div className="sm:col-span-4">
+                              <label className="block text-[10.5px] font-bold text-slate-600 mb-0.5">Chức vụ kiêm nhiệm</label>
+                              <input
+                                type="text"
+                                list="system-job-titles-list"
+                                value={pos.roleTitle}
+                                onChange={(e) => updateSecondaryPosition(pIdx, 'roleTitle', e.target.value)}
+                                placeholder="VD: Trưởng phòng Cung ứng"
+                                className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-4">
+                              <label className="block text-[10.5px] font-bold text-slate-600 mb-0.5">Phòng ban kiêm nhiệm</label>
+                              <input
+                                type="text"
+                                list="system-depts-list"
+                                value={pos.department}
+                                onChange={(e) => updateSecondaryPosition(pIdx, 'department', e.target.value)}
+                                placeholder="VD: Phòng Cung ứng & Vật tư"
+                                className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-3">
+                              <label className="block text-[10.5px] font-bold text-slate-600 mb-0.5">Thẩm quyền ký duyệt</label>
+                              <select
+                                value={pos.role}
+                                onChange={(e) => updateSecondaryPosition(pIdx, 'role', e.target.value as UserRole)}
+                                className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+                              >
+                                <option value="STAFF">Chuyên viên</option>
+                                <option value="DEPT_HEAD">Trưởng phòng</option>
+                                <option value="CHIEF_ACCOUNTANT">Kế toán trưởng</option>
+                                <option value="LEGAL_DEPT">Pháp chế</option>
+                                <option value="DIRECTOR">Ban Giám đốc</option>
+                              </select>
+                            </div>
+
+                            <div className="sm:col-span-1 flex justify-center pt-2 sm:pt-4">
+                              <button
+                                type="button"
+                                onClick={() => removeSecondaryPosition(pIdx)}
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                title="Xóa vị trí kiêm nhiệm này"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* 2. Ma Trận Phân Quyền Chi Tiết */}

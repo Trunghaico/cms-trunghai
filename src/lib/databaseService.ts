@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from './supabaseClient';
+import { supabase, supabaseAdmin, isSupabaseConfigured } from './supabaseClient';
 import { DepartmentItem, JobTitleItem, User } from '../types';
 import { INITIAL_DEPARTMENTS, INITIAL_JOB_TITLES, USERS } from './initialData';
 
@@ -11,6 +11,7 @@ const dbClient = supabaseAdmin || supabase;
  * =========================================================================
  */
 export const fetchDepartmentsFromDB = async (): Promise<DepartmentItem[] | null> => {
+  if (!isSupabaseConfigured) return null;
   try {
     const { data, error } = await dbClient
       .from('departments')
@@ -101,6 +102,7 @@ export const deleteDepartmentFromDB = async (id: string): Promise<boolean> => {
  * =========================================================================
  */
 export const fetchJobTitlesFromDB = async (): Promise<JobTitleItem[] | null> => {
+  if (!isSupabaseConfigured) return null;
   try {
     const { data, error } = await dbClient
       .from('job_titles')
@@ -132,6 +134,7 @@ export const fetchJobTitlesFromDB = async (): Promise<JobTitleItem[] | null> => 
 };
 
 export const seedInitialJobTitlesToDB = async () => {
+  if (!isSupabaseConfigured) return;
   try {
     const payload = INITIAL_JOB_TITLES.map(j => ({
       id: j.id,
@@ -147,6 +150,7 @@ export const seedInitialJobTitlesToDB = async () => {
 };
 
 export const saveJobTitleToDB = async (job: JobTitleItem): Promise<boolean> => {
+  if (!isSupabaseConfigured) return false;
   try {
     const payload = {
       id: job.id,
@@ -171,6 +175,7 @@ export const saveJobTitleToDB = async (job: JobTitleItem): Promise<boolean> => {
 };
 
 export const deleteJobTitleFromDB = async (id: string): Promise<boolean> => {
+  if (!isSupabaseConfigured) return false;
   try {
     const { error } = await dbClient
       .from('job_titles')
@@ -194,6 +199,7 @@ export const deleteJobTitleFromDB = async (id: string): Promise<boolean> => {
  * =========================================================================
  */
 export const fetchUsersFromDB = async (): Promise<User[] | null> => {
+  if (!isSupabaseConfigured) return null;
   try {
     const { data, error } = await dbClient
       .from('users')
@@ -230,6 +236,7 @@ export const fetchUsersFromDB = async (): Promise<User[] | null> => {
 };
 
 export const seedInitialUsersToDB = async () => {
+  if (!isSupabaseConfigured) return;
   try {
     const payload = USERS.map(u => ({
       id: u.id,
@@ -249,6 +256,7 @@ export const seedInitialUsersToDB = async () => {
 };
 
 export const saveUserToDB = async (user: User): Promise<boolean> => {
+  if (!isSupabaseConfigured) return false;
   try {
     const payload = {
       id: user.id,
@@ -277,6 +285,7 @@ export const saveUserToDB = async (user: User): Promise<boolean> => {
 };
 
 export const deleteUserFromDB = async (id: string): Promise<boolean> => {
+  if (!isSupabaseConfigured) return false;
   try {
     const { error } = await dbClient
       .from('users')
