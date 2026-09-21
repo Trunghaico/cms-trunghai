@@ -461,6 +461,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                         >
                           <option value="STAFF">Chuyên viên (Lập hồ sơ)</option>
                           <option value="DEPT_HEAD">Trưởng phòng (Duyệt cấp phòng)</option>
+                          <option value="BOARD_HEAD">Trưởng ban (Duyệt cấp Ban)</option>
                           <option value="CHIEF_ACCOUNTANT">Kế toán trưởng (Thẩm định tài chính)</option>
                           <option value="LEGAL_DEPT">Pháp chế (Kiểm soát pháp lý)</option>
                           <option value="DIRECTOR">Ban Giám đốc (Duyệt tối cao)</option>

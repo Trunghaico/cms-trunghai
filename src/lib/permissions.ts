@@ -218,6 +218,19 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'system.dashboard',
     'system.audit_log'
   ],
+  BOARD_HEAD: [
+    'doc.view',
+    'doc.create',
+    'doc.edit',
+    'doc.print_export',
+    'approval.approve',
+    'approval.reject',
+    'approval.request_info',
+    'workflow.view',
+    'dms.view',
+    'system.dashboard',
+    'system.audit_log'
+  ],
   CHIEF_ACCOUNTANT: [
     'doc.view',
     'doc.create',
@@ -309,6 +322,15 @@ export const DEFAULT_PERMISSION_PRESETS: PermissionPreset[] = [
     permissions: [...ROLE_PRESET_PERMISSIONS.DEPT_HEAD],
     isSystem: true,
     description: 'Thẩm quyền phê duyệt cấp phòng ban chuyên môn và khởi tạo hồ sơ',
+  },
+  {
+    id: 'preset-board-head',
+    name: 'Trưởng ban',
+    role: 'BOARD_HEAD',
+    roleTitle: 'Trưởng ban (Duyệt cấp Ban)',
+    permissions: [...ROLE_PRESET_PERMISSIONS.BOARD_HEAD],
+    isSystem: true,
+    description: 'Thẩm quyền phê duyệt cấp Ban (Ban QLDA, Ban Kiểm soát, Ban Chỉ huy...) và khởi tạo hồ sơ',
   },
   {
     id: 'preset-chief-accountant',
@@ -488,6 +510,7 @@ export function isUserApproverForStep(user: User | null | undefined, step: Appro
   return matchingPositions.some(pos => {
     const isLeadershipRole = 
       pos.role === 'DEPT_HEAD' || 
+      pos.role === 'BOARD_HEAD' ||
       pos.role === 'CHIEF_ACCOUNTANT' || 
       pos.role === 'LEGAL_DEPT' || 
       pos.role === 'DIRECTOR' || 

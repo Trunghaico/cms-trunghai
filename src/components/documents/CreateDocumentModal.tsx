@@ -307,16 +307,21 @@ export const CreateDocumentModal: React.FC = () => {
         };
       } else {
         const dName = item.departmentName;
+        const isBoard = dName.toLowerCase().startsWith('ban ') || 
+                        dName.toLowerCase().includes('ban qlda') || 
+                        dName.toLowerCase().includes('ban kiểm soát') ||
+                        dName.toLowerCase().includes('ban điều hành');
         const role: UserRole = dName.includes('Giám Đốc') ? 'DIRECTOR' :
                                dName.includes('Kế toán') ? 'CHIEF_ACCOUNTANT' :
-                               dName.includes('Pháp chế') ? 'LEGAL_DEPT' : 'DEPT_HEAD';
+                               dName.includes('Pháp chế') ? 'LEGAL_DEPT' : 
+                               isBoard ? 'BOARD_HEAD' : 'DEPT_HEAD';
         return {
           id: `step-${Date.now()}-${idx}`,
           stepOrder: idx + 1,
-          title: `Duyệt cấp phòng (${dName})`,
+          title: isBoard ? `Duyệt cấp Ban (${dName})` : `Duyệt cấp phòng (${dName})`,
           approverRole: role,
           approverName: dName,
-          approverTitle: 'Đại diện phòng ban',
+          approverTitle: isBoard ? 'Đại diện Ban' : 'Đại diện phòng ban',
           department: dName,
           status: idx === 0 ? 'CURRENT' : 'PENDING',
           slaHours: 8,

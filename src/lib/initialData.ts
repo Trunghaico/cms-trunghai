@@ -779,6 +779,13 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
+    id: 'dept-bqlda',
+    name: 'Ban Quản lý Dự án',
+    code: 'BQLDA',
+    description: 'Chỉ đạo, điều hành toàn diện công tác quản lý dự án, giám sát chất lượng và tiến độ thi công.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
     id: 'dept-pcks',
     name: 'Ban Pháp chế & Kiểm soát',
     code: 'PCKS',
@@ -850,6 +857,15 @@ export const INITIAL_JOB_TITLES: JobTitleItem[] = [
     department: 'Phòng Pháp chế & Kiểm soát',
     defaultRole: 'LEGAL_DEPT',
     description: 'Chịu trách nhiệm thẩm định điều khoản hợp đồng và rủi ro pháp lý.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'title-tb-qlda',
+    name: 'Trưởng ban Quản lý Dự án',
+    code: 'TB_QLDA',
+    department: 'Ban Quản lý Dự án',
+    defaultRole: 'BOARD_HEAD',
+    description: 'Thẩm quyền phê duyệt cấp Ban cho các dự án, gói thầu và khối lượng thi công.',
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {

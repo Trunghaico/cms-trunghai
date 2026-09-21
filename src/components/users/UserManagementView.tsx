@@ -899,6 +899,7 @@ export const UserManagementView: React.FC = () => {
                               >
                                 <option value="STAFF">Chuyên viên</option>
                                 <option value="DEPT_HEAD">Trưởng phòng</option>
+                                <option value="BOARD_HEAD">Trưởng ban (Duyệt cấp Ban)</option>
                                 <option value="CHIEF_ACCOUNTANT">Kế toán trưởng</option>
                                 <option value="LEGAL_DEPT">Pháp chế</option>
                                 <option value="DIRECTOR">Ban Giám đốc</option>

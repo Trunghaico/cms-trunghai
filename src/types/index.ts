@@ -18,6 +18,7 @@ export type StepStatus =
 export type UserRole = 
   | 'STAFF'           // Chuyên viên / Nhân viên lập hồ sơ
   | 'DEPT_HEAD'       // Trưởng phòng
+  | 'BOARD_HEAD'      // Trưởng ban (Duyệt cấp Ban)
   | 'CHIEF_ACCOUNTANT'// Kế toán trưởng
   | 'LEGAL_DEPT'      // Phòng Pháp chế
   | 'DIRECTOR'        // Ban Giám đốc / Tổng Giám đốc
