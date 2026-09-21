@@ -388,24 +388,43 @@ export async function onRequest(context: any): Promise<Response> {
 
     // 5. Upload file attachment
     if (action === 'upload' && request.method === 'POST') {
-      const formData = await request.formData();
-      const file = formData.get('file');
-      if (!file || !(file instanceof File)) {
-        return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400, headers: corsHeaders });
+      const paramName = url.searchParams.get('name');
+      let fileName = paramName || `file_${Date.now()}.dat`;
+      let contentType = url.searchParams.get('type') || request.headers.get('content-type') || 'application/octet-stream';
+      let uint8: Uint8Array;
+
+      // Handle raw binary upload (avoids Cloudflare formData binary corruption)
+      if (paramName || !request.headers.get('content-type')?.includes('multipart/form-data')) {
+        const arrayBuffer = await request.arrayBuffer();
+        uint8 = new Uint8Array(arrayBuffer);
+      } else {
+        const formData = await request.formData();
+        const file = formData.get('file');
+        if (!file) {
+          return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400, headers: corsHeaders });
+        }
+        if (file instanceof File) {
+          fileName = file.name;
+          contentType = file.type || contentType;
+          uint8 = new Uint8Array(await file.arrayBuffer());
+        } else {
+          uint8 = new TextEncoder().encode(String(file));
+        }
       }
 
-      const fileExt = file.name.split('.').pop() || 'dat';
-      const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileExt = fileName.split('.').pop() || 'dat';
+      const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
       const filePath = `documents/${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${cleanName}`;
-      const contentType = file.type || (fileExt.toLowerCase() === 'pdf' ? 'application/pdf' : 'application/octet-stream');
+      const finalContentType = contentType.includes('multipart') 
+        ? (fileExt.toLowerCase() === 'pdf' ? 'application/pdf' : 'application/octet-stream') 
+        : contentType;
 
-      const arrayBuffer = await file.arrayBuffer();
       const uploadRes = await signedSocketFetch(aws, `${endpoint}/${bucket}/${filePath}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': contentType,
+          'Content-Type': finalContentType,
         },
-        body: new Uint8Array(arrayBuffer),
+        body: uint8,
       });
 
       if (!uploadRes.ok) {
@@ -420,7 +439,7 @@ export async function onRequest(context: any): Promise<Response> {
         url: gatewayUrl,
         directUrl: directUrl,
         path: filePath,
-        size: file.size,
+        size: uint8.byteLength,
       }), { headers: corsHeaders });
     }
 

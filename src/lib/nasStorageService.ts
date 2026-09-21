@@ -204,14 +204,17 @@ export const uploadFileToNAS = async (
   customFileName?: string
 ): Promise<{ url: string; path: string; size: number } | null> => {
   const fileName = customFileName || (file instanceof File ? file.name : `file_${Date.now()}.bin`);
+  const fileType = file.type || 'application/octet-stream';
 
   if (isGatewayMode()) {
     try {
-      const formData = new FormData();
-      formData.append('file', file, fileName);
-      const res = await fetch('/api/nas?action=upload', {
+      const uploadUrl = `/api/nas?action=upload&name=${encodeURIComponent(fileName)}&type=${encodeURIComponent(fileType)}`;
+      const res = await fetch(uploadUrl, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': fileType,
+        },
+        body: file,
       });
       if (!res.ok) {
         const msg = await extractErrorMessage(res);
