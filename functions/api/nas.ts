@@ -114,10 +114,14 @@ async function socketHttp(
   headerStr += '\r\n';
 
   await writer.write(new TextEncoder().encode(headerStr));
-  if (reqBodyBytes) {
-    await writer.write(reqBodyBytes);
+  if (reqBodyBytes && reqBodyBytes.length > 0) {
+    const CHUNK_SIZE = 32 * 1024;
+    for (let i = 0; i < reqBodyBytes.length; i += CHUNK_SIZE) {
+      const chunk = reqBodyBytes.subarray(i, Math.min(i + CHUNK_SIZE, reqBodyBytes.length));
+      await writer.write(chunk);
+    }
   }
-  writer.releaseLock();
+  await writer.close();
 
   const reader = socket.readable.getReader();
   const chunks: Uint8Array[] = [];
