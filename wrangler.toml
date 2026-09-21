@@ -1,3 +1,4 @@
+pages_build_output_dir = "dist"
 name = "cms-trunghai"
 compatibility_date = "2024-09-01"
 
