@@ -25,7 +25,7 @@ import { useDocument } from '../../context/DocumentContext';
 import { ApprovalStep, DocumentStatus, Attachment, User, UserRole } from '../../types';
 import { QuillEditor } from '../common/QuillEditor';
 import { PDFViewerModal } from '../common/PDFViewerModal';
-import { uploadFileToStorage } from '../../lib/supabaseClient';
+import { uploadFileToNAS } from '../../lib/nasStorageService';
 
 export type ApproverItem = 
   | { type: 'USER'; user: User; title?: string }
@@ -250,8 +250,8 @@ export const CreateDocumentModal: React.FC = () => {
       const isPdf = file.name.toLowerCase().endsWith('.pdf');
       const isImage = file.type.startsWith('image/');
 
-      const storageResult = await uploadFileToStorage(file);
-      const finalUrl = storageResult ? storageResult.url : URL.createObjectURL(file);
+      const nasResult = await uploadFileToNAS(file);
+      const finalUrl = nasResult ? nasResult.url : URL.createObjectURL(file);
 
       const newAtt: Attachment = {
         id: `att-upload-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,

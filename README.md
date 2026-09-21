@@ -38,7 +38,7 @@ Hệ thống quản trị và luân chuyển phê duyệt hồ sơ, hợp đồn
 | **Lucide React** | `^0.475.0` | Bộ biểu tượng (icons) hiện đại, sắc nét cho thanh điều hướng và nút chức năng. |
 | **Quill.js** | `^2.0.3` | Trình soạn thảo văn bản Rich Text Editor (WYSIWYG) định dạng tờ trình, bảng biểu, tiêu đề, căn lề. |
 | **Framer Motion** | `^13.4.0` | Thư viện tạo hiệu ứng chuyển cảnh mượt mà cho Modal, Popover và Animation. |
-| **@supabase/supabase-js** | `^2.49.1` | Client kết nối cơ sở dữ liệu Supabase Database, Auth và Storage. |
+| **@aws-sdk/client-s3** | `^3.1136.0` | Client kết nối MinIO S3 API trên Synology NAS phục vụ lưu trữ dữ liệu & file đính kèm. |
 | **React Portal + Native PDF Engine** | `React Native` | Trình xem file PDF đa tầng (`<object>`, `<iframe>`, `<embed>`, `FileReader` Base64) trực tiếp không phụ thuộc plugin ngoài. |
 | **clsx & tailwind-merge** | `^2.1.1` | Tiện ích kết hợp và tối ưu hóa các class CSS Tailwind động. |
 
@@ -136,7 +136,7 @@ Tất cả tài khoản mẫu có thể đăng nhập bằng mật khẩu mặc 
 
 ```
 quanlyhopdong/
-├── public/                     # Tài nguyên tĩnh
+├── public/                     # Tài nguyên tĩnh (_redirects, _headers, logo...)
 ├── src/
 │   ├── components/
 │   │   ├── auth/               # Giao diện Đăng nhập & Xác thực
@@ -158,6 +158,8 @@ quanlyhopdong/
 │   │   ├── layout/             # Khung sườn ứng dụng
 │   │   │   ├── Header.tsx      # Thanh Header trên cùng
 │   │   │   └── Sidebar.tsx     # Menu điều hướng bên trái
+│   │   ├── settings/           # Cấu hình phòng ban, chức danh & MinIO NAS
+│   │   │   └── SystemSettingsView.tsx
 │   │   ├── users/              # Quản lý người dùng & Phân quyền
 │   │   │   └── UserManagementView.tsx
 │   │   └── workflow/           # Cấu hình quy trình mẫu
@@ -168,7 +170,7 @@ quanlyhopdong/
 │   │   ├── initialData.ts      # Dữ liệu khởi tạo mẫu (Users, Documents, Templates)
 │   │   ├── permissions.ts      # Ma trận định nghĩa thẩm quyền chi tiết
 │   │   ├── storage.ts          # Tiện ích đọc/ghi LocalStorage & Format
-│   │   └── supabaseClient.ts   # Cấu hình kết nối Supabase
+│   │   └── nasStorageService.ts # Dịch vụ kết nối & đồng bộ MinIO NAS S3
 │   ├── types/
 │   │   └── index.ts            # Định nghĩa toàn bộ TypeScript Interfaces & Types
 │   ├── App.tsx                 # Component gốc điều hướng màn hình
@@ -178,6 +180,7 @@ quanlyhopdong/
 ├── package.json                # Danh sách thư viện và scripts
 ├── tailwind.config.js          # Cấu hình màu sắc, animation Tailwind CSS
 ├── tsconfig.json               # Cấu hình TypeScript
+├── wrangler.toml               # Cấu hình triển khai Cloudflare Workers & Pages
 └── vite.config.ts              # Cấu hình Vite Build Tool
 ```
 
@@ -188,9 +191,11 @@ quanlyhopdong/
 1. **Lưu trữ Offline / LocalStorage**:
    - Tất cả dữ liệu hồ sơ, tệp đính kèm Base64, nhật ký xử lý và phân quyền người dùng được lưu trữ tự động vào `localStorage` của trình duyệt.
    - Giúp ứng dụng hoạt động tức thì, không bị mất dữ liệu khi tải lại trang (F5).
-2. **Tích hợp Cơ sở dữ liệu Supabase (Tùy chọn)**:
-   - File cấu hình schema SQL sẵn có tại `supabase_schema.sql` để triển khai lên cloud database Postgres của Supabase khi cần đồng bộ đa người dùng trực tuyến.
+2. **Tự động sao lưu & Lưu trữ đám mây nội bộ (Synology NAS MinIO)**:
+   - Hệ thống tự động đồng bộ 2 chiều (Auto-backup & Auto-upload) với máy chủ MinIO S3 trên Synology NAS (`http://113.161.53.133:9000`).
+   - Tự động lưu trữ snapshot cơ sở dữ liệu (`database/cms_database_latest.json`) và lưu file đính kèm (`documents/`).
 
 ---
 
 *Hệ thống được phát triển bởi Bộ phận Công nghệ Thông tin - Công ty Cổ phần Công nghệ Trung Hải.*
+

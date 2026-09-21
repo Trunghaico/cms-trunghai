@@ -15,17 +15,6 @@ import {
   saveJobTitles
 } from '../lib/storage';
 import {
-  fetchDepartmentsFromDB,
-  fetchJobTitlesFromDB,
-  fetchUsersFromDB,
-  saveDepartmentToDB,
-  deleteDepartmentFromDB,
-  saveJobTitleToDB,
-  deleteJobTitleFromDB,
-  saveUserToDB,
-  deleteUserFromDB
-} from '../lib/databaseService';
-import {
   saveDatabaseToNAS,
   fetchDatabaseFromNAS,
   testNASConnection,
@@ -293,33 +282,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }).catch(e => console.warn('Khởi tạo baseline NAS:', e));
           }
         }
-
-        // Secondary fallback sync from Supabase if configured
-        const [dbDepts, dbJobs, dbUsers] = await Promise.all([
-          fetchDepartmentsFromDB(),
-          fetchJobTitlesFromDB(),
-          fetchUsersFromDB()
-        ]);
-        if (!isMounted) return;
-        if (dbDepts && dbDepts.length > 0) {
-          setDepartments(dbDepts);
-        }
-        if (dbJobs && dbJobs.length > 0) {
-          setJobTitles(dbJobs);
-        }
-        if (dbUsers && dbUsers.length > 0) {
-          setUsers(prev => {
-            return dbUsers.map(u => {
-              const localUser = prev.find(p => p.id === u.id || p.username === u.username);
-              return {
-                ...u,
-                permissions: localUser?.permissions?.length 
-                  ? localUser.permissions 
-                  : (ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF)
-              };
-            });
-          });
-        }
       } catch (err) {
         console.warn('Sync notification:', err);
       } finally {
@@ -474,7 +436,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     setUsers(prev => [...prev, newUser]);
-    saveUserToDB(newUser).catch(err => console.warn('Lỗi lưu user lên DB:', err));
     return { success: true };
   };
 
@@ -487,21 +448,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
 
-    let updatedTarget: User | null = null;
     setUsers(prev => prev.map(u => {
       if (u.id !== userId) return u;
       const updated = { ...u, ...userData };
-      updatedTarget = updated;
       if (activeUser?.id === userId) {
         setActiveUserState(updated);
         saveActiveUser(updated);
       }
       return updated;
     }));
-
-    if (updatedTarget) {
-      saveUserToDB(updatedTarget).catch(err => console.warn('Lỗi cập nhật user lên DB:', err));
-    }
 
     return { success: true };
   };
@@ -511,7 +466,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'Không thể xóa tài khoản đang đăng nhập hiện tại.' };
     }
     setUsers(prev => prev.filter(u => u.id !== userId));
-    deleteUserFromDB(userId).catch(err => console.warn('Lỗi xóa user trên DB:', err));
     return { success: true };
   };
 
@@ -549,7 +503,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       createdAt: new Date().toISOString()
     };
     setDepartments(prev => [...prev, newDept]);
-    saveDepartmentToDB(newDept).catch(err => console.warn('Lỗi lưu phòng ban lên DB:', err));
     return { success: true };
   };
 
@@ -566,18 +519,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: false, message: 'Mã phòng ban này đã được sử dụng.' };
       }
     }
-    let updatedDept: DepartmentItem | null = null;
     setDepartments(prev => prev.map(d => {
       if (d.id !== id) return d;
       const updated = { ...d, ...deptData };
       if (deptData.code) updated.code = deptData.code.trim().toUpperCase();
       if (deptData.name) updated.name = deptData.name.trim();
-      updatedDept = updated;
       return updated;
     }));
-    if (updatedDept) {
-      saveDepartmentToDB(updatedDept).catch(err => console.warn('Lỗi cập nhật phòng ban lên DB:', err));
-    }
     return { success: true };
   };
 
@@ -589,7 +537,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: `Không thể xóa phòng ban "${target.name}" vì đang có ${users.filter(u => u.department.toLowerCase() === target.name.toLowerCase()).length} nhân sự trực thuộc. Vui lòng chuyển phòng ban của nhân sự trước.` };
     }
     setDepartments(prev => prev.filter(d => d.id !== id));
-    deleteDepartmentFromDB(id).catch(err => console.warn('Lỗi xóa phòng ban trên DB:', err));
     return { success: true };
   };
 
@@ -614,7 +561,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       createdAt: new Date().toISOString()
     };
     setJobTitles(prev => [...prev, newJobTitle]);
-    saveJobTitleToDB(newJobTitle).catch(err => console.warn('Lỗi lưu chức vụ lên DB:', err));
     return { success: true };
   };
 
@@ -631,18 +577,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: false, message: 'Mã chức vụ này đã được sử dụng.' };
       }
     }
-    let updatedJob: JobTitleItem | null = null;
     setJobTitles(prev => prev.map(j => {
       if (j.id !== id) return j;
       const updated = { ...j, ...titleData };
       if (titleData.code) updated.code = titleData.code.trim().toUpperCase();
       if (titleData.name) updated.name = titleData.name.trim();
-      updatedJob = updated;
       return updated;
     }));
-    if (updatedJob) {
-      saveJobTitleToDB(updatedJob).catch(err => console.warn('Lỗi cập nhật chức vụ lên DB:', err));
-    }
     return { success: true };
   };
 
@@ -654,7 +595,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: `Không thể xóa chức vụ "${target.name}" vì đang có ${users.filter(u => u.roleTitle.toLowerCase() === target.name.toLowerCase()).length} nhân sự nắm giữ. Vui lòng thay đổi chức vụ của nhân sự trước.` };
     }
     setJobTitles(prev => prev.filter(j => j.id !== id));
-    deleteJobTitleFromDB(id).catch(err => console.warn('Lỗi xóa chức vụ trên DB:', err));
     return { success: true };
   };
 

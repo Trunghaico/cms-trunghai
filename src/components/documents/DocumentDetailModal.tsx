@@ -515,7 +515,7 @@ export const DocumentDetailModal: React.FC = () => {
                     Danh Sách File Đính Kèm & Bản Scan Lưu Trữ (DMS)
                   </h4>
                   <p className="text-xs text-slate-500">
-                    Tất cả tài liệu scan hợp đồng, báo giá, tờ trình được lưu trữ trên S3 / Supabase Storage
+                    Tất cả tài liệu scan hợp đồng, báo giá, tờ trình được lưu trữ trên MinIO Synology NAS S3
                   </p>
                 </div>
               </div>
