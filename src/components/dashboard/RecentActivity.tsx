@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDocument } from '../../context/DocumentContext';
 import { formatDate } from '../../lib/storage';
-import { CheckCircle2, XCircle, Clock, FilePlus, AlertCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, FilePlus, AlertCircle, ArrowRight, RotateCcw } from 'lucide-react';
 
 export const RecentActivity: React.FC = () => {
   const { documents, setSelectedDocument, setActiveTab } = useDocument();
@@ -20,6 +20,8 @@ export const RecentActivity: React.FC = () => {
         return <XCircle className="h-4 w-4 text-brand-red" />;
       case 'REQUEST_INFO':
         return <AlertCircle className="h-4 w-4 text-amber-500" />;
+      case 'RESUBMIT':
+        return <RotateCcw className="h-4 w-4 text-purple-600" />;
       case 'CREATE':
         return <FilePlus className="h-4 w-4 text-brand-blue" />;
       default:
@@ -35,6 +37,8 @@ export const RecentActivity: React.FC = () => {
         return 'đã từ chối';
       case 'REQUEST_INFO':
         return 'yêu cầu bổ sung';
+      case 'RESUBMIT':
+        return 'đã bổ sung & gửi lại';
       case 'CREATE':
         return 'đã khởi tạo trình ký';
       default:

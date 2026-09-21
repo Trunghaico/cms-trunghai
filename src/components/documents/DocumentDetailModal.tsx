@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   X, 
   FileText, 
@@ -21,13 +21,16 @@ import {
   Flame,
   FileCheck2,
   ChevronRight,
-  Share2
+  Share2,
+  RotateCcw,
+  Edit3
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { ApprovalTimeline } from './ApprovalTimeline';
 import { DigitalSignaturePad } from './DigitalSignaturePad';
 import { formatCurrency, formatDate } from '../../lib/storage';
 import { PDFViewerModal } from '../common/PDFViewerModal';
+import { ResubmitDocumentModal } from './ResubmitDocumentModal';
 import { Attachment } from '../../types';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
 
@@ -49,6 +52,7 @@ export const DocumentDetailModal: React.FC = () => {
   const [signatureData, setSignatureData] = useState<string>('STAMP_OFFICIAL');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [isResubmitModalOpen, setIsResubmitModalOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
   if (!selectedDocument || !activeUser) return null;
@@ -69,6 +73,15 @@ export const DocumentDetailModal: React.FC = () => {
   const canReqInfo = hasPermission('approval.request_info');
   const canDelete = hasPermission('doc.delete');
   const canPrint = hasPermission('doc.print_export');
+
+  const isCreator = selectedDocument ? selectedDocument.creatorId === activeUser.id : false;
+  const canEditDoc = hasPermission('doc.edit') || activeUser.role === 'ADMIN';
+  const canUserResubmit = selectedDocument.status === 'ADDITIONAL_REQ' && (isCreator || canEditDoc);
+
+  const latestRequestInfoLog = useMemo(() => {
+    if (!selectedDocument) return null;
+    return [...selectedDocument.auditLogs].reverse().find(l => l.action === 'REQUEST_INFO');
+  }, [selectedDocument]);
 
   // Kiểm tra xem người dùng hiện tại có quyền duyệt bước này không (xét cả chức vụ chính & kiêm nhiệm)
   const isExactUser = currentStep && currentStep.approverId ? currentStep.approverId === activeUser.id : false;
@@ -262,6 +275,59 @@ export const DocumentDetailModal: React.FC = () => {
           {activeTab === 'DETAILS' && (
             <div className="space-y-6">
               
+              {/* Alert Banner: Yêu cầu bổ sung thông tin */}
+              {selectedDocument.status === 'ADDITIONAL_REQ' && (
+                <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-[3px] shadow-xs space-y-3 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/80 pb-2.5">
+                    <div className="flex items-center gap-2 text-amber-950 font-bold text-xs uppercase tracking-wider">
+                      <div className="h-6 w-6 rounded-[2px] bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      </div>
+                      <span>Hồ Sơ Đang Có Yêu Cầu Bổ Sung Thông Tin / Tài Liệu</span>
+                    </div>
+                    {latestRequestInfoLog && (
+                      <span className="text-[11px] text-amber-800 font-medium">
+                        Thời gian: {formatDate(latestRequestInfoLog.timestamp)}
+                      </span>
+                    )}
+                  </div>
+
+                  {latestRequestInfoLog && (
+                    <div className="text-xs text-slate-800 space-y-1.5">
+                      <p className="font-semibold text-slate-700">
+                        Cấp yêu cầu: <span className="text-brand-blue font-bold">{latestRequestInfoLog.actorName}</span> ({latestRequestInfoLog.actorTitle})
+                      </p>
+                      <div className="bg-white p-3 rounded-[3px] border border-amber-200 text-slate-800 italic leading-relaxed shadow-2xs font-medium">
+                        "{latestRequestInfoLog.comment?.replace(/^Yêu cầu bổ sung tài liệu\/thông tin:\s*/i, '') || selectedDocument.description}"
+                      </div>
+                    </div>
+                  )}
+
+                  {canUserResubmit ? (
+                    <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-100/60 p-3 rounded-[3px] border border-amber-200/60">
+                      <div className="text-xs text-amber-950">
+                        <p className="font-bold">Bạn là người lập hồ sơ / quản trị viên.</p>
+                        <p className="text-[11px] text-amber-800">
+                          Vui lòng cập nhật thông tin, đính kèm thêm tài liệu bổ sung và gửi lại để tiếp tục quy trình xét duyệt.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsResubmitModalOpen(true)}
+                        className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center justify-center gap-2 shrink-0"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        <span>Bổ Sung Hồ Sơ & Gửi Lại</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-amber-800 italic">
+                      Hồ sơ đã được trả về cho người lập ({selectedDocument.creatorName}) để bổ sung theo yêu cầu trên.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Document Metadata Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 border border-slate-200 rounded-[3px]">
                 <div>
@@ -347,6 +413,7 @@ export const DocumentDetailModal: React.FC = () => {
                 <ApprovalTimeline
                   steps={selectedDocument.steps}
                   currentStepIndex={selectedDocument.currentStepIndex}
+                  documentStatus={selectedDocument.status}
                 />
               </div>
 
@@ -458,7 +525,7 @@ export const DocumentDetailModal: React.FC = () => {
                             disabled={isSubmitting}
                             className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2"
                           >
-                            <Send className="h-4 w-4" />
+                            <MessageSquare className="h-4 w-4" />
                             <span>Gửi Yêu Cầu Bổ Sung Cho Người Trình</span>
                           </button>
                         )}
@@ -468,9 +535,9 @@ export const DocumentDetailModal: React.FC = () => {
                             setApprovalAction('NONE');
                             setCommentText('');
                           }}
-                          className="px-3 py-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-xs font-semibold rounded-[3px]"
+                          className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-[3px] transition-colors"
                         >
-                          Hủy bỏ
+                          Hủy
                         </button>
                       </div>
                     </div>
@@ -507,78 +574,74 @@ export const DocumentDetailModal: React.FC = () => {
             </div>
           )}
 
-          {/* DMS Attachments Tab */}
+          {/* Attachments Tab */}
           {activeTab === 'ATTACHMENTS' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">
-                    Danh Sách File Đính Kèm & Bản Scan Lưu Trữ (DMS)
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    Tất cả tài liệu scan hợp đồng, báo giá, tờ trình được lưu trữ trên MinIO Synology NAS S3
-                  </p>
-                </div>
+                <h4 className="text-xs font-bold text-slate-800">
+                  Danh Sách Tệp Đính Kèm & Bản Scan ({selectedDocument.attachments.length})
+                </h4>
+                {canUserResubmit && (
+                  <button
+                    type="button"
+                    onClick={() => setIsResubmitModalOpen(true)}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-[3px] flex items-center gap-1.5 shadow-2xs transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Bổ Sung Thêm Tệp</span>
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {selectedDocument.attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="p-3.5 bg-white border border-slate-200 rounded-[3px] flex items-start justify-between gap-3 hover:border-brand-blue hover:shadow-sm transition-all group"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="p-2 bg-slate-100 group-hover:bg-brand-blue-light rounded-[3px] text-brand-blue shrink-0">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate" title={att.name}>
-                          {att.name}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
-                          <span>{(att.size / (1024 * 1024)).toFixed(2)} MB</span>
-                          <span>•</span>
-                          <span>{formatDate(att.uploadedAt)}</span>
-                          {att.isScan && (
-                            <span className="px-1.5 py-0.2 bg-brand-red/10 text-brand-red font-bold rounded-[3px]">
-                              Bản scan
-                            </span>
-                          )}
+              {selectedDocument.attachments.length === 0 ? (
+                <div className="p-8 border border-dashed border-slate-300 rounded-[3px] text-center text-xs text-slate-500">
+                  Không có tài liệu đính kèm.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {selectedDocument.attachments.map((att) => (
+                    <div
+                      key={att.id}
+                      className="p-3 bg-slate-50 hover:bg-blue-50/50 border border-slate-200 rounded-[3px] flex items-center justify-between gap-3 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="h-8 w-8 rounded-[3px] bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate" title={att.name}>
+                            {att.name}
+                          </p>
+                          <p className="text-[10px] text-slate-500">
+                            {(att.size / 1024).toFixed(1)} KB • {formatDate(att.uploadedAt)}
+                          </p>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => setPreviewAttachment(att)}
-                        title="Xem trước tài liệu"
-                        className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-slate-100 rounded-[3px] transition-colors"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const downloadUrl = getSecureFileUrl(att.url);
-                          if (downloadUrl && downloadUrl !== '#') {
-                            const a = document.createElement('a');
-                            a.href = downloadUrl;
-                            a.download = att.name;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                          } else {
-                            alert(`Đang tải tệp tài liệu: ${att.name}`);
-                          }
-                        }}
-                        title="Tải về"
-                        className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-slate-100 rounded-[3px] transition-colors"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewAttachment(att)}
+                          className="p-1.5 text-slate-600 hover:text-brand-blue hover:bg-white rounded-[2px] border border-transparent hover:border-slate-200 transition-colors"
+                          title="Xem tài liệu"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <a
+                          href={getSecureFileUrl(att.url)}
+                          download={att.name}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 text-slate-600 hover:text-brand-blue hover:bg-white rounded-[2px] border border-transparent hover:border-slate-200 transition-colors"
+                          title="Tải xuống"
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               {/* PDF & Document Viewer Modal */}
               {previewAttachment && (
@@ -617,11 +680,18 @@ export const DocumentDetailModal: React.FC = () => {
                         </span>
                       </div>
 
-                      <p className="text-xs text-brand-blue font-semibold mt-0.5">
+                      <p className={`text-xs font-semibold mt-0.5 ${
+                        log.action === 'APPROVE' ? 'text-emerald-700' :
+                        log.action === 'REJECT' ? 'text-brand-red' :
+                        log.action === 'REQUEST_INFO' ? 'text-amber-700' :
+                        log.action === 'RESUBMIT' ? 'text-purple-700' :
+                        'text-brand-blue'
+                      }`}>
                         {log.action === 'CREATE' ? 'Khởi tạo hồ sơ' :
                          log.action === 'APPROVE' ? 'Phê duyệt & Ký điện tử' :
                          log.action === 'REJECT' ? 'Từ chối hồ sơ' :
-                         log.action === 'REQUEST_INFO' ? 'Yêu cầu bổ sung' : 'Cập nhật'}
+                         log.action === 'REQUEST_INFO' ? 'Yêu cầu bổ sung' :
+                         log.action === 'RESUBMIT' ? 'Bổ sung & Gửi lại phê duyệt' : 'Cập nhật'}
                       </p>
 
                       {log.comment && (
@@ -640,19 +710,47 @@ export const DocumentDetailModal: React.FC = () => {
 
         {/* Footer */}
         <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-          <div className="text-[11px] text-slate-500">
-            Mã hệ thống: <span className="font-mono">{selectedDocument.id}</span>
+          <div className="text-[11px] text-slate-500 flex items-center gap-2">
+            <span>Mã hệ thống: <span className="font-mono">{selectedDocument.id}</span></span>
+            {canUserResubmit && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-[2px]">
+                <AlertTriangle className="h-3 w-3" />
+                Cần bạn bổ sung hồ sơ
+              </span>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[3px] hover:bg-slate-100 transition-colors"
-          >
-            Đóng
-          </button>
+          
+          <div className="flex items-center gap-2">
+            {canUserResubmit && (
+              <button
+                type="button"
+                onClick={() => setIsResubmitModalOpen(true)}
+                className="px-4 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-[3px] shadow transition-colors flex items-center gap-1.5"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Bổ Sung & Gửi Lại</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[3px] hover:bg-slate-100 transition-colors"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
 
       </div>
+
+      {/* Resubmit Document Modal */}
+      {isResubmitModalOpen && (
+        <ResubmitDocumentModal
+          isOpen={isResubmitModalOpen}
+          onClose={() => setIsResubmitModalOpen(false)}
+          document={selectedDocument}
+        />
+      )}
     </div>
   );
 };

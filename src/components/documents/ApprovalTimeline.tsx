@@ -1,15 +1,25 @@
-import React from 'react';
-import { ApprovalStep, StepStatus } from '../../types';
+import { ApprovalStep, StepStatus, DocumentStatus } from '../../types';
 import { formatDate } from '../../lib/storage';
-import { CheckCircle2, Clock, XCircle, AlertCircle, ArrowRight, ShieldCheck, PenTool } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, AlertCircle, ArrowRight, ShieldCheck, PenTool, RotateCcw } from 'lucide-react';
 
 interface ApprovalTimelineProps {
   steps: ApprovalStep[];
   currentStepIndex: number;
+  documentStatus?: DocumentStatus;
 }
 
-export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, currentStepIndex }) => {
+export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, currentStepIndex, documentStatus }) => {
   const getStepBadge = (status: StepStatus, isCurrent: boolean) => {
+    if (isCurrent && documentStatus === 'ADDITIONAL_REQ') {
+      return {
+        icon: AlertCircle,
+        bgColor: 'bg-amber-600 text-white animate-pulse',
+        borderColor: 'border-amber-500 ring-2 ring-amber-300',
+        textColor: 'text-amber-800 font-bold',
+        labelText: 'Yêu cầu bổ sung',
+      };
+    }
+
     switch (status) {
       case 'APPROVED':
         return {

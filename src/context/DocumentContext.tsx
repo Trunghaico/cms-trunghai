@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, NotificationItem, User, DocumentStatus, UserRole, PermissionId, DepartmentItem, JobTitleItem, UserPosition } from '../types';
+import { DocumentItem, NotificationItem, User, DocumentStatus, UserRole, PermissionId, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog } from '../types';
 import { 
   loadDocuments, 
   saveDocuments, 
@@ -90,6 +90,18 @@ interface DocumentContextType {
   approveStep: (documentId: string, comment: string, signatureImage?: string) => void;
   rejectDocument: (documentId: string, reason: string) => void;
   requestAdditionalInfo: (documentId: string, note: string) => void;
+  resubmitDocument: (
+    documentId: string, 
+    data: {
+      title?: string;
+      amount?: number;
+      description?: string;
+      contentHtml?: string;
+      attachments: DocumentItem['attachments'];
+      supplementNote: string;
+      resubmitMode: ResubmitMode;
+    }
+  ) => { success: boolean; message?: string };
   deleteDocument: (documentId: string) => void;
   resetToSampleData: () => void;
   
@@ -846,7 +858,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           message: `${activeUser.name} yêu cầu bổ sung hồ sơ "${doc.code}": ${note}`,
           documentId: doc.id,
           documentCode: doc.code,
-          type: 'REJECTED',
+          type: 'ACTION_REQUIRED',
           read: false,
           createdAt: now,
         }, ...prev]);
@@ -854,6 +866,116 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return updatedDoc;
       });
     });
+  };
+
+  const resubmitDocument = (
+    documentId: string, 
+    data: {
+      title?: string;
+      amount?: number;
+      description?: string;
+      contentHtml?: string;
+      attachments: DocumentItem['attachments'];
+      supplementNote: string;
+      resubmitMode: ResubmitMode;
+    }
+  ): { success: boolean; message?: string } => {
+    if (!activeUser) return { success: false, message: 'Người dùng chưa đăng nhập' };
+    const now = new Date().toISOString();
+
+    let isSuccess = false;
+
+    setDocuments(prevDocs => {
+      return prevDocs.map(doc => {
+        if (doc.id !== documentId) return doc;
+
+        const isContinuing = data.resubmitMode === 'CONTINUE_FROM_CURRENT';
+        const targetStepIndex = isContinuing ? doc.currentStepIndex : 0;
+        const targetStatus: DocumentStatus = isContinuing 
+          ? (doc.currentStepIndex === 0 ? 'PENDING' : 'IN_PROGRESS')
+          : 'PENDING';
+
+        // Cập nhật các bước duyệt
+        const updatedSteps = doc.steps.map((step, idx) => {
+          if (isContinuing) {
+            // Tiếp tục quy trình: Giữ nguyên kết quả và chữ ký các bước trước đã APPROVED
+            // Bước hiện tại được chuyển sang trạng thái CURRENT để kiểm tra và duyệt tiếp
+            if (idx === doc.currentStepIndex) {
+              return {
+                ...step,
+                status: 'CURRENT' as const,
+              };
+            }
+            return step;
+          } else {
+            // Trình duyệt lại từ đầu: reset tất cả các bước về PENDING, bước 0 thành CURRENT
+            return {
+              ...step,
+              status: (idx === 0 ? 'CURRENT' : 'PENDING') as const,
+              comment: undefined,
+              decisionDate: undefined,
+              signatureImage: undefined,
+            };
+          }
+        });
+
+        const targetApprover = updatedSteps[targetStepIndex];
+        const approverNameDisplay = targetApprover?.approverName || targetApprover?.approverTitle || targetApprover?.department || 'Cấp phê duyệt';
+        const modeDescription = isContinuing 
+          ? `Duyệt tiếp tục từ Bước ${targetStepIndex + 1} (${approverNameDisplay})`
+          : `Trình duyệt lại từ Bước 1 (${updatedSteps[0]?.approverName || updatedSteps[0]?.approverTitle || updatedSteps[0]?.department})`;
+
+        const newLog: AuditLog = {
+          id: `log-${Date.now()}`,
+          documentId: doc.id,
+          action: 'RESUBMIT',
+          actorId: activeUser.id,
+          actorName: activeUser.name,
+          actorTitle: activeUser.roleTitle,
+          timestamp: now,
+          comment: `[Bổ sung hồ sơ - ${modeDescription}]: ${data.supplementNote}`,
+          previousStatus: doc.status,
+          newStatus: targetStatus,
+        };
+
+        const updatedDoc: DocumentItem = {
+          ...doc,
+          title: data.title !== undefined ? data.title : doc.title,
+          amount: data.amount !== undefined ? data.amount : doc.amount,
+          description: data.description !== undefined ? data.description : doc.description,
+          contentHtml: data.contentHtml !== undefined ? data.contentHtml : doc.contentHtml,
+          attachments: data.attachments || doc.attachments,
+          status: targetStatus,
+          currentStepIndex: targetStepIndex,
+          steps: updatedSteps,
+          updatedAt: now,
+          auditLogs: [...doc.auditLogs, newLog],
+        };
+
+        if (selectedDocument?.id === doc.id) {
+          setSelectedDocument(updatedDoc);
+        }
+
+        setNotifications(prev => [{
+          id: `notif-${Date.now()}`,
+          title: isContinuing ? 'Hồ sơ đã được bổ sung & gửi lại' : 'Hồ sơ trình duyệt lại từ đầu',
+          message: `${activeUser.name} đã bổ sung hồ sơ "${doc.code}" (${modeDescription}): ${data.supplementNote}`,
+          documentId: doc.id,
+          documentCode: doc.code,
+          type: 'ACTION_REQUIRED',
+          read: false,
+          createdAt: now,
+        }, ...prev]);
+
+        isSuccess = true;
+        return updatedDoc;
+      });
+    });
+
+    return { 
+      success: isSuccess, 
+      message: isSuccess ? 'Đã bổ sung và gửi lại hồ sơ thành công!' : 'Không tìm thấy hồ sơ.' 
+    };
   };
 
   const deleteDocument = (documentId: string) => {
@@ -976,6 +1098,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         approveStep,
         rejectDocument,
         requestAdditionalInfo,
+        resubmitDocument,
         deleteDocument,
         resetToSampleData,
         stats,

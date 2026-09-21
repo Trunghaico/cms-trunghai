@@ -15,7 +15,8 @@ import {
   ShieldCheck, 
   ArrowUpDown,
   Plus,
-  FileSignature
+  FileSignature,
+  RotateCcw
 } from 'lucide-react';
 
 interface DocumentTableProps {
@@ -405,7 +406,15 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                       {/* Actions */}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
-                          {isMyTurn ? (
+                          {doc.status === 'ADDITIONAL_REQ' && (doc.creatorId === activeUser.id || activeUser.role === 'ADMIN') ? (
+                            <button
+                              onClick={() => setSelectedDocument(doc)}
+                              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-[3px] transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              <span>Bổ Sung</span>
+                            </button>
+                          ) : isMyTurn ? (
                             <button
                               onClick={() => setSelectedDocument(doc)}
                               className="px-2.5 py-1 bg-brand-blue hover:bg-brand-blue-dark text-white font-bold text-xs rounded-[3px] transition-colors shadow-sm flex items-center gap-1 cursor-pointer"

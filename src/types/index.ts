@@ -116,10 +116,12 @@ export interface ApprovalStep {
   slaHours?: number; // SLA thời gian duyệt tính theo giờ
 }
 
+export type ResubmitMode = 'CONTINUE_FROM_CURRENT' | 'RESTART_FROM_BEGINNING';
+
 export interface AuditLog {
   id: string;
   documentId: string;
-  action: 'CREATE' | 'SUBMIT' | 'APPROVE' | 'REJECT' | 'REQUEST_INFO' | 'FORWARD' | 'UPDATE';
+  action: 'CREATE' | 'SUBMIT' | 'APPROVE' | 'REJECT' | 'REQUEST_INFO' | 'FORWARD' | 'UPDATE' | 'RESUBMIT';
   actorId: string;
   actorName: string;
   actorTitle: string;
