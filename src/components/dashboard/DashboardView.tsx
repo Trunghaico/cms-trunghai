@@ -17,6 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '../../lib/storage';
+import { isUserApproverForStep } from '../../lib/permissions';
 
 export const DashboardView: React.FC = () => {
   const { 
@@ -32,10 +33,10 @@ export const DashboardView: React.FC = () => {
 
   // Hồ sơ cần người dùng hiện tại xử lý ngay
   const pendingForMe = documents.filter(doc => {
-    if (doc.status === 'APPROVED' || doc.status === 'REJECTED') return false;
+    if (doc.status === 'APPROVED' || doc.status === 'REJECTED' || doc.status === 'ADDITIONAL_REQ') return false;
     const currentStep = doc.steps[doc.currentStepIndex];
     if (!currentStep || currentStep.status !== 'CURRENT') return false;
-    return currentStep.approverRole === activeUser.role || currentStep.approverId === activeUser.id;
+    return isUserApproverForStep(activeUser, currentStep);
   });
 
   return (

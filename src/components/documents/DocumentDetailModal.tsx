@@ -33,6 +33,7 @@ import { PDFViewerModal } from '../common/PDFViewerModal';
 import { ResubmitDocumentModal } from './ResubmitDocumentModal';
 import { Attachment } from '../../types';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
+import { isUserApproverForStep } from '../../lib/permissions';
 
 export const DocumentDetailModal: React.FC = () => {
   const { 
@@ -67,11 +68,6 @@ export const DocumentDetailModal: React.FC = () => {
 
   const currentStep = selectedDocument.steps[selectedDocument.currentStepIndex];
   
-  const canApprove = hasPermission('approval.approve');
-  const canOverride = hasPermission('approval.override');
-  const canReject = hasPermission('approval.reject');
-  const canReqInfo = hasPermission('approval.request_info');
-  const canDelete = hasPermission('doc.delete');
   const canPrint = hasPermission('doc.print_export');
 
   const isCreator = selectedDocument ? selectedDocument.creatorId === activeUser.id : false;
@@ -81,38 +77,17 @@ export const DocumentDetailModal: React.FC = () => {
     ? [...selectedDocument.auditLogs].reverse().find(l => l.action === 'REQUEST_INFO') 
     : null;
 
-  // Kiểm tra xem người dùng hiện tại có quyền duyệt bước này không (xét cả chức vụ chính & kiêm nhiệm)
-  const isExactUser = currentStep && currentStep.approverId ? currentStep.approverId === activeUser.id : false;
-
-  const userPositions = [
-    { department: activeUser.department, role: activeUser.role, roleTitle: activeUser.roleTitle },
-    ...(activeUser.secondaryPositions || [])
-  ];
-
-  const isDeptApprover = currentStep && !currentStep.approverId && userPositions.some(pos => {
-    const matchesDept = (pos.department && currentStep.department && pos.department.toLowerCase() === currentStep.department.toLowerCase()) ||
-      pos.role === currentStep.approverRole ||
-      (currentStep.department?.includes('Pháp chế') && pos.role === 'LEGAL_DEPT') ||
-      (currentStep.department?.includes('Kế toán') && pos.role === 'CHIEF_ACCOUNTANT') ||
-      (currentStep.department?.includes('Giám Đốc') && pos.role === 'DIRECTOR');
-
-    const isAuthorizedToSign = 
-      pos.role === 'DIRECTOR' || 
-      pos.role === 'ADMIN' || 
-      pos.role === 'DEPT_HEAD' || 
-      pos.role === 'CHIEF_ACCOUNTANT' || 
-      pos.role === 'LEGAL_DEPT' ||
-      pos.role === currentStep.approverRole;
-
-    return matchesDept && isAuthorizedToSign;
-  });
+  // Kiểm tra xem người dùng hiện tại có thẩm quyền duyệt bước này không
+  // Quy định: Hồ sơ trình cho phòng ban nào thì chỉ phòng ban đó mới được duyệt.
+  const isApproverForCurrentStep = currentStep ? isUserApproverForStep(activeUser, currentStep) : false;
 
   const canUserApprove = 
     selectedDocument.status !== 'APPROVED' &&
     selectedDocument.status !== 'REJECTED' &&
+    selectedDocument.status !== 'ADDITIONAL_REQ' &&
     currentStep &&
     currentStep.status === 'CURRENT' &&
-    ((canApprove && (isExactUser || isDeptApprover)) || canOverride);
+    isApproverForCurrentStep;
 
   const handleApproveSubmit = () => {
     setIsSubmitting(true);
@@ -544,11 +519,12 @@ export const DocumentDetailModal: React.FC = () => {
               )}
 
               {/* Status Banner when user is not the current approver */}
-              {!canUserApprove && selectedDocument.status !== 'APPROVED' && selectedDocument.status !== 'REJECTED' && (
+              {!canUserApprove && selectedDocument.status !== 'APPROVED' && selectedDocument.status !== 'REJECTED' && selectedDocument.status !== 'ADDITIONAL_REQ' && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-[3px] flex items-center gap-2 text-xs text-amber-900">
                   <Clock className="h-4 w-4 text-amber-600 shrink-0" />
                   <span>
-                    Hồ sơ đang chờ xử lý tại <strong>Bước {selectedDocument.currentStepIndex + 1}: {currentStep?.approverTitle} ({currentStep?.approverName})</strong>.
+                    Hồ sơ đang chờ xử lý tại <strong>Bước {selectedDocument.currentStepIndex + 1}: {currentStep?.title || currentStep?.approverTitle} ({currentStep?.department || currentStep?.approverName})</strong>.
+                    {currentStep?.department ? ` Chỉ nhân sự có thẩm quyền thuộc ${currentStep.department} mới được phê duyệt.` : ''}
                   </span>
                 </div>
               )}

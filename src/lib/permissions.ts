@@ -322,42 +322,131 @@ export function canUserOverseeAllDocuments(user: User | null | undefined): boole
   return user.role === 'ADMIN' || user.role === 'DIRECTOR' || (Array.isArray(user.permissions) && user.permissions.includes('doc.view_all'));
 }
 
+/**
+ * Chuẩn hóa tên phòng ban để so khớp chính xác và linh hoạt
+ */
+export function normalizeDepartmentName(dept: string | null | undefined): string {
+  if (!dept) return '';
+  return dept
+    .toLowerCase()
+    .replace(/[–—\-]/g, ' ')
+    .replace(/&/g, ' và ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * So khớp xem 2 tên phòng ban có đại diện cho cùng một phòng ban không
+ */
+export function isSameDepartment(dept1?: string, dept2?: string): boolean {
+  if (!dept1 || !dept2) return false;
+  const n1 = normalizeDepartmentName(dept1);
+  const n2 = normalizeDepartmentName(dept2);
+  if (n1 === n2) return true;
+
+  // Kế toán / Tài chính
+  const isFinance = (n: string) => 
+    (n.includes('tài chính') && n.includes('kế toán')) || 
+    n === 'tckt' || 
+    n.includes('phòng kế toán') || 
+    n.includes('phòng tài chính');
+  if (isFinance(n1) && isFinance(n2)) return true;
+
+  // Pháp chế / Kiểm soát
+  const isLegal = (n: string) => 
+    n.includes('pháp chế') || 
+    n === 'pcks';
+  if (isLegal(n1) && isLegal(n2)) return true;
+
+  // Ban Giám Đốc
+  const isDirector = (n: string) => 
+    n.includes('giám đốc') || 
+    n === 'bgd';
+  if (isDirector(n1) && isDirector(n2)) return true;
+
+  // Kỹ thuật & Dự án
+  const isTech = (n: string) => 
+    (n.includes('kỹ thuật') && n.includes('dự án')) || 
+    n === 'ktda' ||
+    n.includes('kỹ thuật và dự án');
+  if (isTech(n1) && isTech(n2)) return true;
+
+  // CNTT / Hạ tầng / Công nghệ thông tin
+  const isIT = (n: string) => 
+    n.includes('cntt') || 
+    n.includes('công nghệ thông tin') || 
+    n.includes('hạ tầng');
+  if (isIT(n1) && isIT(n2)) return true;
+
+  // Cung ứng & Vật tư
+  const isSupply = (n: string) => 
+    n.includes('cung ứng') || 
+    n.includes('vật tư') || 
+    n === 'cuvt';
+  if (isSupply(n1) && isSupply(n2)) return true;
+
+  // Hành chính / Nhân sự
+  const isHR = (n: string) => 
+    n.includes('hành chính') || 
+    n.includes('nhân sự') || 
+    n === 'hcns';
+  if (isHR(n1) && isHR(n2)) return true;
+
+  return false;
+}
+
 // 2. Kiểm tra xem người dùng có phải là người duyệt của một bước cụ thể
+// NGUYÊN TẮC: Hồ sơ trình cho phòng ban nào thì chỉ phòng ban đó mới được duyệt.
+// Không phải ai có quyền duyệt hồ sơ cũng duyệt được.
 export function isUserApproverForStep(user: User | null | undefined, step: ApprovalStep): boolean {
   if (!user || !step) return false;
 
-  // Gán đích danh ID
-  if (step.approverId && step.approverId === user.id) {
-    return true;
+  // Trường hợp 1: Chỉ định đích danh cá nhân duyệt
+  if (step.approverId) {
+    return step.approverId === user.id;
   }
 
-  // Nếu không chỉ định đích danh approverId: xét thẩm quyền theo chức vụ/phòng ban (chính & kiêm nhiệm)
-  if (!step.approverId) {
-    const userPositions = [
-      { department: user.department, role: user.role, roleTitle: user.roleTitle },
-      ...(user.secondaryPositions || [])
-    ];
+  // Trường hợp 2: Trình cho PHÒNG BAN (step.department)
+  // Thu thập toàn bộ vị trí & phòng ban của người dùng (chức vụ chính + kiêm nhiệm)
+  const userPositions = [
+    { department: user.department, role: user.role, roleTitle: user.roleTitle },
+    ...(user.secondaryPositions || [])
+  ];
 
-    return userPositions.some(pos => {
-      const matchesDept = (pos.department && step.department && pos.department.toLowerCase() === step.department.toLowerCase()) ||
-        pos.role === step.approverRole ||
-        (step.department?.includes('Pháp chế') && pos.role === 'LEGAL_DEPT') ||
-        (step.department?.includes('Kế toán') && pos.role === 'CHIEF_ACCOUNTANT') ||
-        (step.department?.includes('Giám Đốc') && pos.role === 'DIRECTOR');
+  // BẮT BUỘC: Người dùng phải thuộc đúng phòng ban được trình
+  const matchingPositions = userPositions.filter(pos => 
+    isSameDepartment(pos.department, step.department)
+  );
 
-      const isAuthorizedToSign = 
-        pos.role === 'DIRECTOR' || 
-        pos.role === 'ADMIN' || 
-        pos.role === 'DEPT_HEAD' || 
-        pos.role === 'CHIEF_ACCOUNTANT' || 
-        pos.role === 'LEGAL_DEPT' ||
-        pos.role === step.approverRole;
-
-      return matchesDept && isAuthorizedToSign;
-    });
+  // Không thuộc phòng ban được trình tới -> TUYỆT ĐỐI KHÔNG ĐƯỢC DUYỆT
+  if (matchingPositions.length === 0) {
+    return false;
   }
 
-  return false;
+  // Thuộc phòng ban được trình tới -> Xét tiếp thẩm quyền ký duyệt
+  const canApprove = hasPermission(user, 'approval.approve');
+  if (!canApprove) return false;
+
+  return matchingPositions.some(pos => {
+    const isLeadershipRole = 
+      pos.role === 'DEPT_HEAD' || 
+      pos.role === 'CHIEF_ACCOUNTANT' || 
+      pos.role === 'LEGAL_DEPT' || 
+      pos.role === 'DIRECTOR' || 
+      pos.role === 'ADMIN' ||
+      pos.role === step.approverRole;
+
+    const titleLower = pos.roleTitle?.toLowerCase() || '';
+    const isLeadershipTitle = 
+      titleLower.includes('trưởng') ||
+      titleLower.includes('phó') ||
+      titleLower.includes('giám đốc') ||
+      titleLower.includes('kế toán trưởng') ||
+      titleLower.includes('chủ quản') ||
+      titleLower.includes('phụ trách');
+
+    return isLeadershipRole || isLeadershipTitle || pos.role !== 'STAFF';
+  });
 }
 
 // 3. Kiểm tra xem người dùng có phải là người duyệt trong bất kỳ bước nào của hồ sơ
@@ -454,7 +543,7 @@ export function canUserReceiveNotification(
     const roleMatches = userPositions.some(pos => {
       if (pos.role !== notif.recipientRole) return false;
       if (notif.targetDepartment) {
-        return pos.department && pos.department.toLowerCase() === notif.targetDepartment.toLowerCase();
+        return pos.department && isSameDepartment(pos.department, notif.targetDepartment);
       }
       return true;
     });

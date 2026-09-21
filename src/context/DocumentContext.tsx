@@ -35,7 +35,8 @@ import {
   ROLE_PRESET_PERMISSIONS,
   canUserAccessDocument,
   canUserReceiveNotification,
-  canUserOverseeAllDocuments
+  canUserOverseeAllDocuments,
+  isUserApproverForStep
 } from '../lib/permissions';
 
 interface DocumentContextType {
@@ -957,6 +958,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const approveStep = (documentId: string, comment: string, signatureImage?: string) => {
     if (!activeUser) return;
+    const targetDoc = documents.find(d => d.id === documentId);
+    if (!targetDoc) return;
+    const curStep = targetDoc.steps[targetDoc.currentStepIndex];
+    if (!curStep || curStep.status !== 'CURRENT' || !isUserApproverForStep(activeUser, curStep)) {
+      console.warn('User not authorized to approve step for department:', curStep?.department);
+      return;
+    }
+
     const now = new Date().toISOString();
 
     setDocuments(prevDocs => {
@@ -1075,6 +1084,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const rejectDocument = (documentId: string, reason: string) => {
     if (!activeUser) return;
+    const targetDoc = documents.find(d => d.id === documentId);
+    if (!targetDoc) return;
+    const curStep = targetDoc.steps[targetDoc.currentStepIndex];
+    if (!curStep || curStep.status !== 'CURRENT' || !isUserApproverForStep(activeUser, curStep)) {
+      console.warn('User not authorized to reject step for department:', curStep?.department);
+      return;
+    }
+
     const now = new Date().toISOString();
 
     setDocuments(prevDocs => {
@@ -1141,6 +1158,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const requestAdditionalInfo = (documentId: string, note: string) => {
     if (!activeUser) return;
+    const targetDoc = documents.find(d => d.id === documentId);
+    if (!targetDoc) return;
+    const curStep = targetDoc.steps[targetDoc.currentStepIndex];
+    if (!curStep || curStep.status !== 'CURRENT' || !isUserApproverForStep(activeUser, curStep)) {
+      console.warn('User not authorized to request info for department:', curStep?.department);
+      return;
+    }
+
     const now = new Date().toISOString();
 
     setDocuments(prevDocs => {
@@ -1371,40 +1396,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const additionalReq = accessibleDocuments.filter(d => d.status === 'ADDITIONAL_REQ').length;
     const urgentCount = accessibleDocuments.filter(d => (d.priority === 'URGENT' || d.priority === 'VERY_URGENT') && d.status !== 'APPROVED').length;
     
-    // Đếm số hồ sơ cần người dùng hiện tại duyệt dựa trên thẩm quyền (xét cả chức vụ chính & kiêm nhiệm)
+    // Đếm số hồ sơ cần người dùng hiện tại duyệt (chỉ tính hồ sơ trình đúng phòng ban/người dùng)
     const myPendingApprovalsCount = activeUser ? accessibleDocuments.filter(doc => {
-      if (doc.status === 'APPROVED' || doc.status === 'REJECTED') return false;
+      if (doc.status === 'APPROVED' || doc.status === 'REJECTED' || doc.status === 'ADDITIONAL_REQ') return false;
       const currentStep = doc.steps[doc.currentStepIndex];
       if (!currentStep || currentStep.status !== 'CURRENT') return false;
-      const canApprove = checkHasPermission(activeUser, 'approval.approve');
-      const canOverride = checkHasPermission(activeUser, 'approval.override');
-
-      const isExactUser = currentStep.approverId ? currentStep.approverId === activeUser.id : false;
-
-      const userPositions = [
-        { department: activeUser.department, role: activeUser.role, roleTitle: activeUser.roleTitle },
-        ...(activeUser.secondaryPositions || [])
-      ];
-
-      const isDeptApprover = !currentStep.approverId && userPositions.some(pos => {
-        const matchesDept = (pos.department && currentStep.department && pos.department.toLowerCase() === currentStep.department.toLowerCase()) ||
-          pos.role === currentStep.approverRole ||
-          (currentStep.department?.includes('Pháp chế') && pos.role === 'LEGAL_DEPT') ||
-          (currentStep.department?.includes('Kế toán') && pos.role === 'CHIEF_ACCOUNTANT') ||
-          (currentStep.department?.includes('Giám Đốc') && pos.role === 'DIRECTOR');
-
-        const isAuthorizedToSign = 
-          pos.role === 'DIRECTOR' || 
-          pos.role === 'ADMIN' || 
-          pos.role === 'DEPT_HEAD' || 
-          pos.role === 'CHIEF_ACCOUNTANT' || 
-          pos.role === 'LEGAL_DEPT' ||
-          pos.role === currentStep.approverRole;
-
-        return matchesDept && isAuthorizedToSign;
-      });
-
-      return (canApprove && (isExactUser || isDeptApprover)) || canOverride;
+      return isUserApproverForStep(activeUser, currentStep);
     }).length : 0;
 
     const myCreatedCount = activeUser ? accessibleDocuments.filter(d => d.creatorId === activeUser.id).length : 0;

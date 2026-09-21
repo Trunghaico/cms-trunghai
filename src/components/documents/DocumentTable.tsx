@@ -41,7 +41,6 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     searchQuery: globalSearchQuery 
   } = useDocument();
 
-  const canApprove = hasPermission('approval.approve');
   const canOverride = hasPermission('approval.override');
   const canDelete = hasPermission('doc.delete');
   const canCreate = hasPermission('doc.create');
@@ -86,13 +85,12 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
       }
 
       if (filterType === 'PENDING_MY_APPROVAL') {
-        if (doc.status === 'APPROVED' || doc.status === 'REJECTED') return false;
+        if (doc.status === 'APPROVED' || doc.status === 'REJECTED' || doc.status === 'ADDITIONAL_REQ') return false;
         const currentStep = doc.steps[doc.currentStepIndex];
         if (!currentStep || currentStep.status !== 'CURRENT') return false;
 
         const isApproverForCurrentStep = isUserApproverForStep(activeUser, currentStep);
-        const isMyTurn = (canApprove && isApproverForCurrentStep) || canOverride;
-        if (!isMyTurn) return false;
+        if (!isApproverForCurrentStep) return false;
       }
 
       // 3. Status filter
@@ -288,7 +286,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                 filteredDocuments.map((doc) => {
                   const currentStep = doc.steps[doc.currentStepIndex];
                   const isApproverForCurrentStep = isUserApproverForStep(activeUser, currentStep);
-                  const isMyTurn = doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && currentStep?.status === 'CURRENT' && ((canApprove && isApproverForCurrentStep) || canOverride);
+                  const isMyTurn = doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && doc.status !== 'ADDITIONAL_REQ' && currentStep?.status === 'CURRENT' && isApproverForCurrentStep;
 
                   return (
                     <tr 
