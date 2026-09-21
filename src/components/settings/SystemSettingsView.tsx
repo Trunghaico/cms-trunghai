@@ -34,6 +34,7 @@ import { NASBackupItem, MINIO_ENDPOINT, MINIO_BUCKET, MINIO_ACCESS_KEY, uploadFi
 
 export const SystemSettingsView: React.FC = () => {
   const { 
+    activeUser,
     departments, 
     jobTitles, 
     permissionPresets,
@@ -60,6 +61,13 @@ export const SystemSettingsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'departments' | 'job-titles' | 'permission-presets' | 'nas-storage'>('departments');
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Tự động chuyển về tab Phòng Ban nếu không phải Quản trị viên
+  useEffect(() => {
+    if (activeSubTab === 'nas-storage' && activeUser?.role !== 'ADMIN') {
+      setActiveSubTab('departments');
+    }
+  }, [activeSubTab, activeUser]);
+
   // Permission Preset Modal State
   const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
   const [selectedPresetIdForModal, setSelectedPresetIdForModal] = useState<string>('');
@@ -423,17 +431,19 @@ export const SystemSettingsView: React.FC = () => {
                 <ShieldCheck className="w-4 h-4 text-brand-blue" />
                 <span>Mẫu Phân Quyền ({permissionPresets.length})</span>
               </button>
-              <button
-                onClick={() => { setActiveSubTab('nas-storage'); setSearchTerm(''); }}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  activeSubTab === 'nas-storage'
-                    ? 'bg-white text-brand-blue shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <HardDrive className="w-4 h-4 text-emerald-600" />
-                <span>Lưu Trữ NAS MinIO</span>
-              </button>
+              {activeUser?.role === 'ADMIN' && (
+                <button
+                  onClick={() => { setActiveSubTab('nas-storage'); setSearchTerm(''); }}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    activeSubTab === 'nas-storage'
+                      ? 'bg-white text-brand-blue shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <HardDrive className="w-4 h-4 text-emerald-600" />
+                  <span>Lưu Trữ NAS MinIO</span>
+                </button>
+              )}
             </div>
 
             {activeSubTab === 'departments' ? (
@@ -460,7 +470,7 @@ export const SystemSettingsView: React.FC = () => {
                 <Plus className="w-4 h-4" />
                 <span>Thêm Mẫu Quyền</span>
               </button>
-            ) : (
+            ) : activeUser?.role === 'ADMIN' ? (
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleTestNAS}
@@ -479,7 +489,7 @@ export const SystemSettingsView: React.FC = () => {
                   <span>{isNASSyncing ? 'Đang lưu...' : 'Sao Lưu Lên NAS'}</span>
                 </button>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -819,8 +829,8 @@ export const SystemSettingsView: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 4: NAS MINIO S3 STORAGE & DATABASE */}
-        {activeSubTab === 'nas-storage' && (
+        {/* TAB 4: NAS MINIO S3 STORAGE & DATABASE (Chỉ Quản trị viên mới được thấy) */}
+        {activeSubTab === 'nas-storage' && activeUser?.role === 'ADMIN' && (
           <div className="p-6 space-y-6">
             
             {/* 1. AUTO-BACKUP & SYNC ENGINE CONTROL PANEL */}
