@@ -4,22 +4,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDocument } from '../../context/DocumentContext';
 import { User, UserRole, PermissionId, UserPosition, PermissionPreset } from '../../types';
 import { PermissionPresetModal } from './PermissionPresetModal';
-import { 
-  ALL_PERMISSIONS, 
-  PERMISSION_CATEGORIES, 
-  ROLE_PRESET_PERMISSIONS 
+import {
+  ALL_PERMISSIONS,
+  PERMISSION_CATEGORIES,
+  ROLE_PRESET_PERMISSIONS
 } from '../../lib/permissions';
-import { 
-  Users, 
-  UserPlus, 
-  Search, 
-  Trash2, 
-  Edit3, 
-  KeyRound, 
-  Building2, 
-  Briefcase, 
-  ShieldCheck, 
-  CheckCircle2, 
+import {
+  Users,
+  UserPlus,
+  Search,
+  Trash2,
+  Edit3,
+  KeyRound,
+  Building2,
+  Briefcase,
+  ShieldCheck,
+  CheckCircle2,
   AlertCircle,
   Eye,
   EyeOff,
@@ -48,12 +48,12 @@ const SafePortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export const UserManagementView: React.FC = () => {
-  const { 
-    users, 
-    activeUser, 
-    createUser, 
-    updateUser, 
-    deleteUser, 
+  const {
+    users,
+    activeUser,
+    createUser,
+    updateUser,
+    deleteUser,
     hasPermission,
     departments: systemDepts,
     jobTitles: systemJobTitles,
@@ -166,7 +166,7 @@ export const UserManagementView: React.FC = () => {
     setRole(user.role);
     const userPerms = user.permissions || ROLE_PRESET_PERMISSIONS[user.role] || [...ROLE_PRESET_PERMISSIONS.STAFF];
     setSelectedPermissions(userPerms);
-    
+
     // Tìm preset tương ứng
     const matched = permissionPresets.find(p => p.role === user.role);
     setActivePresetId(matched?.id || '');
@@ -217,9 +217,9 @@ export const UserManagementView: React.FC = () => {
 
   // Toggle từng quyền
   const togglePermission = (permId: PermissionId) => {
-    setSelectedPermissions(prev => 
-      prev.includes(permId) 
-        ? prev.filter(id => id !== permId) 
+    setSelectedPermissions(prev =>
+      prev.includes(permId)
+        ? prev.filter(id => id !== permId)
         : [...prev, permId]
     );
   };
@@ -352,7 +352,7 @@ export const UserManagementView: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      
+
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-[3px] border border-slate-200 shadow-sm">
         <div>
@@ -441,7 +441,7 @@ export const UserManagementView: React.FC = () => {
                   const isFullAdmin = user.role === 'ADMIN' || permCount === totalPerms;
 
                   return (
-                    <tr 
+                    <tr
                       key={user.id}
                       className="hover:bg-blue-50/40 transition-colors divide-x divide-slate-200"
                     >
@@ -576,7 +576,7 @@ export const UserManagementView: React.FC = () => {
       <SafePortal>
         <AnimatePresence>
           {inspectingUser && (
-            <motion.div 
+            <motion.div
               key="inspect-user-overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -587,7 +587,7 @@ export const UserManagementView: React.FC = () => {
                 if (e.target === e.currentTarget) setInspectingUser(null);
               }}
             >
-              <motion.div 
+              <motion.div
                 key="inspect-user-modal"
                 initial={{ scale: 0.94, opacity: 0, y: 15 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -595,7 +595,7 @@ export const UserManagementView: React.FC = () => {
                 transition={{ type: 'spring', damping: 25, stiffness: 350 }}
                 className="bg-white rounded-[4px] max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]"
               >
-                
+
                 {/* Modal Header */}
                 <div className="px-4 py-3 bg-brand-blue text-white flex items-center justify-between shrink-0 shadow-xs">
                   <div className="flex items-center gap-2">
@@ -612,7 +612,7 @@ export const UserManagementView: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setInspectingUser(null)}
                     className="text-white/80 hover:text-white p-1 transition-colors cursor-pointer"
@@ -642,13 +642,12 @@ export const UserManagementView: React.FC = () => {
                           {catPerms.map(p => {
                             const isGranted = (inspectingUser.permissions || []).includes(p.id) || inspectingUser.role === 'ADMIN';
                             return (
-                              <div 
-                                key={p.id} 
-                                className={`px-2 py-1.5 rounded-[2px] border text-[11px] flex items-center justify-between ${
-                                  isGranted 
-                                    ? 'bg-blue-50/60 border-brand-blue/30 text-brand-blue font-semibold' 
+                              <div
+                                key={p.id}
+                                className={`px-2 py-1.5 rounded-[2px] border text-[11px] flex items-center justify-between ${isGranted
+                                    ? 'bg-blue-50/60 border-brand-blue/30 text-brand-blue font-semibold'
                                     : 'bg-slate-50 border-slate-200 text-slate-400 opacity-50'
-                                }`}
+                                  }`}
                               >
                                 <span>{p.name}</span>
                                 {isGranted ? (
@@ -686,7 +685,7 @@ export const UserManagementView: React.FC = () => {
       <SafePortal>
         <AnimatePresence>
           {isModalOpen && (
-            <motion.div 
+            <motion.div
               key="user-form-overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -697,7 +696,7 @@ export const UserManagementView: React.FC = () => {
                 if (e.target === e.currentTarget) handleCloseModal();
               }}
             >
-              <motion.form 
+              <motion.form
                 key="user-form-box"
                 initial={{ scale: 0.94, opacity: 0, y: 15 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -706,7 +705,7 @@ export const UserManagementView: React.FC = () => {
                 onSubmit={handleSubmit}
                 className="bg-white rounded-[4px] max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] my-auto"
               >
-                
+
                 {/* Modal Header */}
                 <div className="px-4 py-3 bg-brand-blue text-white flex items-center justify-between shrink-0 shadow-xs">
                   <div className="flex items-center gap-2">
@@ -715,7 +714,7 @@ export const UserManagementView: React.FC = () => {
                       {editingUser ? 'Chỉnh Sửa Quyền & Tài Khoản' : 'Thêm Người Dùng Mới'}
                     </h3>
                   </div>
-                  <button 
+                  <button
                     type="button"
                     onClick={handleCloseModal}
                     className="text-white/80 hover:text-white p-1 transition-colors cursor-pointer"
@@ -899,7 +898,7 @@ export const UserManagementView: React.FC = () => {
                               >
                                 <option value="STAFF">Chuyên viên</option>
                                 <option value="DEPT_HEAD">Trưởng phòng</option>
-                                <option value="BOARD_HEAD">Trưởng ban (Duyệt cấp Ban)</option>
+                                <option value="BOARD_HEAD">Trưởng ban</option>
                                 <option value="CHIEF_ACCOUNTANT">Kế toán trưởng</option>
                                 <option value="LEGAL_DEPT">Pháp chế</option>
                                 <option value="DIRECTOR">Ban Giám đốc</option>
@@ -938,11 +937,10 @@ export const UserManagementView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsQuickSavePresetOpen(prev => !prev)}
-                          className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 border ${
-                            isQuickSavePresetOpen
+                          className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 border ${isQuickSavePresetOpen
                               ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
                               : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-200'
-                          }`}
+                            }`}
                           title="Lưu bộ quyền đang tick chọn trên form thành một mẫu mới"
                         >
                           <Sparkles className="h-3.5 w-3.5 text-amber-600" />
@@ -984,8 +982,8 @@ export const UserManagementView: React.FC = () => {
                             <Sparkles className="h-4 w-4 text-amber-600" />
                             <span>Lưu {selectedPermissions.length} quyền đang tick chọn thành Mẫu quyền mới</span>
                           </div>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => { setIsQuickSavePresetOpen(false); setQuickSaveMsg(null); }}
                             className="text-amber-700 hover:text-amber-900 p-0.5 cursor-pointer"
                           >
@@ -1035,7 +1033,7 @@ export const UserManagementView: React.FC = () => {
                       <span className="text-[11px] font-bold text-slate-600 mr-1 flex items-center gap-1">
                         <span>Mẫu nhanh:</span>
                       </span>
-                      
+
                       {permissionPresets.map((preset) => {
                         const isPresetActive = activePresetId === preset.id;
                         const isCustom = !preset.isSystem;
@@ -1046,8 +1044,7 @@ export const UserManagementView: React.FC = () => {
                             type="button"
                             onClick={() => applyPreset(preset)}
                             title={`${preset.name}: ${(preset.permissions || []).length} quyền (${preset.description || preset.role})`}
-                            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-1 ${
-                              isPresetActive
+                            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-1 ${isPresetActive
                                 ? preset.role === 'ADMIN'
                                   ? 'bg-brand-red text-white shadow-2xs font-bold ring-1 ring-red-400'
                                   : 'bg-brand-blue text-white shadow-2xs font-bold ring-1 ring-blue-400'
@@ -1056,7 +1053,7 @@ export const UserManagementView: React.FC = () => {
                                   : preset.role === 'ADMIN'
                                     ? 'bg-white text-brand-red hover:bg-red-50 border border-brand-red/30'
                                     : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                            }`}
+                              }`}
                           >
                             {isCustom && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
                             <span>{preset.name}</span>
@@ -1114,11 +1111,10 @@ export const UserManagementView: React.FC = () => {
                                 return (
                                   <label
                                     key={perm.id}
-                                    className={`flex items-center justify-between p-2 rounded-[2px] border transition-all cursor-pointer select-none ${
-                                      isChecked 
-                                        ? 'bg-blue-50/70 border-brand-blue/50 text-brand-blue font-semibold' 
+                                    className={`flex items-center justify-between p-2 rounded-[2px] border transition-all cursor-pointer select-none ${isChecked
+                                        ? 'bg-blue-50/70 border-brand-blue/50 text-brand-blue font-semibold'
                                         : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                                    }`}
+                                      }`}
                                   >
                                     <div className="flex items-center gap-2">
                                       <input
