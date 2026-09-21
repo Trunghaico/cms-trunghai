@@ -17,6 +17,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Attachment } from '../../types';
+import { getSecureFileUrl } from '../../lib/nasStorageService';
 
 interface PDFViewerModalProps {
   attachment: Attachment | (Attachment & { documentCode?: string; documentTitle?: string; documentStatus?: string }) | null;
@@ -80,10 +81,13 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     window.print();
   };
 
+  const rawUrl = attachment.url;
+  const secureUrl = getSecureFileUrl(rawUrl);
+
   const handleDownload = () => {
-    if (attachment.url && attachment.url !== '#' && attachment.url.length > 5) {
+    if (secureUrl && secureUrl !== '#' && secureUrl.length > 5) {
       const a = document.createElement('a');
-      a.href = attachment.url;
+      a.href = secureUrl;
       a.download = attachment.name;
       document.body.appendChild(a);
       a.click();
@@ -98,13 +102,14 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   const isImage = (attachment.type && attachment.type.startsWith('image/')) || /\.(png|jpe?g|webp|gif|svg)$/i.test(attachment.name);
 
   const hasRealFileContent = !!(
-    attachment.url && 
-    attachment.url !== '#' && 
+    secureUrl && 
+    secureUrl !== '#' && 
     (
-      attachment.url.startsWith('data:') || 
-      attachment.url.startsWith('blob:') || 
-      attachment.url.startsWith('http://') || 
-      attachment.url.startsWith('https://')
+      secureUrl.startsWith('data:') || 
+      secureUrl.startsWith('blob:') || 
+      secureUrl.startsWith('http://') || 
+      secureUrl.startsWith('https://') ||
+      secureUrl.startsWith('/api/nas')
     )
   );
 
@@ -278,17 +283,17 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
               }}
             >
               <object
-                data={attachment.url}
+                data={secureUrl}
                 type="application/pdf"
                 className="w-full h-full min-h-[750px] flex-1 border-0"
               >
                 <iframe
-                  src={attachment.url}
+                  src={secureUrl}
                   className="w-full h-full min-h-[750px] flex-1 border-0"
                   title={attachment.name}
                 >
                   <embed
-                    src={attachment.url}
+                    src={secureUrl}
                     type="application/pdf"
                     className="w-full h-full min-h-[750px] flex-1"
                   />
@@ -305,7 +310,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
               }}
             >
               <img
-                src={attachment.url}
+                src={secureUrl}
                 alt={attachment.name}
                 className="max-w-full max-h-[85vh] object-contain rounded-[2px] shadow-2xl bg-white border border-slate-300"
               />

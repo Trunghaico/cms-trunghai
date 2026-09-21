@@ -29,6 +29,7 @@ import { DigitalSignaturePad } from './DigitalSignaturePad';
 import { formatCurrency, formatDate } from '../../lib/storage';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { Attachment } from '../../types';
+import { getSecureFileUrl } from '../../lib/nasStorageService';
 
 export const DocumentDetailModal: React.FC = () => {
   const { 
@@ -557,9 +558,10 @@ export const DocumentDetailModal: React.FC = () => {
                       </button>
                       <button
                         onClick={() => {
-                          if (att.url && att.url !== '#') {
+                          const downloadUrl = getSecureFileUrl(att.url);
+                          if (downloadUrl && downloadUrl !== '#') {
                             const a = document.createElement('a');
-                            a.href = att.url;
+                            a.href = downloadUrl;
                             a.download = att.name;
                             document.body.appendChild(a);
                             a.click();

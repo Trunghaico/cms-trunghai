@@ -72,7 +72,46 @@ export const saveAutoBackupConfig = (config: AutoBackupConfig): void => {
   }
 };
 
-// Khởi tạo S3 Client tương thích MinIO trên Synology NAS
+/**
+ * Kiểm tra xem trình duyệt có đang chạy qua HTTPS (như Cloudflare Pages) hay không.
+ * Nếu trang web tải qua HTTPS trong khi MinIO NAS dùng HTTP, trình duyệt sẽ chặn yêu cầu trực tiếp vì Mixed Content.
+ * Khi đó, hệ thống sẽ tự động chuyển hướng qua Cloudflare Pages Function Gateway (/api/nas).
+ */
+export const isGatewayMode = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  // Khi website chạy trên HTTPS mà MinIO là HTTP, bắt buộc phải dùng Gateway để tránh lỗi Mixed Content
+  if (window.location.protocol === 'https:' && MINIO_ENDPOINT.startsWith('http://')) {
+    return true;
+  }
+  // Môi trường Cloudflare Pages
+  if (window.location.hostname.endsWith('pages.dev')) {
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Chuyển đổi URL file trực tiếp từ MinIO sang URL an toàn qua Gateway khi chạy trên HTTPS
+ */
+export const getSecureFileUrl = (url: string | undefined): string => {
+  if (!url) return '';
+  if (typeof window !== 'undefined' && (window.location.protocol === 'https:' || window.location.hostname.endsWith('pages.dev'))) {
+    const minioBase = MINIO_ENDPOINT.replace(/\/$/, '');
+    const prefix = `${minioBase}/${MINIO_BUCKET}/`;
+    if (url.startsWith(prefix)) {
+      const key = url.substring(prefix.length);
+      return `/api/nas?action=file&key=${encodeURIComponent(key)}`;
+    }
+    // Trường hợp IP 113.161.53.133 hardcoded
+    if (url.startsWith('http://113.161.53.133:9000/crm.trunghaico.vn/')) {
+      const key = url.substring('http://113.161.53.133:9000/crm.trunghaico.vn/'.length);
+      return `/api/nas?action=file&key=${encodeURIComponent(key)}`;
+    }
+  }
+  return url;
+};
+
+// Khởi tạo S3 Client tương thích MinIO trên Synology NAS (cho môi trường localhost/HTTP)
 export const s3Client = new S3Client({
   endpoint: MINIO_ENDPOINT,
   region: 'us-east-1',
@@ -80,7 +119,7 @@ export const s3Client = new S3Client({
     accessKeyId: MINIO_ACCESS_KEY,
     secretAccessKey: MINIO_SECRET_KEY,
   },
-  forcePathStyle: true, // Bắt buộc đối với MinIO
+  forcePathStyle: true,
 });
 
 /**
@@ -92,6 +131,23 @@ export const testNASConnection = async (): Promise<{
   bucket: string;
   message: string;
 }> => {
+  if (isGatewayMode()) {
+    try {
+      const res = await fetch('/api/nas?action=test');
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      return await res.json();
+    } catch (err: any) {
+      return {
+        success: false,
+        latencyMs: 0,
+        bucket: MINIO_BUCKET,
+        message: `Lỗi kết nối Gateway Cloudflare tới MinIO NAS: ${err.message || err}`
+      };
+    }
+  }
+
   const startTime = Date.now();
   try {
     const res = await s3Client.send(new ListBucketsCommand({}));
@@ -132,14 +188,37 @@ export const uploadFileToNAS = async (
   file: File | Blob, 
   customFileName?: string
 ): Promise<{ url: string; path: string; size: number } | null> => {
+  const fileName = customFileName || (file instanceof File ? file.name : `file_${Date.now()}.bin`);
+
+  if (isGatewayMode()) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file, fileName);
+      const res = await fetch('/api/nas?action=upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      const data = await res.json();
+      return {
+        url: data.url,
+        path: data.path,
+        size: data.size,
+      };
+    } catch (err) {
+      console.error('Lỗi khi tải file lên MinIO NAS qua Gateway:', err);
+      return null;
+    }
+  }
+
   try {
-    const fileName = customFileName || (file instanceof File ? file.name : `file_${Date.now()}.bin`);
     const fileExt = fileName.split('.').pop() || 'dat';
     const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
     const filePath = `documents/${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${cleanName}`;
     const contentType = file.type || (fileExt.toLowerCase() === 'pdf' ? 'application/pdf' : 'application/octet-stream');
 
-    // Chuyển đổi File/Blob sang Uint8Array cho AWS S3 Client
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
 
@@ -176,6 +255,28 @@ export const saveDatabaseToNAS = async (
     savedBy?: string;
   }
 ): Promise<{ success: boolean; path?: string; message?: string }> => {
+  if (isGatewayMode()) {
+    try {
+      const res = await fetch('/api/nas?action=save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(snapshotData),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      return await res.json();
+    } catch (err: any) {
+      console.error('Lỗi khi lưu database lên MinIO NAS qua Gateway:', err);
+      return {
+        success: false,
+        message: `Lỗi sao lưu qua Gateway: ${err.message || err}`
+      };
+    }
+  }
+
   try {
     const now = new Date();
     const timestampStr = now.toISOString().replace(/[:.]/g, '-');
@@ -258,6 +359,24 @@ export const saveDatabaseToNAS = async (
  * Tải cơ sở dữ liệu mới nhất từ MinIO Synology NAS
  */
 export const fetchDatabaseFromNAS = async (backupKey?: string): Promise<DatabaseSnapshot | null> => {
+  if (isGatewayMode()) {
+    try {
+      const url = backupKey 
+        ? `/api/nas?action=fetch&key=${encodeURIComponent(backupKey)}` 
+        : '/api/nas?action=fetch';
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn(`Gateway fetch failed: HTTP ${res.status}`);
+        return null;
+      }
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.warn('Lỗi khi tải database từ MinIO NAS qua Gateway:', err);
+      return null;
+    }
+  }
+
   try {
     const targetKey = backupKey || 'database/cms_database_latest.json';
     const res = await s3Client.send(new GetObjectCommand({
@@ -267,7 +386,6 @@ export const fetchDatabaseFromNAS = async (backupKey?: string): Promise<Database
 
     if (!res.Body) return null;
 
-    // Đọc Body từ stream sang string
     const text = await res.Body.transformToString();
     const data: DatabaseSnapshot = JSON.parse(text);
     return data;
@@ -281,6 +399,17 @@ export const fetchDatabaseFromNAS = async (backupKey?: string): Promise<Database
  * Lấy danh sách các bản sao lưu database trên MinIO NAS
  */
 export const listNASBackups = async (): Promise<NASBackupItem[]> => {
+  if (isGatewayMode()) {
+    try {
+      const res = await fetch('/api/nas?action=backups');
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.error('Lỗi lấy danh sách sao lưu từ MinIO qua Gateway:', err);
+      return [];
+    }
+  }
+
   try {
     const res = await s3Client.send(new ListObjectsV2Command({
       Bucket: MINIO_BUCKET,
@@ -315,6 +444,16 @@ export const getLatestNASDatabaseInfo = async (): Promise<{
   size?: number;
   eTag?: string;
 } | null> => {
+  if (isGatewayMode()) {
+    try {
+      const res = await fetch('/api/nas?action=info');
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      return null;
+    }
+  }
+
   try {
     const res = await s3Client.send(new HeadObjectCommand({
       Bucket: MINIO_BUCKET,
@@ -333,4 +472,3 @@ export const getLatestNASDatabaseInfo = async (): Promise<{
     return null;
   }
 };
-
