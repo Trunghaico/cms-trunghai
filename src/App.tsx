@@ -10,6 +10,9 @@ import { CreateDocumentModal } from './components/documents/CreateDocumentModal'
 import { DocumentDetailModal } from './components/documents/DocumentDetailModal';
 import { UserManagementView } from './components/users/UserManagementView';
 import { SystemSettingsView } from './components/settings/SystemSettingsView';
+import { SLAReportView } from './components/reports/SLAReportView';
+import { DocumentAnalyticsView } from './components/reports/DocumentAnalyticsView';
+import { AuditLogView } from './components/audit/AuditLogView';
 import { LoginPage } from './components/auth/LoginPage';
 
 const AppContent: React.FC = () => {
@@ -23,20 +26,22 @@ const AppContent: React.FC = () => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;
+      
+      // KHỐI 1: TỔNG QUAN & HỒ SƠ
       case 'my-documents':
         return (
           <DocumentTable
             filterType="MY_DOCS"
             title="Hồ Sơ Của Tôi"
-            subtitle="Danh sách các hồ sơ, hợp đồng và tờ trình do bạn lập & theo dõi tiến trình phê duyệt"
+            subtitle="Danh sách các hồ sơ do chính bạn lập và phụ trách theo dõi luân chuyển"
           />
         );
-      case 'pending-approvals':
+      case 'received-documents':
         return (
           <DocumentTable
-            filterType="PENDING_MY_APPROVAL"
-            title="Hồ Sơ Cần Tôi Phê Duyệt"
-            subtitle="Danh sách các văn bản đang chờ bạn thẩm định, ký số điện tử hoặc cho ý kiến"
+            filterType="RECEIVED"
+            title="Hồ Sơ Tiếp Nhận / Chờ Xử Lý"
+            subtitle="Danh sách hồ sơ chuyển đến phòng ban cần thẩm định, phân loại hoặc giao việc"
           />
         );
       case 'all-documents':
@@ -47,14 +52,52 @@ const AppContent: React.FC = () => {
             subtitle="Toàn bộ cơ sở dữ liệu hồ sơ và tình trạng luân chuyển trong toàn công ty"
           />
         );
-      case 'workflow-templates':
-        return <WorkflowConfigView />;
-      case 'dms-repository':
-        return <DMSStorageView />;
-      case 'users':
-        return <UserManagementView />;
+      case 'dms-archive':
+        return (
+          <DocumentTable
+            filterType="ARCHIVE"
+            title="Kho Lưu Trữ Hồ Sơ (DMS)"
+            subtitle="Các hồ sơ, văn bản, hợp đồng đã hoàn tất phê duyệt và lưu trữ lịch sử"
+          />
+        );
+      case 'pending-approvals':
+        return (
+          <DocumentTable
+            filterType="PENDING_MY_APPROVAL"
+            title="Chờ Tôi Duyệt"
+            subtitle="Gom tất cả các phiếu trình, hồ sơ cần bạn ký số hoặc bấm duyệt"
+          />
+        );
+      case 'my-approved-history':
+        return (
+          <DocumentTable
+            filterType="MY_APPROVED_HISTORY"
+            title="Hồ Sơ Tôi Đã Duyệt"
+            subtitle="Lịch sử các văn bản bạn đã từng tham gia ký số hoặc phê duyệt"
+          />
+        );
+
+      // KHỐI 2: DỮ LIỆU & BÁO CÁO
+      case 'report-sla':
+        return <SLAReportView />;
+      case 'report-analytics':
+        return <DocumentAnalyticsView />;
+      case 'audit-logs':
+        return <AuditLogView />;
+
+      // KHỐI 3: THIẾT LẬP HỆ THỐNG & DANH MỤC
+      case 'settings-categories':
       case 'settings':
         return <SystemSettingsView />;
+      case 'workflow-config':
+      case 'workflow-templates':
+        return <WorkflowConfigView />;
+      case 'user-management':
+      case 'users':
+        return <UserManagementView />;
+      case 'dms-repository':
+        return <DMSStorageView />;
+
       default:
         return <DashboardView />;
     }
@@ -65,13 +108,13 @@ const AppContent: React.FC = () => {
       {/* Top Header - Fixed & Sticky */}
       <Header />
 
-      {/* Main Layout: Fixed Compact Sidebar (w-56) on Left + Scrollable Content on Right (pl-56) */}
+      {/* Main Layout: Fixed Compact Sidebar (w-60) on Left + Scrollable Content on Right (pl-60) */}
       <div className="flex-1 flex">
         {/* Left Fixed Sidebar */}
         <Sidebar />
 
-        {/* Right Main Content Area with pl-56 offset */}
-        <main className="flex-1 pl-56 min-w-0">
+        {/* Right Main Content Area with pl-60 offset */}
+        <main className="flex-1 pl-60 min-w-0">
           <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in">
             {renderContent()}
           </div>

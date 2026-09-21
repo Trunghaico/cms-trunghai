@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 interface DocumentTableProps {
-  filterType?: 'ALL' | 'MY_DOCS' | 'PENDING_MY_APPROVAL';
+  filterType?: 'ALL' | 'MY_DOCS' | 'RECEIVED' | 'ARCHIVE' | 'PENDING_MY_APPROVAL' | 'MY_APPROVED_HISTORY';
   title?: string;
   subtitle?: string;
 }
@@ -71,8 +71,6 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     if (!activeUser) return [];
     return documents.filter(doc => {
       // 1. KIỂM TRA QUYỀN XEM HỒ SƠ:
-      // Hồ sơ của ai lập thì chỉ có người lập, người phê duyệt và người theo dõi (Cc) được thấy.
-      // Người được phân quyền theo dõi toàn bộ hồ sơ (Director, Admin, doc.view_all) mới thấy tất cả.
       if (!canUserAccessDocument(activeUser, doc)) {
         return false;
       }
@@ -84,6 +82,24 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         return false;
       }
 
+      if (filterType === 'RECEIVED') {
+        // Hồ sơ tiếp nhận / Chờ xử lý: hồ sơ chuyển đến phòng ban của người dùng hoặc đang chờ xử lý
+        const currentStep = doc.steps[doc.currentStepIndex];
+        const isTargetDept = currentStep?.department?.toLowerCase() === activeUser.department.toLowerCase() ||
+                             doc.department.toLowerCase() === activeUser.department.toLowerCase();
+        const isNotDone = doc.status === 'PENDING' || doc.status === 'IN_PROGRESS' || doc.status === 'ADDITIONAL_REQ';
+        if (!isTargetDept || !isNotDone) {
+          return false;
+        }
+      }
+
+      if (filterType === 'ARCHIVE') {
+        // Kho lưu trữ: Hồ sơ đã đóng / hoàn tất phê duyệt
+        if (doc.status !== 'APPROVED') {
+          return false;
+        }
+      }
+
       if (filterType === 'PENDING_MY_APPROVAL') {
         if (doc.status === 'APPROVED' || doc.status === 'REJECTED' || doc.status === 'ADDITIONAL_REQ') return false;
         const currentStep = doc.steps[doc.currentStepIndex];
@@ -91,6 +107,17 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
 
         const isApproverForCurrentStep = isUserApproverForStep(activeUser, currentStep);
         if (!isApproverForCurrentStep) return false;
+      }
+
+      if (filterType === 'MY_APPROVED_HISTORY') {
+        // Tôi đã duyệt: Các hồ sơ mà chính tài khoản này đã từng bấm phê duyệt ở bất kỳ bước nào
+        const hasApproved = doc.steps.some(step => 
+          step.status === 'APPROVED' && (
+            step.approverId === activeUser.id || 
+            (step.approverName && step.approverName.trim().toLowerCase() === activeUser.name.trim().toLowerCase())
+          )
+        );
+        if (!hasApproved) return false;
       }
 
       // 3. Status filter

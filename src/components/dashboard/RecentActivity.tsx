@@ -54,10 +54,10 @@ export const RecentActivity: React.FC = () => {
           <p className="text-xs text-slate-500">Các hành động duyệt, ký và chuyển bước theo thời gian thực</p>
         </div>
         <button 
-          onClick={() => setActiveTab('all-documents')}
-          className="text-xs font-semibold text-brand-blue hover:text-brand-blue-dark flex items-center gap-1"
+          onClick={() => setActiveTab('audit-logs')}
+          className="text-xs font-semibold text-brand-blue hover:text-brand-blue-dark flex items-center gap-1 hover:underline"
         >
-          <span>Xem tất cả</span>
+          <span>Xem tất cả nhật ký</span>
           <ArrowRight className="h-3.5 w-3.5" />
         </button>
       </div>

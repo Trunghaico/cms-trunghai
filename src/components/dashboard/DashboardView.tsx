@@ -90,19 +90,7 @@ export const DashboardView: React.FC = () => {
       {/* KPI Stat Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Cần tôi phê duyệt"
-          value={stats.myPendingApprovalsCount}
-          subtitle="Hồ sơ đang chờ bạn duyệt"
-          icon={FileSignature}
-          iconColor="text-brand-red"
-          bgColor="bg-brand-red-light"
-          borderColor={stats.myPendingApprovalsCount > 0 ? 'border-brand-red ring-1 ring-brand-red/30' : 'border-slate-200'}
-          onClick={() => setActiveTab('pending-approvals')}
-          urgentBadge={stats.myPendingApprovalsCount > 0}
-        />
-
-        <StatCard
-          title="Đang luân chuyển"
+          title="Hồ sơ đang mở"
           value={stats.inProgress + stats.pending}
           subtitle="Đang trong các bước duyệt"
           icon={Clock}
@@ -112,25 +100,97 @@ export const DashboardView: React.FC = () => {
         />
 
         <StatCard
-          title="Đã duyệt & Đóng dấu"
-          value={stats.approved}
-          subtitle="Hồ sơ hoàn tất có hiệu lực"
-          icon={CheckCircle2}
-          iconColor="text-emerald-600"
-          bgColor="bg-emerald-50"
-          onClick={() => setActiveTab('all-documents')}
+          title="Hồ sơ quá hạn SLA"
+          value={stats.overdueCount}
+          subtitle="Cần can thiệp & nhắc nhở"
+          icon={AlertCircle}
+          iconColor="text-brand-red"
+          bgColor="bg-brand-red-light"
+          borderColor={stats.overdueCount > 0 ? 'border-brand-red/60 ring-1 ring-brand-red/20' : 'border-slate-200'}
+          onClick={() => setActiveTab('report-sla')}
+          urgentBadge={stats.overdueCount > 0}
         />
 
         <StatCard
-          title="Hồ sơ khẩn cấp"
-          value={stats.urgentCount}
-          subtitle="Ưu tiên xử lý nhanh"
-          icon={Flame}
+          title="Chờ tôi duyệt"
+          value={stats.myPendingApprovalsCount}
+          subtitle="Đang chờ bạn thẩm định/ký"
+          icon={FileSignature}
           iconColor="text-amber-600"
           bgColor="bg-amber-50"
-          urgentBadge={stats.urgentCount > 0}
-          onClick={() => setActiveTab('all-documents')}
+          borderColor={stats.myPendingApprovalsCount > 0 ? 'border-amber-500 ring-1 ring-amber-400/30' : 'border-slate-200'}
+          onClick={() => setActiveTab('pending-approvals')}
+          urgentBadge={stats.myPendingApprovalsCount > 0}
         />
+
+        <StatCard
+          title="Hồ sơ đã hoàn tất"
+          value={stats.approved}
+          subtitle="Đã duyệt & lưu kho DMS"
+          icon={CheckCircle2}
+          iconColor="text-emerald-600"
+          bgColor="bg-emerald-50"
+          onClick={() => setActiveTab('dms-archive')}
+        />
+      </div>
+
+      {/* Lối tắt truy cập nhanh vào các hồ sơ gần đây */}
+      <div className="bg-white p-5 rounded-[3px] border border-slate-200 shadow-card">
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 bg-brand-blue-light text-brand-blue rounded-[3px]">
+              <FileText className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Lối Tắt Truy Cập Nhanh Hồ Sơ Gần Đây</h3>
+              <p className="text-[11px] text-slate-500">Các hồ sơ vừa được tạo hoặc cập nhật gần nhất trong hệ thống</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('all-documents')}
+            className="text-xs font-bold text-brand-blue hover:text-brand-blue-dark flex items-center gap-1 hover:underline"
+          >
+            <span>Xem tất cả hồ sơ</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {documents.slice(0, 4).map((doc) => {
+            const isApproved = doc.status === 'APPROVED';
+            const isRejected = doc.status === 'REJECTED';
+            const isAddReq = doc.status === 'ADDITIONAL_REQ';
+            return (
+              <div
+                key={doc.id}
+                onClick={() => setSelectedDocument(doc)}
+                className="p-3.5 rounded-[3px] border border-slate-200 bg-slate-50/50 hover:bg-blue-50/30 hover:border-brand-blue/50 transition-all cursor-pointer group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-mono text-xs font-black text-brand-blue group-hover:underline">
+                      {doc.code}
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] ${
+                      isApproved ? 'bg-emerald-100 text-emerald-800' :
+                      isRejected ? 'bg-red-100 text-red-800' :
+                      isAddReq ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-brand-blue'
+                    }`}>
+                      {isApproved ? 'Hoàn tất' : isRejected ? 'Từ chối' : isAddReq ? 'Bổ sung' : 'Đang xử lý'}
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-800 line-clamp-2 mb-2 group-hover:text-brand-blue transition-colors">
+                    {doc.title}
+                  </h4>
+                </div>
+                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
+                  <span className="truncate max-w-[110px] font-medium">{doc.department}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">{formatDate(doc.updatedAt || doc.createdAt)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Urgent Action Table: Hồ sơ cần tôi duyệt ngay */}
