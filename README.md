@@ -180,7 +180,6 @@ quanlyhopdong/
 ├── package.json                # Danh sách thư viện và scripts
 ├── tailwind.config.js          # Cấu hình màu sắc, animation Tailwind CSS
 ├── tsconfig.json               # Cấu hình TypeScript
-├── wrangler.toml               # Cấu hình triển khai Cloudflare Workers & Pages
 └── vite.config.ts              # Cấu hình Vite Build Tool
 ```
 
