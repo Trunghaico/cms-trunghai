@@ -1,6 +1,6 @@
 import { AwsClient } from 'aws4fetch';
 
-const DEFAULT_MINIO_ENDPOINT = 'http://113.161.53.133:9000';
+const DEFAULT_MINIO_ENDPOINT = 'http://trunghaico.synology.me:9000';
 const DEFAULT_MINIO_BUCKET = 'crm.trunghaico.vn';
 const DEFAULT_MINIO_ACCESS_KEY = 'sysadmin';
 const DEFAULT_MINIO_SECRET_KEY = 'THG@2026';

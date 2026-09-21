@@ -8,7 +8,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { DocumentItem, User, DepartmentItem, JobTitleItem, NotificationItem } from '../types';
 
-export const MINIO_ENDPOINT = import.meta.env.VITE_MINIO_ENDPOINT || 'http://113.161.53.133:9000';
+export const MINIO_ENDPOINT = import.meta.env.VITE_MINIO_ENDPOINT || 'http://trunghaico.synology.me:9000';
 export const MINIO_BUCKET = import.meta.env.VITE_MINIO_BUCKET || 'crm.trunghaico.vn';
 export const MINIO_ACCESS_KEY = import.meta.env.VITE_MINIO_ACCESS_KEY || 'sysadmin';
 export const MINIO_SECRET_KEY = import.meta.env.VITE_MINIO_SECRET_KEY || 'THG@2026';
