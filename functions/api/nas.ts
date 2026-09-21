@@ -1,34 +1,28 @@
-import { 
-  S3Client, 
-  ListBucketsCommand, 
-  PutObjectCommand, 
-  GetObjectCommand, 
-  ListObjectsV2Command,
-  HeadObjectCommand 
-} from '@aws-sdk/client-s3';
+import { AwsClient } from 'aws4fetch';
 
 const DEFAULT_MINIO_ENDPOINT = 'http://113.161.53.133:9000';
 const DEFAULT_MINIO_BUCKET = 'crm.trunghaico.vn';
 const DEFAULT_MINIO_ACCESS_KEY = 'sysadmin';
 const DEFAULT_MINIO_SECRET_KEY = 'THG@2026';
 
-function createS3Client(env: any) {
-  const endpoint = env?.VITE_MINIO_ENDPOINT || env?.MINIO_ENDPOINT || DEFAULT_MINIO_ENDPOINT;
+function getAwsClient(env: any): AwsClient {
   const accessKeyId = env?.VITE_MINIO_ACCESS_KEY || env?.MINIO_ACCESS_KEY || DEFAULT_MINIO_ACCESS_KEY;
   const secretAccessKey = env?.VITE_MINIO_SECRET_KEY || env?.MINIO_SECRET_KEY || DEFAULT_MINIO_SECRET_KEY;
 
-  return new S3Client({
-    endpoint,
+  return new AwsClient({
+    accessKeyId,
+    secretAccessKey,
+    service: 's3',
     region: 'us-east-1',
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-    forcePathStyle: true,
   });
 }
 
-function getBucket(env: any) {
+function getEndpoint(env: any): string {
+  const endpoint = env?.VITE_MINIO_ENDPOINT || env?.MINIO_ENDPOINT || DEFAULT_MINIO_ENDPOINT;
+  return endpoint.replace(/\/$/, '');
+}
+
+function getBucket(env: any): string {
   return env?.VITE_MINIO_BUCKET || env?.MINIO_BUCKET || DEFAULT_MINIO_BUCKET;
 }
 
@@ -37,7 +31,8 @@ export async function onRequest(context: any): Promise<Response> {
   const url = new URL(request.url);
   const action = url.searchParams.get('action') || 'info';
   const bucket = getBucket(env);
-  const s3Client = createS3Client(env);
+  const endpoint = getEndpoint(env);
+  const aws = getAwsClient(env);
 
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -54,17 +49,19 @@ export async function onRequest(context: any): Promise<Response> {
     // 1. Test connection
     if (action === 'test') {
       const start = Date.now();
-      const res = await s3Client.send(new ListBucketsCommand({}));
+      const res = await aws.fetch(`${endpoint}/${bucket}`);
       const latencyMs = Date.now() - start;
-      const bucketExists = res.Buckets?.some((b: any) => b.Name === bucket);
+
+      if (!res.ok && res.status !== 200) {
+        const errText = await res.text();
+        throw new Error(`MinIO NAS returned status ${res.status}: ${errText.substring(0, 200)}`);
+      }
 
       return new Response(JSON.stringify({
         success: true,
         latencyMs,
         bucket,
-        message: bucketExists
-          ? `Kết nối MinIO NAS thành công qua Cloudflare Gateway (${latencyMs}ms). Bucket "${bucket}" sẵn sàng.`
-          : `Đã kết nối tới NAS qua Cloudflare Gateway (${latencyMs}ms).`
+        message: `Kết nối MinIO NAS thành công qua Cloudflare Gateway (${latencyMs}ms). Bucket "${bucket}" sẵn sàng.`
       }), { headers: corsHeaders });
     }
 
@@ -72,14 +69,11 @@ export async function onRequest(context: any): Promise<Response> {
     if (action === 'fetch') {
       const targetKey = url.searchParams.get('key') || 'database/cms_database_latest.json';
       try {
-        const res = await s3Client.send(new GetObjectCommand({
-          Bucket: bucket,
-          Key: targetKey,
-        }));
-        if (!res.Body) {
+        const res = await aws.fetch(`${endpoint}/${bucket}/${targetKey}`);
+        if (!res.ok) {
           return new Response(JSON.stringify(null), { headers: corsHeaders });
         }
-        const text = await res.Body.transformToString();
+        const text = await res.text();
         return new Response(text, { 
           headers: {
             ...corsHeaders,
@@ -114,39 +108,45 @@ export async function onRequest(context: any): Promise<Response> {
         }
       };
 
-      const uint8Array = new TextEncoder().encode(JSON.stringify(payload, null, 2));
+      const jsonString = JSON.stringify(payload, null, 2);
 
       // 1. Save latest snapshot
-      await s3Client.send(new PutObjectCommand({
-        Bucket: bucket,
-        Key: 'database/cms_database_latest.json',
-        Body: uint8Array,
-        ContentType: 'application/json',
-        Metadata: {
-          'saved-at': now.toISOString(),
-          'total-docs': String(payload.meta.totalDocuments),
-          'total-users': String(payload.meta.totalUsers)
-        }
-      }));
+      const putLatest = await aws.fetch(`${endpoint}/${bucket}/database/cms_database_latest.json`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonString,
+      });
+
+      if (!putLatest.ok) {
+        const errText = await putLatest.text();
+        throw new Error(`Lưu database/cms_database_latest.json thất bại (HTTP ${putLatest.status}): ${errText.substring(0, 200)}`);
+      }
 
       // 2. Save historical backup
-      await s3Client.send(new PutObjectCommand({
-        Bucket: bucket,
-        Key: backupKey,
-        Body: uint8Array,
-        ContentType: 'application/json',
-      }));
+      const putBackup = await aws.fetch(`${endpoint}/${bucket}/${backupKey}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonString,
+      });
+
+      if (!putBackup.ok) {
+        const errText = await putBackup.text();
+        throw new Error(`Lưu ${backupKey} thất bại (HTTP ${putBackup.status}): ${errText.substring(0, 200)}`);
+      }
 
       // 3. Save entity files
-      const textEncoder = new TextEncoder();
-      const saveEntity = async (key: string, data: any) => {
-        const bytes = textEncoder.encode(JSON.stringify(data, null, 2));
-        await s3Client.send(new PutObjectCommand({
-          Bucket: bucket,
-          Key: `database/${key}.json`,
-          Body: bytes,
-          ContentType: 'application/json',
-        }));
+      const saveEntity = (key: string, data: any) => {
+        return aws.fetch(`${endpoint}/${bucket}/database/${key}.json`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data, null, 2),
+        });
       };
 
       await Promise.all([
@@ -165,21 +165,33 @@ export async function onRequest(context: any): Promise<Response> {
 
     // 4. List backups
     if (action === 'backups') {
-      const res = await s3Client.send(new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: 'database/backups/',
-      }));
+      const res = await aws.fetch(`${endpoint}/${bucket}?list-type=2&prefix=database/backups/`);
+      if (!res.ok) {
+        return new Response(JSON.stringify([]), { headers: corsHeaders });
+      }
 
-      const items = (res.Contents || [])
-        .filter((i: any) => i.Key && i.Key.endsWith('.json'))
-        .map((i: any) => ({
-          key: i.Key || '',
-          fileName: i.Key?.split('/').pop() || '',
-          lastModified: i.LastModified ? i.LastModified.toISOString() : new Date().toISOString(),
-          size: i.Size || 0
-        }))
-        .sort((a: any, b: any) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+      const xml = await res.text();
+      const items: any[] = [];
+      const contentRegex = /<Contents>([\s\S]*?)<\/Contents>/g;
+      let match;
+      while ((match = contentRegex.exec(xml)) !== null) {
+        const block = match[1];
+        const keyMatch = /<Key>(.*?)<\/Key>/.exec(block);
+        const lastModMatch = /<LastModified>(.*?)<\/LastModified>/.exec(block);
+        const sizeMatch = /<Size>(\d+)<\/Size>/.exec(block);
 
+        const key = keyMatch ? keyMatch[1] : '';
+        if (key && key.endsWith('.json')) {
+          items.push({
+            key,
+            fileName: key.split('/').pop() || '',
+            lastModified: lastModMatch ? lastModMatch[1] : new Date().toISOString(),
+            size: sizeMatch ? parseInt(sizeMatch[1], 10) : 0,
+          });
+        }
+      }
+
+      items.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
       return new Response(JSON.stringify(items), { headers: corsHeaders });
     }
 
@@ -197,16 +209,21 @@ export async function onRequest(context: any): Promise<Response> {
       const contentType = file.type || (fileExt.toLowerCase() === 'pdf' ? 'application/pdf' : 'application/octet-stream');
 
       const arrayBuffer = await file.arrayBuffer();
-      await s3Client.send(new PutObjectCommand({
-        Bucket: bucket,
-        Key: filePath,
-        Body: new Uint8Array(arrayBuffer),
-        ContentType: contentType,
-      }));
+      const uploadRes = await aws.fetch(`${endpoint}/${bucket}/${filePath}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': contentType,
+        },
+        body: arrayBuffer,
+      });
+
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`Upload file lên NAS thất bại (HTTP ${uploadRes.status}): ${errText.substring(0, 200)}`);
+      }
 
       const gatewayUrl = `/api/nas?action=file&key=${encodeURIComponent(filePath)}`;
-      const endpoint = env?.VITE_MINIO_ENDPOINT || env?.MINIO_ENDPOINT || DEFAULT_MINIO_ENDPOINT;
-      const directUrl = `${endpoint.replace(/\/$/, '')}/${bucket}/${filePath}`;
+      const directUrl = `${endpoint}/${bucket}/${filePath}`;
 
       return new Response(JSON.stringify({
         url: gatewayUrl,
@@ -219,16 +236,24 @@ export async function onRequest(context: any): Promise<Response> {
     // 6. Get latest database metadata info
     if (action === 'info') {
       try {
-        const res = await s3Client.send(new HeadObjectCommand({
-          Bucket: bucket,
-          Key: 'database/cms_database_latest.json'
-        }));
-        return new Response(JSON.stringify({
-          exists: true,
-          lastModified: res.LastModified ? res.LastModified.toISOString() : undefined,
-          size: res.ContentLength,
-          eTag: res.ETag
-        }), { headers: corsHeaders });
+        const res = await aws.fetch(`${endpoint}/${bucket}/database/cms_database_latest.json`, {
+          method: 'HEAD'
+        });
+
+        if (res.ok) {
+          const lastModified = res.headers.get('last-modified') || undefined;
+          const contentLength = res.headers.get('content-length');
+          const eTag = res.headers.get('etag') || undefined;
+
+          return new Response(JSON.stringify({
+            exists: true,
+            lastModified,
+            size: contentLength ? parseInt(contentLength, 10) : undefined,
+            eTag
+          }), { headers: corsHeaders });
+        }
+
+        return new Response(JSON.stringify({ exists: false }), { headers: corsHeaders });
       } catch (e: any) {
         return new Response(JSON.stringify({ exists: false }), { headers: corsHeaders });
       }
@@ -241,17 +266,12 @@ export async function onRequest(context: any): Promise<Response> {
         return new Response('Missing key parameter', { status: 400, headers: corsHeaders });
       }
       try {
-        const res = await s3Client.send(new GetObjectCommand({
-          Bucket: bucket,
-          Key: key,
-        }));
-        if (!res.Body) {
+        const res = await aws.fetch(`${endpoint}/${bucket}/${key}`);
+        if (!res.ok) {
           return new Response('File not found', { status: 404, headers: corsHeaders });
         }
         
-        const bytes = await res.Body.transformToByteArray();
-        const contentType = res.ContentType || 'application/octet-stream';
-        
+        const contentType = res.headers.get('content-type') || 'application/octet-stream';
         const headers = new Headers({
           'Content-Type': contentType,
           'Cache-Control': 'public, max-age=86400',
@@ -263,7 +283,7 @@ export async function onRequest(context: any): Promise<Response> {
           headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
         }
 
-        return new Response(bytes, {
+        return new Response(res.body, {
           status: 200,
           headers
         });

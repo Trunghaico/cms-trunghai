@@ -122,6 +122,20 @@ export const s3Client = new S3Client({
   forcePathStyle: true,
 });
 
+async function extractErrorMessage(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (data?.error) return data.error;
+    if (data?.message) return data.message;
+  } catch {
+    try {
+      const text = await res.text();
+      if (text) return text;
+    } catch {}
+  }
+  return `HTTP ${res.status}: ${res.statusText || 'Lỗi kết nối máy chủ'}`;
+}
+
 /**
  * Kiểm tra kết nối tới MinIO Server trên Synology NAS
  */
@@ -135,7 +149,8 @@ export const testNASConnection = async (): Promise<{
     try {
       const res = await fetch('/api/nas?action=test');
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const msg = await extractErrorMessage(res);
+        throw new Error(msg);
       }
       return await res.json();
     } catch (err: any) {
@@ -199,7 +214,8 @@ export const uploadFileToNAS = async (
         body: formData,
       });
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const msg = await extractErrorMessage(res);
+        throw new Error(msg);
       }
       const data = await res.json();
       return {
@@ -265,7 +281,8 @@ export const saveDatabaseToNAS = async (
         body: JSON.stringify(snapshotData),
       });
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const msg = await extractErrorMessage(res);
+        throw new Error(msg);
       }
       return await res.json();
     } catch (err: any) {
