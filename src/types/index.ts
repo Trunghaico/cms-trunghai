@@ -1,0 +1,176 @@
+export type DocumentPriority = 'NORMAL' | 'URGENT' | 'VERY_URGENT';
+
+export type DocumentStatus = 
+  | 'DRAFT'           // Bản nháp
+  | 'PENDING'         // Đang chờ duyệt
+  | 'IN_PROGRESS'     // Đang xử lý (đã qua 1 số cấp duyệt)
+  | 'APPROVED'        // Đã hoàn tất phê duyệt
+  | 'REJECTED'        // Bị từ chối
+  | 'ADDITIONAL_REQ'; // Yêu cầu bổ sung thông tin
+
+export type StepStatus = 
+  | 'PENDING'         // Chưa tới lượt
+  | 'CURRENT'         // Đang chờ duyệt
+  | 'APPROVED'        // Đã duyệt
+  | 'REJECTED'        // Đã từ chối
+  | 'SKIPPED';        // Bỏ qua
+
+export type UserRole = 
+  | 'STAFF'           // Chuyên viên / Nhân viên lập hồ sơ
+  | 'DEPT_HEAD'       // Trưởng phòng
+  | 'CHIEF_ACCOUNTANT'// Kế toán trưởng
+  | 'LEGAL_DEPT'      // Phòng Pháp chế
+  | 'DIRECTOR'        // Ban Giám đốc / Tổng Giám đốc
+  | 'ADMIN';          // Quản trị viên hệ thống
+
+// FINE-GRAINED PERMISSION TYPES
+export type PermissionCategory = 
+  | 'DOCUMENT'
+  | 'APPROVAL'
+  | 'WORKFLOW'
+  | 'DMS'
+  | 'USER_ADMIN'
+  | 'SYSTEM';
+
+export type PermissionId = 
+  // Documents
+  | 'doc.view'
+  | 'doc.view_all'
+  | 'doc.create'
+  | 'doc.edit'
+  | 'doc.delete'
+  | 'doc.print_export'
+  // Approval
+  | 'approval.approve'
+  | 'approval.reject'
+  | 'approval.request_info'
+  | 'approval.override'
+  // Workflow
+  | 'workflow.view'
+  | 'workflow.manage'
+  // DMS
+  | 'dms.view'
+  | 'dms.export'
+  // Users & Permissions
+  | 'user.view'
+  | 'user.create'
+  | 'user.edit'
+  | 'user.delete'
+  // System & Analytics
+  | 'system.dashboard'
+  | 'system.audit_log';
+
+export interface PermissionDefinition {
+  id: PermissionId;
+  name: string;
+  code: string;
+  description: string;
+  category: PermissionCategory;
+}
+
+export interface User {
+  id: string;
+  name: string;          // Họ và tên
+  username: string;      // Tên đăng nhập (username)
+  pass: string;          // Mật khẩu (pass)
+  email?: string;
+  role: UserRole;        // Vai trò nhóm thẩm quyền (Preset)
+  roleTitle: string;     // Chức vụ hiển thị
+  department: string;    // Phòng ban
+  avatar: string;
+  signatureUrl?: string;
+  permissions: PermissionId[]; // Danh sách các quyền chi tiết (Permission Matrix)
+}
+
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  isScan?: boolean;
+}
+
+export interface ApprovalStep {
+  id: string;
+  stepOrder: number;
+  title: string;
+  approverRole: UserRole;
+  approverId?: string;
+  approverName: string;
+  approverTitle: string;
+  department: string;
+  status: StepStatus;
+  comment?: string;
+  decisionDate?: string;
+  signatureImage?: string;
+  slaHours?: number; // SLA thời gian duyệt tính theo giờ
+}
+
+export interface AuditLog {
+  id: string;
+  documentId: string;
+  action: 'CREATE' | 'SUBMIT' | 'APPROVE' | 'REJECT' | 'REQUEST_INFO' | 'FORWARD' | 'UPDATE';
+  actorId: string;
+  actorName: string;
+  actorTitle: string;
+  timestamp: string;
+  comment?: string;
+  previousStatus?: DocumentStatus;
+  newStatus?: DocumentStatus;
+}
+
+export interface DocumentItem {
+  id: string;
+  code: string;                 // Số hiệu: e.g. HD-2026/TH-089, TTr-042/KT
+  title: string;                // Trích yếu / Tên hồ sơ
+  category: string;             // Loại hồ sơ: Hợp đồng kinh tế, Tờ trình phê duyệt, Đề xuất thanh toán...
+  project?: string;             // Tên dự án
+  department: string;           // Phòng ban khởi tạo
+  creatorId: string;
+  creatorName: string;
+  creatorTitle: string;
+  createdAt: string;
+  updatedAt: string;
+  deadline?: string;            // Hạn xử lý SLA
+  desiredDeadline?: string;     // Thời hạn duyệt mong muốn
+  priority: DocumentPriority;
+  status: DocumentStatus;
+  amount?: number;              // Giá trị hợp đồng / số tiền nếu có (VNĐ)
+  description?: string;
+  contentHtml?: string;         // Nội dung chi tiết định dạng Rich Text (Quill 2.0)
+  attachments: Attachment[];
+  steps: ApprovalStep[];        // Danh sách người xét duyệt các bước
+  ccUsers?: { id: string; name: string; roleTitle: string; department?: string; avatar?: string }[]; // Người theo dõi (Cc)
+  currentStepIndex: number;
+  auditLogs: AuditLog[];
+  signedPdfUrl?: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  documentId: string;
+  documentCode: string;
+  type: 'INFO' | 'ACTION_REQUIRED' | 'APPROVED' | 'REJECTED' | 'SLA_WARNING';
+  read: boolean;
+  createdAt: string;
+}
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  steps: {
+    order: number;
+    title: string;
+    role: UserRole;
+    roleTitle: string;
+    department: string;
+    slaHours: number;
+  }[];
+}

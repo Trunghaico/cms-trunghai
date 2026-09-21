@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 480" width="100%" height="100%">
+  <defs>
+    <style>
+      .cls-red { fill: #ed3237; }
+      .cls-blue { fill: #3e4095; }
+      .cls-text { font-family: 'Arial Black', 'Montserrat', 'Inter', sans-serif; font-weight: 900; font-size: 58px; fill: #3e4095; letter-spacing: 2px; }
+    </style>
+  </defs>
+  <!-- Red section of triangle -->
+  <polygon class="cls-red" points="25,320 185,85 240,168 185,250 248,320" />
+  <polygon class="cls-red" points="130,320 200,225 240,280 205,320" />
+
+  <!-- Blue section of triangle -->
+  <polygon class="cls-blue" points="250,25 475,320 375,320 250,150 195,225 245,95" />
+  <polygon class="cls-blue" points="280,185 365,300 325,320 245,215" />
+
+  <!-- Bottom Text -->
+  <text x="250" y="395" text-anchor="middle" class="cls-text">TRUNG HAI</text>
+</svg>
