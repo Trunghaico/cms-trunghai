@@ -86,7 +86,7 @@ async function socketHttp(
   const port = parseInt(url.port || '9000', 10);
   const path = url.pathname + url.search;
 
-  const socket = connect({ hostname, port });
+  const socket = connect({ hostname, port, allowHalfOpen: true });
   const writer = socket.writable.getWriter();
 
   let headerStr = `${options.method} ${path} HTTP/1.1\r\n`;
@@ -115,53 +115,81 @@ async function socketHttp(
 
   await writer.write(new TextEncoder().encode(headerStr));
   if (reqBodyBytes && reqBodyBytes.length > 0) {
-    const CHUNK_SIZE = 32 * 1024;
+    const CHUNK_SIZE = 64 * 1024;
     for (let i = 0; i < reqBodyBytes.length; i += CHUNK_SIZE) {
       const chunk = reqBodyBytes.subarray(i, Math.min(i + CHUNK_SIZE, reqBodyBytes.length));
       await writer.write(chunk);
     }
   }
-  await writer.close();
+  writer.releaseLock();
 
   const reader = socket.readable.getReader();
-  const chunks: Uint8Array[] = [];
-  let totalLen = 0;
+  let buffer = new Uint8Array(0);
+  let headerEnd = -1;
+  let expectedBodyLen = -1;
+  let isChunked = false;
+
+  const concat = (a: Uint8Array, b: Uint8Array): Uint8Array => {
+    const c = new Uint8Array(a.length + b.length);
+    c.set(a, 0);
+    c.set(b, a.length);
+    return c;
+  };
+
   while (true) {
     const { done, value } = await reader.read();
+    if (value && value.length > 0) {
+      buffer = concat(buffer, value);
+    }
+
+    if (headerEnd === -1 && buffer.length >= 4) {
+      for (let i = 0; i < buffer.length - 3; i++) {
+        if (
+          buffer[i] === 13 &&
+          buffer[i + 1] === 10 &&
+          buffer[i + 2] === 13 &&
+          buffer[i + 3] === 10
+        ) {
+          headerEnd = i;
+          break;
+        }
+      }
+
+      if (headerEnd !== -1) {
+        const headerText = new TextDecoder().decode(buffer.subarray(0, headerEnd));
+        const clMatch = /content-length:\s*(\d+)/i.exec(headerText);
+        if (clMatch) {
+          expectedBodyLen = parseInt(clMatch[1], 10);
+        }
+        if (/transfer-encoding:\s*chunked/i.test(headerText)) {
+          isChunked = true;
+        }
+      }
+    }
+
+    if (headerEnd !== -1) {
+      const currentBodyLen = buffer.length - (headerEnd + 4);
+      if (expectedBodyLen !== -1 && currentBodyLen >= expectedBodyLen) {
+        break;
+      }
+      if (isChunked && new TextDecoder().decode(buffer.subarray(-7)).includes('0\r\n\r\n')) {
+        break;
+      }
+    }
+
     if (done) break;
-    if (value) {
-      chunks.push(value);
-      totalLen += value.length;
-    }
   }
 
-  const fullBytes = new Uint8Array(totalLen);
-  let offset = 0;
-  for (const c of chunks) {
-    fullBytes.set(c, offset);
-    offset += c.length;
-  }
-
-  let headerEnd = -1;
-  for (let i = 0; i < fullBytes.length - 3; i++) {
-    if (
-      fullBytes[i] === 13 &&
-      fullBytes[i + 1] === 10 &&
-      fullBytes[i + 2] === 13 &&
-      fullBytes[i + 3] === 10
-    ) {
-      headerEnd = i;
-      break;
-    }
-  }
+  reader.releaseLock();
+  try { socket.close(); } catch {}
 
   if (headerEnd === -1) {
-    const preview = new TextDecoder().decode(fullBytes.subarray(0, 200));
-    throw new Error(`MinIO socket response has no boundary (total bytes: ${totalLen}): ${preview}`);
+    const preview = new TextDecoder().decode(buffer.subarray(0, 200));
+    throw new Error(`MinIO socket response has no boundary (total bytes: ${buffer.length}): ${preview}`);
   }
 
-  const headerText = new TextDecoder().decode(fullBytes.subarray(0, headerEnd));
-  let resBodyBytes = fullBytes.subarray(headerEnd + 4);
+  const headerText = new TextDecoder().decode(buffer.subarray(0, headerEnd));
+  let resBodyBytes = buffer.subarray(headerEnd + 4);
 
   const lines = headerText.split('\r\n');
   const statusLine = lines[0] || '';
@@ -207,9 +235,16 @@ async function signedSocketFetch(
   }
 ): Promise<SocketResponse> {
   const method = init?.method || 'GET';
+  const headers: Record<string, string> = { ...(init?.headers || {}) };
+
+  if (init?.body) {
+    const len = typeof init.body === 'string' ? new TextEncoder().encode(init.body).length : init.body.length;
+    headers['Content-Length'] = String(len);
+  }
+
   const signed = await aws.sign(urlStr, {
     method,
-    headers: init?.headers,
+    headers,
     body: init?.body,
   });
 
