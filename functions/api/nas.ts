@@ -1,4 +1,5 @@
 import { AwsClient } from 'aws4fetch';
+import { connect } from 'cloudflare:sockets';
 
 const DEFAULT_MINIO_ENDPOINT = 'http://trunghaico.synology.me:9000';
 const DEFAULT_MINIO_BUCKET = 'crm.trunghaico.vn';
@@ -26,6 +27,190 @@ function getBucket(env: any): string {
   return env?.VITE_MINIO_BUCKET || env?.MINIO_BUCKET || DEFAULT_MINIO_BUCKET;
 }
 
+interface SocketResponse {
+  status: number;
+  statusText: string;
+  headers: Headers;
+  body: Uint8Array;
+  ok: boolean;
+  text: () => Promise<string>;
+  json: () => Promise<any>;
+}
+
+function decodeChunked(input: Uint8Array): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let pos = 0;
+  while (pos < input.length) {
+    let crlf = -1;
+    for (let i = pos; i < input.length - 1; i++) {
+      if (input[i] === 13 && input[i + 1] === 10) {
+        crlf = i;
+        break;
+      }
+    }
+    if (crlf === -1) break;
+    const sizeStr = new TextDecoder().decode(input.subarray(pos, crlf)).trim();
+    const size = parseInt(sizeStr, 16);
+    if (isNaN(size) || size === 0) break;
+    pos = crlf + 2;
+    if (pos + size <= input.length) {
+      chunks.push(input.subarray(pos, pos + size));
+    }
+    pos += size + 2;
+  }
+  const total = chunks.reduce((acc, c) => acc + c.length, 0);
+  const res = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    res.set(c, off);
+    off += c.length;
+  }
+  return res;
+}
+
+/**
+ * Thực hiện yêu cầu HTTP trực tiếp qua TCP Socket của Cloudflare Workers.
+ * Cơ chế này giúp kết nối trực tiếp đến cổng 9000 của NAS mà không bị Cloudflare fetch()
+ * tự động loại bỏ cổng hoặc chặn mã lỗi 1003 (Direct IP access).
+ */
+async function socketHttp(
+  reqUrl: string,
+  options: {
+    method: string;
+    headers?: Record<string, string> | Headers;
+    body?: Uint8Array | string;
+  }
+): Promise<SocketResponse> {
+  const url = new URL(reqUrl);
+  const hostname = url.hostname;
+  const port = parseInt(url.port || '9000', 10);
+  const path = url.pathname + url.search;
+
+  const socket = connect({ hostname, port });
+  const writer = socket.writable.getWriter();
+
+  let headerStr = `${options.method} ${path} HTTP/1.1\r\n`;
+  headerStr += `Host: ${hostname}:${port}\r\n`;
+  headerStr += `Connection: close\r\n`;
+
+  const headersObj = options.headers instanceof Headers 
+    ? Object.fromEntries(options.headers.entries()) 
+    : (options.headers || {});
+
+  for (const [k, v] of Object.entries(headersObj)) {
+    const lk = k.toLowerCase();
+    if (lk !== 'host' && lk !== 'connection') {
+      headerStr += `${k}: ${v}\r\n`;
+    }
+  }
+  headerStr += '\r\n';
+
+  await writer.write(new TextEncoder().encode(headerStr));
+  if (options.body) {
+    if (typeof options.body === 'string') {
+      await writer.write(new TextEncoder().encode(options.body));
+    } else {
+      await writer.write(options.body);
+    }
+  }
+  await writer.close();
+
+  const reader = socket.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalLen = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      totalLen += value.length;
+    }
+  }
+
+  const fullBytes = new Uint8Array(totalLen);
+  let offset = 0;
+  for (const c of chunks) {
+    fullBytes.set(c, offset);
+    offset += c.length;
+  }
+
+  let headerEnd = -1;
+  for (let i = 0; i < fullBytes.length - 3; i++) {
+    if (
+      fullBytes[i] === 13 &&
+      fullBytes[i + 1] === 10 &&
+      fullBytes[i + 2] === 13 &&
+      fullBytes[i + 3] === 10
+    ) {
+      headerEnd = i;
+      break;
+    }
+  }
+
+  if (headerEnd === -1) {
+    throw new Error('Phản hồi không hợp lệ từ MinIO NAS (No HTTP header boundary)');
+  }
+
+  const headerText = new TextDecoder().decode(fullBytes.subarray(0, headerEnd));
+  let bodyBytes = fullBytes.subarray(headerEnd + 4);
+
+  const lines = headerText.split('\r\n');
+  const statusLine = lines[0] || '';
+  const statusParts = statusLine.split(' ');
+  const status = parseInt(statusParts[1] || '200', 10);
+  const statusText = statusParts.slice(2).join(' ') || 'OK';
+
+  const headers = new Headers();
+  for (let i = 1; i < lines.length; i++) {
+    const colIdx = lines[i].indexOf(':');
+    if (colIdx > 0) {
+      const k = lines[i].substring(0, colIdx).trim();
+      const v = lines[i].substring(colIdx + 1).trim();
+      headers.append(k, v);
+    }
+  }
+
+  if (headers.get('transfer-encoding')?.includes('chunked')) {
+    bodyBytes = decodeChunked(bodyBytes);
+  }
+
+  return {
+    status,
+    statusText,
+    headers,
+    body: bodyBytes,
+    ok: status >= 200 && status < 300,
+    text: async () => new TextDecoder().decode(bodyBytes),
+    json: async () => JSON.parse(new TextDecoder().decode(bodyBytes)),
+  };
+}
+
+/**
+ * Ký request AWS Signature v4 và gửi qua socketHttp
+ */
+async function signedSocketFetch(
+  aws: AwsClient,
+  urlStr: string,
+  init?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: Uint8Array | string;
+  }
+): Promise<SocketResponse> {
+  const method = init?.method || 'GET';
+  const signed = await aws.sign(urlStr, {
+    method,
+    headers: init?.headers,
+    body: init?.body,
+  });
+
+  return await socketHttp(signed.url, {
+    method,
+    headers: signed.headers,
+    body: init?.body,
+  });
+}
+
 export async function onRequest(context: any): Promise<Response> {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -49,7 +234,7 @@ export async function onRequest(context: any): Promise<Response> {
     // 1. Test connection
     if (action === 'test') {
       const start = Date.now();
-      const res = await aws.fetch(`${endpoint}/${bucket}`);
+      const res = await signedSocketFetch(aws, `${endpoint}/${bucket}?location`);
       const latencyMs = Date.now() - start;
 
       if (!res.ok && res.status !== 200) {
@@ -61,7 +246,8 @@ export async function onRequest(context: any): Promise<Response> {
         success: true,
         latencyMs,
         bucket,
-        message: `Kết nối MinIO NAS thành công qua Cloudflare Gateway (${latencyMs}ms). Bucket "${bucket}" sẵn sàng.`
+        endpoint,
+        message: `Kết nối MinIO NAS thành công qua Cloudflare Socket Gateway (${latencyMs}ms). Bucket "${bucket}" sẵn sàng.`
       }), { headers: corsHeaders });
     }
 
@@ -69,7 +255,7 @@ export async function onRequest(context: any): Promise<Response> {
     if (action === 'fetch') {
       const targetKey = url.searchParams.get('key') || 'database/cms_database_latest.json';
       try {
-        const res = await aws.fetch(`${endpoint}/${bucket}/${targetKey}`);
+        const res = await signedSocketFetch(aws, `${endpoint}/${bucket}/${targetKey}`);
         if (!res.ok) {
           return new Response(JSON.stringify(null), { headers: corsHeaders });
         }
@@ -110,8 +296,8 @@ export async function onRequest(context: any): Promise<Response> {
 
       const jsonString = JSON.stringify(payload, null, 2);
 
-      // 1. Save latest snapshot
-      const putLatest = await aws.fetch(`${endpoint}/${bucket}/database/cms_database_latest.json`, {
+      // 1. Lưu bản mới nhất
+      const putLatest = await signedSocketFetch(aws, `${endpoint}/${bucket}/database/cms_database_latest.json`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -124,8 +310,8 @@ export async function onRequest(context: any): Promise<Response> {
         throw new Error(`Lưu database/cms_database_latest.json thất bại (HTTP ${putLatest.status}): ${errText.substring(0, 200)}`);
       }
 
-      // 2. Save historical backup
-      const putBackup = await aws.fetch(`${endpoint}/${bucket}/${backupKey}`, {
+      // 2. Lưu bản sao lưu theo thời gian
+      const putBackup = await signedSocketFetch(aws, `${endpoint}/${bucket}/${backupKey}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -138,9 +324,9 @@ export async function onRequest(context: any): Promise<Response> {
         throw new Error(`Lưu ${backupKey} thất bại (HTTP ${putBackup.status}): ${errText.substring(0, 200)}`);
       }
 
-      // 3. Save entity files
+      // 3. Lưu riêng các thực thể
       const saveEntity = (key: string, data: any) => {
-        return aws.fetch(`${endpoint}/${bucket}/database/${key}.json`, {
+        return signedSocketFetch(aws, `${endpoint}/${bucket}/database/${key}.json`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -165,7 +351,7 @@ export async function onRequest(context: any): Promise<Response> {
 
     // 4. List backups
     if (action === 'backups') {
-      const res = await aws.fetch(`${endpoint}/${bucket}?list-type=2&prefix=database/backups/`);
+      const res = await signedSocketFetch(aws, `${endpoint}/${bucket}?list-type=2&prefix=database/backups/`);
       if (!res.ok) {
         return new Response(JSON.stringify([]), { headers: corsHeaders });
       }
@@ -209,12 +395,12 @@ export async function onRequest(context: any): Promise<Response> {
       const contentType = file.type || (fileExt.toLowerCase() === 'pdf' ? 'application/pdf' : 'application/octet-stream');
 
       const arrayBuffer = await file.arrayBuffer();
-      const uploadRes = await aws.fetch(`${endpoint}/${bucket}/${filePath}`, {
+      const uploadRes = await signedSocketFetch(aws, `${endpoint}/${bucket}/${filePath}`, {
         method: 'PUT',
         headers: {
           'Content-Type': contentType,
         },
-        body: arrayBuffer,
+        body: new Uint8Array(arrayBuffer),
       });
 
       if (!uploadRes.ok) {
@@ -236,7 +422,7 @@ export async function onRequest(context: any): Promise<Response> {
     // 6. Get latest database metadata info
     if (action === 'info') {
       try {
-        const res = await aws.fetch(`${endpoint}/${bucket}/database/cms_database_latest.json`, {
+        const res = await signedSocketFetch(aws, `${endpoint}/${bucket}/database/cms_database_latest.json`, {
           method: 'HEAD'
         });
 
@@ -259,14 +445,14 @@ export async function onRequest(context: any): Promise<Response> {
       }
     }
 
-    // 7. Get or stream file attachment (to prevent Mixed Content for images & PDFs)
+    // 7. Get or stream file attachment
     if (action === 'file' || action === 'download') {
       const key = url.searchParams.get('key');
       if (!key) {
         return new Response('Missing key parameter', { status: 400, headers: corsHeaders });
       }
       try {
-        const res = await aws.fetch(`${endpoint}/${bucket}/${key}`);
+        const res = await signedSocketFetch(aws, `${endpoint}/${bucket}/${key}`);
         if (!res.ok) {
           return new Response('File not found', { status: 404, headers: corsHeaders });
         }
@@ -296,6 +482,7 @@ export async function onRequest(context: any): Promise<Response> {
   } catch (err: any) {
     return new Response(JSON.stringify({
       success: false,
+      endpoint,
       error: err.message || String(err)
     }), { status: 500, headers: corsHeaders });
   }
