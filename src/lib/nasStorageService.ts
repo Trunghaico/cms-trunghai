@@ -209,12 +209,13 @@ export const uploadFileToNAS = async (
   if (isGatewayMode()) {
     try {
       const uploadUrl = `/api/nas?action=upload&name=${encodeURIComponent(fileName)}&type=${encodeURIComponent(fileType)}`;
+      const arrayBuffer = await file.arrayBuffer();
       const res = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           'Content-Type': fileType,
         },
-        body: file,
+        body: arrayBuffer,
       });
       if (!res.ok) {
         const msg = await extractErrorMessage(res);

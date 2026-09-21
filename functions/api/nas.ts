@@ -136,52 +136,76 @@ async function socketHttp(
     return c;
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (value && value.length > 0) {
-      buffer = concat(buffer, value);
-    }
+  let timeoutTimer: any = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutTimer = setTimeout(() => {
+      try { socket.close(); } catch {}
+      reject(new Error('MinIO NAS socket connection timed out after 30s'));
+    }, 30000);
+  });
 
-    if (headerEnd === -1 && buffer.length >= 4) {
-      for (let i = 0; i < buffer.length - 3; i++) {
-        if (
-          buffer[i] === 13 &&
-          buffer[i + 1] === 10 &&
-          buffer[i + 2] === 13 &&
-          buffer[i + 3] === 10
-        ) {
-          headerEnd = i;
-          break;
+  try {
+    await Promise.race([
+      (async () => {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (value && value.length > 0) {
+            buffer = concat(buffer, value);
+          }
+
+          if (headerEnd === -1 && buffer.length >= 4) {
+            for (let i = 0; i < buffer.length - 3; i++) {
+              if (
+                buffer[i] === 13 &&
+                buffer[i + 1] === 10 &&
+                buffer[i + 2] === 13 &&
+                buffer[i + 3] === 10
+              ) {
+                headerEnd = i;
+                break;
+              }
+            }
+
+            if (headerEnd !== -1) {
+              // Yêu cầu HEAD không trả về body
+              if (options.method.toUpperCase() === 'HEAD') {
+                break;
+              }
+
+              const headerText = new TextDecoder().decode(buffer.subarray(0, headerEnd));
+              const clMatch = /content-length:\s*(\d+)/i.exec(headerText);
+              if (clMatch) {
+                expectedBodyLen = parseInt(clMatch[1], 10);
+              }
+              if (/transfer-encoding:\s*chunked/i.test(headerText)) {
+                isChunked = true;
+              }
+            }
+          }
+
+          if (headerEnd !== -1) {
+            if (options.method.toUpperCase() === 'HEAD') {
+              break;
+            }
+            const currentBodyLen = buffer.length - (headerEnd + 4);
+            if (expectedBodyLen !== -1 && currentBodyLen >= expectedBodyLen) {
+              break;
+            }
+            if (isChunked && new TextDecoder().decode(buffer.subarray(-7)).includes('0\r\n\r\n')) {
+              break;
+            }
+          }
+
+          if (done) break;
         }
-      }
-
-      if (headerEnd !== -1) {
-        const headerText = new TextDecoder().decode(buffer.subarray(0, headerEnd));
-        const clMatch = /content-length:\s*(\d+)/i.exec(headerText);
-        if (clMatch) {
-          expectedBodyLen = parseInt(clMatch[1], 10);
-        }
-        if (/transfer-encoding:\s*chunked/i.test(headerText)) {
-          isChunked = true;
-        }
-      }
-    }
-
-    if (headerEnd !== -1) {
-      const currentBodyLen = buffer.length - (headerEnd + 4);
-      if (expectedBodyLen !== -1 && currentBodyLen >= expectedBodyLen) {
-        break;
-      }
-      if (isChunked && new TextDecoder().decode(buffer.subarray(-7)).includes('0\r\n\r\n')) {
-        break;
-      }
-    }
-
-    if (done) break;
+      })(),
+      timeoutPromise
+    ]);
+  } finally {
+    if (timeoutTimer) clearTimeout(timeoutTimer);
+    try { reader.releaseLock(); } catch {}
+    try { socket.close(); } catch {}
   }
-
-  reader.releaseLock();
-  try { socket.close(); } catch {}
 
   if (headerEnd === -1) {
     const preview = new TextDecoder().decode(buffer.subarray(0, 200));
