@@ -716,6 +716,11 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     type: 'ACTION_REQUIRED',
     read: false,
     createdAt: '2026-09-18T10:05:00+07:00',
+    actorId: 'user-tuan',
+    recipientId: 'user-nam',
+    recipientRole: 'CHIEF_ACCOUNTANT',
+    targetStepIndex: 2,
+    targetDepartment: 'Phòng Tài chính Kế toán',
   },
   {
     id: 'notif-2',
@@ -726,6 +731,8 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     type: 'APPROVED',
     read: false,
     createdAt: '2026-09-16T16:30:00+07:00',
+    actorId: 'user-hai',
+    recipientId: 'user-tuan',
   },
   {
     id: 'notif-3',
@@ -736,6 +743,8 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     type: 'REJECTED',
     read: true,
     createdAt: '2026-09-17T11:20:00+07:00',
+    actorId: 'user-tuan',
+    recipientId: 'user-lan',
   },
   {
     id: 'notif-4',
@@ -746,6 +755,11 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     type: 'ACTION_REQUIRED',
     read: false,
     createdAt: '2026-09-18T11:45:00+07:00',
+    actorId: 'user-nam',
+    recipientId: 'user-hai',
+    recipientRole: 'DIRECTOR',
+    targetStepIndex: 2,
+    targetDepartment: 'Ban Giám đốc',
   }
 ];
 

@@ -1,4 +1,4 @@
-import { PermissionId, PermissionDefinition, PermissionCategory, UserRole, User } from '../types';
+import { PermissionId, PermissionDefinition, PermissionCategory, UserRole, User, ApprovalStep, DocumentItem, NotificationItem } from '../types';
 
 export const PERMISSION_CATEGORIES: { id: PermissionCategory; name: string; iconName: string; description: string }[] = [
   {
@@ -207,7 +207,6 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
   ],
   DEPT_HEAD: [
     'doc.view',
-    'doc.view_all',
     'doc.create',
     'doc.edit',
     'doc.print_export',
@@ -221,7 +220,6 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
   ],
   CHIEF_ACCOUNTANT: [
     'doc.view',
-    'doc.view_all',
     'doc.create',
     'doc.edit',
     'doc.print_export',
@@ -236,7 +234,6 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
   ],
   LEGAL_DEPT: [
     'doc.view',
-    'doc.view_all',
     'doc.create',
     'doc.edit',
     'doc.print_export',
@@ -318,3 +315,155 @@ export function hasAllPermissions(user: User | null | undefined, permissionIds: 
   if (!user.permissions || !Array.isArray(user.permissions)) return false;
   return permissionIds.every(p => user.permissions.includes(p));
 }
+
+// 1. Kiểm tra người dùng có quyền theo dõi toàn bộ hồ sơ công ty (Ban Giám Đốc, Quản Trị Viên)
+export function canUserOverseeAllDocuments(user: User | null | undefined): boolean {
+  if (!user) return false;
+  return user.role === 'ADMIN' || user.role === 'DIRECTOR' || (Array.isArray(user.permissions) && user.permissions.includes('doc.view_all'));
+}
+
+// 2. Kiểm tra xem người dùng có phải là người duyệt của một bước cụ thể
+export function isUserApproverForStep(user: User | null | undefined, step: ApprovalStep): boolean {
+  if (!user || !step) return false;
+
+  // Gán đích danh ID
+  if (step.approverId && step.approverId === user.id) {
+    return true;
+  }
+
+  // Nếu không chỉ định đích danh approverId: xét thẩm quyền theo chức vụ/phòng ban (chính & kiêm nhiệm)
+  if (!step.approverId) {
+    const userPositions = [
+      { department: user.department, role: user.role, roleTitle: user.roleTitle },
+      ...(user.secondaryPositions || [])
+    ];
+
+    return userPositions.some(pos => {
+      const matchesDept = (pos.department && step.department && pos.department.toLowerCase() === step.department.toLowerCase()) ||
+        pos.role === step.approverRole ||
+        (step.department?.includes('Pháp chế') && pos.role === 'LEGAL_DEPT') ||
+        (step.department?.includes('Kế toán') && pos.role === 'CHIEF_ACCOUNTANT') ||
+        (step.department?.includes('Giám Đốc') && pos.role === 'DIRECTOR');
+
+      const isAuthorizedToSign = 
+        pos.role === 'DIRECTOR' || 
+        pos.role === 'ADMIN' || 
+        pos.role === 'DEPT_HEAD' || 
+        pos.role === 'CHIEF_ACCOUNTANT' || 
+        pos.role === 'LEGAL_DEPT' ||
+        pos.role === step.approverRole;
+
+      return matchesDept && isAuthorizedToSign;
+    });
+  }
+
+  return false;
+}
+
+// 3. Kiểm tra xem người dùng có phải là người duyệt trong bất kỳ bước nào của hồ sơ
+export function isUserApproverForDoc(user: User | null | undefined, doc: DocumentItem): boolean {
+  if (!user || !doc || !doc.steps) return false;
+  return doc.steps.some(step => isUserApproverForStep(user, step));
+}
+
+// 4. Kiểm tra quyền xem hồ sơ:
+// "Hồ sơ của ai lập thì chỉ có người lập và người phê duyệt với người theo dõi được thấy thôi. Còn lại các tài khoản khác sẽ không thấy của nhau."
+export function canUserAccessDocument(user: User | null | undefined, doc: DocumentItem): boolean {
+  if (!user || !doc) return false;
+
+  // Người có quyền theo dõi toàn bộ hồ sơ (Ban Giám Đốc, Admin)
+  if (canUserOverseeAllDocuments(user)) {
+    return true;
+  }
+
+  // Người lập hồ sơ (Creator)
+  if (doc.creatorId === user.id) {
+    return true;
+  }
+
+  // Người theo dõi (Cc)
+  if (doc.ccUsers && doc.ccUsers.some(cc => cc.id === user.id)) {
+    return true;
+  }
+
+  // Người phê duyệt trong quy trình
+  if (isUserApproverForDoc(user, doc)) {
+    return true;
+  }
+
+  // Tất cả các tài khoản khác: Không thấy hồ sơ của nhau
+  return false;
+}
+
+// 5. Kiểm tra quyền nhận thông báo:
+// - Người thực hiện hành động (actor) KHÔNG tự nhận thông báo của chính mình ("người duyệt không cần nhận thông báo")
+// - Người được yêu cầu phê duyệt nhận được thông báo trước khi/khi hồ sơ được gửi đến bước của họ
+// - Sau khi duyệt xong, chỉ người lập hồ sơ (và người theo dõi Cc nếu có) nhận được thông báo
+// - Người có quyền theo dõi toàn bộ hồ sơ (Admin, Director, doc.view_all) nhận được toàn bộ thông báo (trừ chính hành động của họ)
+export function canUserReceiveNotification(
+  user: User | null | undefined, 
+  notif: NotificationItem, 
+  doc?: DocumentItem
+): boolean {
+  if (!user) return false;
+
+  // 1. Người thực hiện hành động KHÔNG tự nhận thông báo của chính mình:
+  // "Sau khi duyệt thì chỉ người lập hồ sơ nhận được thông báo chứ người duyệt không cần nhận thông báo"
+  if (notif.actorId && notif.actorId === user.id) {
+    return false;
+  }
+
+  // 2. Người được phân quyền theo dõi toàn bộ hồ sơ (Ban Giám Đốc, Admin) nhận được thông báo
+  if (canUserOverseeAllDocuments(user)) {
+    return true;
+  }
+
+  // 3. Thông báo đích danh cho người nhận cụ thể (VD: người lập hồ sơ nhận kết quả duyệt, yêu cầu bổ sung)
+  if (notif.recipientId && notif.recipientId === user.id) {
+    return true;
+  }
+  if (notif.recipientIds && notif.recipientIds.includes(user.id)) {
+    return true;
+  }
+
+  // 4. Thông báo chờ phê duyệt bước cụ thể (gửi đến người có trách nhiệm trước khi/khi duyệt bước đó)
+  // "Tôi muốn nhận thông báo trước khi hồ sơ được gửi đến người có trách nhiệm"
+  if (doc && doc.steps) {
+    // Nếu thông báo có chỉ định rõ bước duyệt mục tiêu
+    if (notif.targetStepIndex !== undefined && doc.steps[notif.targetStepIndex]) {
+      const targetStep = doc.steps[notif.targetStepIndex];
+      if (isUserApproverForStep(user, targetStep)) {
+        return true;
+      }
+    }
+    // Nếu là thông báo ACTION_REQUIRED nhưng không set targetStepIndex, xét bước hiện tại
+    else if (notif.type === 'ACTION_REQUIRED') {
+      const currentStep = doc.steps[doc.currentStepIndex];
+      if (currentStep && currentStep.status === 'CURRENT' && isUserApproverForStep(user, currentStep)) {
+        return true;
+      }
+    }
+  }
+
+  // 5. Khớp theo vai trò & phòng ban người nhận
+  if (notif.recipientRole) {
+    const userPositions = [
+      { department: user.department, role: user.role, roleTitle: user.roleTitle },
+      ...(user.secondaryPositions || [])
+    ];
+    const roleMatches = userPositions.some(pos => {
+      if (pos.role !== notif.recipientRole) return false;
+      if (notif.targetDepartment) {
+        return pos.department && pos.department.toLowerCase() === notif.targetDepartment.toLowerCase();
+      }
+      return true;
+    });
+    if (roleMatches) {
+      return true;
+    }
+  }
+
+  // TUYỆT ĐỐI KHÔNG FALLBACK TỰ DO: Hồ sơ của ai thì chỉ đúng đối tượng quy định mới nhận thông báo
+  return false;
+}
+

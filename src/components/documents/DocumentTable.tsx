@@ -3,6 +3,7 @@ import { useDocument } from '../../context/DocumentContext';
 import { DocumentFilter } from './DocumentFilter';
 import { DocumentItem } from '../../types';
 import { formatDate, formatCurrency } from '../../lib/storage';
+import { canUserAccessDocument, isUserApproverForStep } from '../../lib/permissions';
 import { 
   FileText, 
   Eye, 
@@ -70,29 +71,14 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const filteredDocuments = useMemo(() => {
     if (!activeUser) return [];
     return documents.filter(doc => {
-      // 1. KIỂM TRA QUYỀN XEM HỒ SƠ (VISIBILITY ACL)
-      // Người xem phải là: Admin, Người tạo, Người trong Cc, Người duyệt cá nhân, hoặc Thành viên thuộc phòng ban có bước duyệt
-      const isCreator = doc.creatorId === activeUser.id;
-      const isCc = doc.ccUsers?.some(cc => cc.id === activeUser.id);
-      const isAssignedUser = doc.steps?.some(s => s.approverId === activeUser.id);
-
-      const userPositions = [
-        { department: activeUser.department, role: activeUser.role, roleTitle: activeUser.roleTitle },
-        ...(activeUser.secondaryPositions || [])
-      ];
-
-      const isDeptMember = doc.steps?.some(s => 
-        s.department && userPositions.some(p => p.department.toLowerCase() === s.department.toLowerCase())
-      );
-      const isCreatorDeptHead = userPositions.some(p => 
-        p.department.toLowerCase() === doc.department.toLowerCase() && (p.role === 'DEPT_HEAD' || p.role === 'DIRECTOR')
-      );
-      const hasViewAll = activeUser.role === 'ADMIN' || activeUser.role === 'DIRECTOR' || hasPermission('doc.view_all');
-
-      const canView = hasViewAll || isCreator || isCc || isAssignedUser || isDeptMember || isCreatorDeptHead;
-      if (!canView) {
+      // 1. KIỂM TRA QUYỀN XEM HỒ SƠ:
+      // Hồ sơ của ai lập thì chỉ có người lập, người phê duyệt và người theo dõi (Cc) được thấy.
+      // Người được phân quyền theo dõi toàn bộ hồ sơ (Director, Admin, doc.view_all) mới thấy tất cả.
+      if (!canUserAccessDocument(activeUser, doc)) {
         return false;
       }
+
+      const isCreator = doc.creatorId === activeUser.id;
 
       // 2. Tab base filter
       if (filterType === 'MY_DOCS' && !isCreator) {
@@ -104,26 +90,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         const currentStep = doc.steps[doc.currentStepIndex];
         if (!currentStep || currentStep.status !== 'CURRENT') return false;
 
-        const isExactUser = currentStep.approverId ? currentStep.approverId === activeUser.id : false;
-        const isDeptApprover = !currentStep.approverId && userPositions.some(pos => {
-          const matchesDept = (pos.department && currentStep.department && pos.department.toLowerCase() === currentStep.department.toLowerCase()) ||
-            pos.role === currentStep.approverRole ||
-            (currentStep.department?.includes('Pháp chế') && pos.role === 'LEGAL_DEPT') ||
-            (currentStep.department?.includes('Kế toán') && pos.role === 'CHIEF_ACCOUNTANT') ||
-            (currentStep.department?.includes('Giám Đốc') && pos.role === 'DIRECTOR');
-
-          const isAuthorizedToSign = 
-            pos.role === 'DIRECTOR' || 
-            pos.role === 'ADMIN' || 
-            pos.role === 'DEPT_HEAD' || 
-            pos.role === 'CHIEF_ACCOUNTANT' || 
-            pos.role === 'LEGAL_DEPT' ||
-            pos.role === currentStep.approverRole;
-
-          return matchesDept && isAuthorizedToSign;
-        });
-
-        const isMyTurn = (canApprove && (isExactUser || isDeptApprover)) || canOverride;
+        const isApproverForCurrentStep = isUserApproverForStep(activeUser, currentStep);
+        const isMyTurn = (canApprove && isApproverForCurrentStep) || canOverride;
         if (!isMyTurn) return false;
       }
 
@@ -319,7 +287,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
               ) : (
                 filteredDocuments.map((doc) => {
                   const currentStep = doc.steps[doc.currentStepIndex];
-                  const isMyTurn = doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && currentStep?.status === 'CURRENT' && ((canApprove && (currentStep.approverRole === activeUser.role || currentStep.approverId === activeUser.id)) || canOverride);
+                  const isApproverForCurrentStep = isUserApproverForStep(activeUser, currentStep);
+                  const isMyTurn = doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && currentStep?.status === 'CURRENT' && ((canApprove && isApproverForCurrentStep) || canOverride);
 
                   return (
                     <tr 

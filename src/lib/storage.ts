@@ -59,7 +59,10 @@ export const loadDepartments = (): DepartmentItem[] => {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        const existingCodes = new Set(parsed.map((d: DepartmentItem) => (d.code || d.id)?.toUpperCase()));
+        const missingInitial = INITIAL_DEPARTMENTS.filter(d => !existingCodes.has((d.code || d.id)?.toUpperCase()));
+        const combined = [...parsed, ...missingInitial];
+        return combined;
       }
     }
   } catch (e) {
@@ -83,7 +86,10 @@ export const loadJobTitles = (): JobTitleItem[] => {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        const existingCodes = new Set(parsed.map((j: JobTitleItem) => (j.code || j.id)?.toUpperCase()));
+        const missingInitial = INITIAL_JOB_TITLES.filter(j => !existingCodes.has((j.code || j.id)?.toUpperCase()));
+        const combined = [...parsed, ...missingInitial];
+        return combined;
       }
     }
   } catch (e) {

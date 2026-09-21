@@ -32,7 +32,10 @@ import {
   hasPermission as checkHasPermission, 
   hasAnyPermission as checkHasAnyPermission,
   hasAllPermissions as checkHasAllPermissions,
-  ROLE_PRESET_PERMISSIONS 
+  ROLE_PRESET_PERMISSIONS,
+  canUserAccessDocument,
+  canUserReceiveNotification,
+  canUserOverseeAllDocuments
 } from '../lib/permissions';
 
 interface DocumentContextType {
@@ -60,6 +63,7 @@ interface DocumentContextType {
   syncFromNAS: (backupKey?: string) => Promise<{ success: boolean; message: string }>;
   testNAS: () => Promise<{ success: boolean; message: string; latencyMs?: number; bucket?: string }>;
   listBackups: () => Promise<NASBackupItem[]>;
+  persistStateToDatabase?: (overrides?: any) => Promise<any>;
 
   // Settings: Departments & Job Titles
   departments: DepartmentItem[];
@@ -223,6 +227,58 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [documents, users, departments, jobTitles, notifications, activeUser, autoBackupConfig.intervalMinutes]);
 
+  // Lưu tức thời và đồng bộ vào Database (MinIO NAS + localStorage)
+  const persistStateToDatabase = useCallback(async (overrides?: {
+    users?: User[];
+    departments?: DepartmentItem[];
+    jobTitles?: JobTitleItem[];
+    documents?: DocumentItem[];
+    notifications?: NotificationItem[];
+    actionDescription?: string;
+  }) => {
+    const targetUsers = overrides?.users || users;
+    const targetDepts = overrides?.departments || departments;
+    const targetJobs = overrides?.jobTitles || jobTitles;
+    const targetDocs = overrides?.documents || documents;
+    const targetNotifs = overrides?.notifications || notifications;
+
+    // 1. Lưu tức thời vào LocalStorage
+    if (overrides?.users) saveUsers(targetUsers);
+    if (overrides?.departments) saveDepartments(targetDepts);
+    if (overrides?.jobTitles) saveJobTitles(targetJobs);
+    if (overrides?.documents) saveDocuments(targetDocs);
+    if (overrides?.notifications) saveNotifications(targetNotifs);
+
+    // 2. Lưu trực tiếp vào Database NAS
+    try {
+      setIsNASSyncing(true);
+      setNasSyncStatus('syncing');
+      const res = await saveDatabaseToNAS({
+        documents: targetDocs,
+        users: targetUsers,
+        departments: targetDepts,
+        jobTitles: targetJobs,
+        notifications: targetNotifs,
+        savedBy: overrides?.actionDescription || (activeUser?.name ? `${activeUser.name} (${activeUser.roleTitle})` : 'Tài khoản quản trị'),
+      });
+      if (res.success) {
+        const nowStr = new Date().toISOString();
+        setLastNASSyncTime(nowStr);
+        localStorage.setItem('trunghai_last_nas_sync', nowStr);
+        setNasSyncStatus('synced');
+      } else {
+        setNasSyncStatus('error');
+      }
+      setIsNASSyncing(false);
+      return res;
+    } catch (e: any) {
+      console.warn('Lỗi khi persist vào database NAS:', e);
+      setIsNASSyncing(false);
+      setNasSyncStatus('error');
+      return { success: false, message: e.message };
+    }
+  }, [users, departments, jobTitles, documents, notifications, activeUser]);
+
   // Sync state from NAS
   const syncFromNAS = useCallback(async (backupKey?: string): Promise<{ success: boolean; message: string }> => {
     setIsNASSyncing(true);
@@ -235,11 +291,26 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: false, message: 'Không tìm thấy dữ liệu trên MinIO NAS hoặc không thể đọc file.' };
       }
 
-      if (Array.isArray(snapshot.documents) && snapshot.documents.length > 0) setDocuments(snapshot.documents);
-      if (Array.isArray(snapshot.users) && snapshot.users.length > 0) setUsers(snapshot.users);
-      if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) setDepartments(snapshot.departments);
-      if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) setJobTitles(snapshot.jobTitles);
-      if (Array.isArray(snapshot.notifications)) setNotifications(snapshot.notifications);
+      if (Array.isArray(snapshot.documents) && snapshot.documents.length > 0) {
+        setDocuments(snapshot.documents);
+        saveDocuments(snapshot.documents);
+      }
+      if (Array.isArray(snapshot.users) && snapshot.users.length > 0) {
+        setUsers(snapshot.users);
+        saveUsers(snapshot.users);
+      }
+      if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) {
+        setDepartments(snapshot.departments);
+        saveDepartments(snapshot.departments);
+      }
+      if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) {
+        setJobTitles(snapshot.jobTitles);
+        saveJobTitles(snapshot.jobTitles);
+      }
+      if (Array.isArray(snapshot.notifications)) {
+        setNotifications(snapshot.notifications);
+        saveNotifications(snapshot.notifications);
+      }
 
       const nowStr = new Date().toISOString();
       setLastNASSyncTime(nowStr);
@@ -265,7 +336,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return await listNASBackups();
   }, []);
 
-  // 1. Initial Sync from MinIO NAS on startup
+  // 1. Initial Sync from MinIO NAS on startup (Gộp thông minh để không ghi đè mất user/phòng ban đã tạo)
   useEffect(() => {
     let isMounted = true;
     const initNASAndDB = async () => {
@@ -273,15 +344,104 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (autoBackupConfig.syncOnStartup) {
           const snapshot = await fetchDatabaseFromNAS();
           if (!isMounted) return;
-          if (snapshot && Array.isArray(snapshot.documents) && snapshot.documents.length > 0) {
-            setDocuments(snapshot.documents);
-            if (Array.isArray(snapshot.users) && snapshot.users.length > 0) setUsers(snapshot.users);
-            if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) setDepartments(snapshot.departments);
-            if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) setJobTitles(snapshot.jobTitles);
+          if (snapshot) {
+            // MERGE USERS:
+            const localUsers = loadUsers();
+            const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
+            const userMap = new Map<string, User>();
+            snapUsers.forEach(u => {
+              if (u && (u.username || u.id)) userMap.set((u.username || u.id).toLowerCase(), u);
+            });
+            localUsers.forEach(u => {
+              const key = (u.username || u.id).toLowerCase();
+              if (!userMap.has(key)) {
+                userMap.set(key, u);
+              } else {
+                const existing = userMap.get(key)!;
+                userMap.set(key, {
+                  ...existing,
+                  ...u,
+                  permissions: (u.permissions && u.permissions.length > 0) ? u.permissions : existing.permissions,
+                  secondaryPositions: (u.secondaryPositions && u.secondaryPositions.length > 0) ? u.secondaryPositions : existing.secondaryPositions
+                });
+              }
+            });
+            const mergedUsers = Array.from(userMap.values());
+
+            // MERGE DEPARTMENTS:
+            const localDepts = loadDepartments();
+            const snapDepts = Array.isArray(snapshot.departments) ? snapshot.departments : [];
+            const deptMap = new Map<string, DepartmentItem>();
+            snapDepts.forEach(d => {
+              if (d && (d.code || d.id)) deptMap.set((d.code || d.id).toLowerCase(), d);
+            });
+            localDepts.forEach(d => {
+              const key = (d.code || d.id).toLowerCase();
+              if (!deptMap.has(key)) deptMap.set(key, d);
+            });
+            const mergedDepts = Array.from(deptMap.values());
+
+            // MERGE JOB TITLES:
+            const localJobs = loadJobTitles();
+            const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
+            const jobMap = new Map<string, JobTitleItem>();
+            snapJobs.forEach(j => {
+              if (j && (j.code || j.id)) jobMap.set((j.code || j.id).toLowerCase(), j);
+            });
+            localJobs.forEach(j => {
+              const key = (j.code || j.id).toLowerCase();
+              if (!jobMap.has(key)) jobMap.set(key, j);
+            });
+            const mergedJobs = Array.from(jobMap.values());
+
+            // MERGE DOCUMENTS:
+            const localDocs = loadDocuments();
+            const snapDocs = Array.isArray(snapshot.documents) ? snapshot.documents : [];
+            const docMap = new Map<string, DocumentItem>();
+            snapDocs.forEach(d => {
+              if (d && d.id) docMap.set(d.id, d);
+            });
+            localDocs.forEach(d => {
+              if (!docMap.has(d.id)) {
+                docMap.set(d.id, d);
+              } else {
+                const existing = docMap.get(d.id)!;
+                if (new Date(d.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
+                  docMap.set(d.id, d);
+                }
+              }
+            });
+            const mergedDocs = Array.from(docMap.values());
+
+            setUsers(mergedUsers);
+            setDepartments(mergedDepts);
+            setJobTitles(mergedJobs);
+            setDocuments(mergedDocs);
+
+            saveUsers(mergedUsers);
+            saveDepartments(mergedDepts);
+            saveJobTitles(mergedJobs);
+            saveDocuments(mergedDocs);
+
             const nowStr = new Date().toISOString();
             setLastNASSyncTime(nowStr);
             localStorage.setItem('trunghai_last_nas_sync', nowStr);
             setNasSyncStatus('synced');
+
+            // Cập nhật lại NAS với snapshot đầy đủ nhất
+            if (mergedUsers.length > snapUsers.length || 
+                mergedDepts.length > snapDepts.length || 
+                mergedJobs.length > snapJobs.length ||
+                mergedDocs.length > snapDocs.length) {
+              saveDatabaseToNAS({
+                documents: mergedDocs,
+                users: mergedUsers,
+                departments: mergedDepts,
+                jobTitles: mergedJobs,
+                notifications,
+                savedBy: 'Đồng bộ gộp dữ liệu khởi động'
+              }).catch(e => console.warn('Lưu snapshot gộp lên NAS:', e));
+            }
           } else {
             // Push initial baseline if none exists
             saveDatabaseToNAS({
@@ -358,11 +518,81 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           // If remote is at least 10s newer than our last sync, sync it quietly
           if (remoteTime - localTime > 10000 && !isSyncInProgress.current) {
             const snapshot = await fetchDatabaseFromNAS();
-            if (snapshot && Array.isArray(snapshot.documents) && snapshot.documents.length > 0) {
-              setDocuments(snapshot.documents);
-              if (Array.isArray(snapshot.users) && snapshot.users.length > 0) setUsers(snapshot.users);
-              if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) setDepartments(snapshot.departments);
-              if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) setJobTitles(snapshot.jobTitles);
+            if (snapshot) {
+              const currentUsers = loadUsers();
+              const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
+              const userMap = new Map<string, User>();
+              snapUsers.forEach(u => {
+                if (u && (u.username || u.id)) userMap.set((u.username || u.id).toLowerCase(), u);
+              });
+              currentUsers.forEach(u => {
+                const key = (u.username || u.id).toLowerCase();
+                if (!userMap.has(key)) {
+                  userMap.set(key, u);
+                } else {
+                  const existing = userMap.get(key)!;
+                  userMap.set(key, {
+                    ...existing,
+                    ...u,
+                    permissions: (u.permissions && u.permissions.length > 0) ? u.permissions : existing.permissions,
+                    secondaryPositions: (u.secondaryPositions && u.secondaryPositions.length > 0) ? u.secondaryPositions : existing.secondaryPositions
+                  });
+                }
+              });
+              const mergedUsers = Array.from(userMap.values());
+
+              const currentDepts = loadDepartments();
+              const snapDepts = Array.isArray(snapshot.departments) ? snapshot.departments : [];
+              const deptMap = new Map<string, DepartmentItem>();
+              snapDepts.forEach(d => {
+                if (d && (d.code || d.id)) deptMap.set((d.code || d.id).toLowerCase(), d);
+              });
+              currentDepts.forEach(d => {
+                const key = (d.code || d.id).toLowerCase();
+                if (!deptMap.has(key)) deptMap.set(key, d);
+              });
+              const mergedDepts = Array.from(deptMap.values());
+
+              const currentJobs = loadJobTitles();
+              const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
+              const jobMap = new Map<string, JobTitleItem>();
+              snapJobs.forEach(j => {
+                if (j && (j.code || j.id)) jobMap.set((j.code || j.id).toLowerCase(), j);
+              });
+              currentJobs.forEach(j => {
+                const key = (j.code || j.id).toLowerCase();
+                if (!jobMap.has(key)) jobMap.set(key, j);
+              });
+              const mergedJobs = Array.from(jobMap.values());
+
+              const currentDocs = loadDocuments();
+              const snapDocs = Array.isArray(snapshot.documents) ? snapshot.documents : [];
+              const docMap = new Map<string, DocumentItem>();
+              snapDocs.forEach(d => {
+                if (d && d.id) docMap.set(d.id, d);
+              });
+              currentDocs.forEach(d => {
+                if (!docMap.has(d.id)) {
+                  docMap.set(d.id, d);
+                } else {
+                  const existing = docMap.get(d.id)!;
+                  if (new Date(d.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
+                    docMap.set(d.id, d);
+                  }
+                }
+              });
+              const mergedDocs = Array.from(docMap.values());
+
+              setUsers(mergedUsers);
+              setDepartments(mergedDepts);
+              setJobTitles(mergedJobs);
+              setDocuments(mergedDocs);
+
+              saveUsers(mergedUsers);
+              saveDepartments(mergedDepts);
+              saveJobTitles(mergedJobs);
+              saveDocuments(mergedDocs);
+
               setLastNASSyncTime(info.lastModified);
               localStorage.setItem('trunghai_last_nas_sync', info.lastModified);
             }
@@ -447,7 +677,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       secondaryPositions: userData.secondaryPositions || []
     };
 
-    setUsers(prev => [...prev, newUser]);
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
+    saveUsers(updatedUsers);
+    persistStateToDatabase({
+      users: updatedUsers,
+      actionDescription: `Thêm nhân sự mới: ${newUser.name}`
+    });
+
     return { success: true };
   };
 
@@ -460,15 +697,26 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
 
-    setUsers(prev => prev.map(u => {
+    const updatedUsers = users.map(u => {
       if (u.id !== userId) return u;
-      const updated = { ...u, ...userData };
-      if (activeUser?.id === userId) {
-        setActiveUserState(updated);
-        saveActiveUser(updated);
+      return { ...u, ...userData };
+    });
+
+    setUsers(updatedUsers);
+    saveUsers(updatedUsers);
+
+    if (activeUser?.id === userId) {
+      const updatedActive = updatedUsers.find(u => u.id === userId);
+      if (updatedActive) {
+        setActiveUserState(updatedActive);
+        saveActiveUser(updatedActive);
       }
-      return updated;
-    }));
+    }
+
+    persistStateToDatabase({
+      users: updatedUsers,
+      actionDescription: `Cập nhật thông tin nhân sự: ${userData.name || userId}`
+    });
 
     return { success: true };
   };
@@ -477,7 +725,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (activeUser?.id === userId) {
       return { success: false, message: 'Không thể xóa tài khoản đang đăng nhập hiện tại.' };
     }
-    setUsers(prev => prev.filter(u => u.id !== userId));
+    const updatedUsers = users.filter(u => u.id !== userId);
+    setUsers(updatedUsers);
+    saveUsers(updatedUsers);
+    persistStateToDatabase({
+      users: updatedUsers,
+      actionDescription: `Xóa nhân sự: ${userId}`
+    });
     return { success: true };
   };
 
@@ -514,7 +768,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       description: deptData.description?.trim() || '',
       createdAt: new Date().toISOString()
     };
-    setDepartments(prev => [...prev, newDept]);
+    const updatedDepts = [...departments, newDept];
+    setDepartments(updatedDepts);
+    saveDepartments(updatedDepts);
+    persistStateToDatabase({
+      departments: updatedDepts,
+      actionDescription: `Thêm phòng ban mới: ${newDept.name}`
+    });
     return { success: true };
   };
 
@@ -531,13 +791,19 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: false, message: 'Mã phòng ban này đã được sử dụng.' };
       }
     }
-    setDepartments(prev => prev.map(d => {
+    const updatedDepts = departments.map(d => {
       if (d.id !== id) return d;
       const updated = { ...d, ...deptData };
       if (deptData.code) updated.code = deptData.code.trim().toUpperCase();
       if (deptData.name) updated.name = deptData.name.trim();
       return updated;
-    }));
+    });
+    setDepartments(updatedDepts);
+    saveDepartments(updatedDepts);
+    persistStateToDatabase({
+      departments: updatedDepts,
+      actionDescription: `Cập nhật phòng ban: ${deptData.name || id}`
+    });
     return { success: true };
   };
 
@@ -548,7 +814,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (hasUsers) {
       return { success: false, message: `Không thể xóa phòng ban "${target.name}" vì đang có ${users.filter(u => u.department.toLowerCase() === target.name.toLowerCase()).length} nhân sự trực thuộc. Vui lòng chuyển phòng ban của nhân sự trước.` };
     }
-    setDepartments(prev => prev.filter(d => d.id !== id));
+    const updatedDepts = departments.filter(d => d.id !== id);
+    setDepartments(updatedDepts);
+    saveDepartments(updatedDepts);
+    persistStateToDatabase({
+      departments: updatedDepts,
+      actionDescription: `Xóa phòng ban: ${id}`
+    });
     return { success: true };
   };
 
@@ -572,7 +844,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       description: titleData.description?.trim() || '',
       createdAt: new Date().toISOString()
     };
-    setJobTitles(prev => [...prev, newJobTitle]);
+    const updatedJobs = [...jobTitles, newJobTitle];
+    setJobTitles(updatedJobs);
+    saveJobTitles(updatedJobs);
+    persistStateToDatabase({
+      jobTitles: updatedJobs,
+      actionDescription: `Thêm chức vụ mới: ${newJobTitle.name}`
+    });
     return { success: true };
   };
 
@@ -589,13 +867,19 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: false, message: 'Mã chức vụ này đã được sử dụng.' };
       }
     }
-    setJobTitles(prev => prev.map(j => {
+    const updatedJobs = jobTitles.map(j => {
       if (j.id !== id) return j;
       const updated = { ...j, ...titleData };
       if (titleData.code) updated.code = titleData.code.trim().toUpperCase();
       if (titleData.name) updated.name = titleData.name.trim();
       return updated;
-    }));
+    });
+    setJobTitles(updatedJobs);
+    saveJobTitles(updatedJobs);
+    persistStateToDatabase({
+      jobTitles: updatedJobs,
+      actionDescription: `Cập nhật chức vụ: ${titleData.name || id}`
+    });
     return { success: true };
   };
 
@@ -606,16 +890,18 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (hasUsers) {
       return { success: false, message: `Không thể xóa chức vụ "${target.name}" vì đang có ${users.filter(u => u.roleTitle.toLowerCase() === target.name.toLowerCase()).length} nhân sự nắm giữ. Vui lòng thay đổi chức vụ của nhân sự trước.` };
     }
-    setJobTitles(prev => prev.filter(j => j.id !== id));
+    const updatedJobs = jobTitles.filter(j => j.id !== id);
+    setJobTitles(updatedJobs);
+    saveJobTitles(updatedJobs);
+    persistStateToDatabase({
+      jobTitles: updatedJobs,
+      actionDescription: `Xóa chức vụ: ${id}`
+    });
     return { success: true };
   };
 
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  };
-
-  const markAllNotificationsAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
   const createDocument = (docData: Omit<DocumentItem, 'id' | 'createdAt' | 'updatedAt' | 'auditLogs'>): DocumentItem => {
@@ -645,7 +931,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setDocuments(prev => [newDoc, ...prev]);
 
-    // Thêm thông báo cho người duyệt bước 1
+    // Thêm thông báo cho người có trách nhiệm duyệt bước 1
     const firstApprover = docData.steps[0];
     if (firstApprover) {
       const newNotif: NotificationItem = {
@@ -657,6 +943,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         type: 'ACTION_REQUIRED',
         read: false,
         createdAt: now,
+        actorId: creator.id,
+        recipientId: firstApprover.approverId,
+        recipientRole: firstApprover.approverRole,
+        targetStepIndex: 0,
+        targetDepartment: firstApprover.department,
       };
       setNotifications(prev => [newNotif, ...prev]);
     }
@@ -727,28 +1018,54 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         if (isLastStep) {
+          // BƯỚC CUỐI CÙNG: Sau khi duyệt thì chỉ người lập hồ sơ (và Cc) nhận được thông báo, người duyệt KHÔNG nhận.
           setNotifications(prev => [{
             id: `notif-${Date.now()}`,
             title: 'Hồ sơ đã được phê duyệt hoàn tất',
-            message: `Hồ sơ "${doc.code} - ${doc.title}" đã được phê duyệt và đóng dấu điện tử thành công.`,
+            message: `Hồ sơ "${doc.code} - ${doc.title}" đã được hoàn tất phê duyệt & đóng dấu điện tử bởi ${activeUser.name}.`,
             documentId: doc.id,
             documentCode: doc.code,
             type: 'APPROVED',
             read: false,
             createdAt: now,
+            actorId: activeUser.id,
+            recipientId: doc.creatorId,
+            recipientIds: [doc.creatorId, ...(doc.ccUsers?.map(c => c.id) || [])],
           }, ...prev]);
         } else {
           const nextApprover = updatedSteps[newStepIdx];
-          setNotifications(prev => [{
-            id: `notif-${Date.now()}`,
-            title: 'Hồ sơ chuyển bước tiếp theo',
-            message: `Hồ sơ "${doc.code}" đã hoàn thành bước ${currentStepIdx + 1}, chuyển tới ${nextApprover.approverTitle} (${nextApprover.approverName}).`,
-            documentId: doc.id,
-            documentCode: doc.code,
-            type: 'ACTION_REQUIRED',
-            read: false,
-            createdAt: now,
-          }, ...prev]);
+          const newNotifs: NotificationItem[] = [
+            // 1. Chỉ người lập hồ sơ nhận được thông báo hồ sơ đã được duyệt bước này
+            {
+              id: `notif-${Date.now()}-creator`,
+              title: `Hồ sơ đã được duyệt bước ${currentStepIdx + 1}`,
+              message: `Hồ sơ "${doc.code} - ${doc.title}" đã được ${activeUser.name} phê duyệt tại bước ${currentStepIdx + 1}. Hồ sơ đã chuyển đến bước tiếp theo.`,
+              documentId: doc.id,
+              documentCode: doc.code,
+              type: 'INFO',
+              read: false,
+              createdAt: now,
+              actorId: activeUser.id,
+              recipientId: doc.creatorId,
+            },
+            // 2. Người có trách nhiệm duyệt bước tiếp theo nhận được thông báo chờ duyệt trước khi thực hiện
+            {
+              id: `notif-${Date.now()}-next`,
+              title: 'Hồ sơ mới cần duyệt',
+              message: `Hồ sơ "${doc.code} - ${doc.title}" đang chờ bạn phê duyệt tại bước ${newStepIdx + 1} (${nextApprover.title}).`,
+              documentId: doc.id,
+              documentCode: doc.code,
+              type: 'ACTION_REQUIRED',
+              read: false,
+              createdAt: now,
+              actorId: activeUser.id,
+              recipientId: nextApprover.approverId,
+              recipientRole: nextApprover.approverRole,
+              targetStepIndex: newStepIdx,
+              targetDepartment: nextApprover.department,
+            }
+          ];
+          setNotifications(prev => [...newNotifs, ...prev]);
         }
 
         return updatedDoc;
@@ -813,6 +1130,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           type: 'REJECTED',
           read: false,
           createdAt: now,
+          actorId: activeUser.id,
+          recipientId: doc.creatorId,
         }, ...prev]);
 
         return updatedDoc;
@@ -852,6 +1171,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setSelectedDocument(updatedDoc);
         }
 
+        // BẮT BUỘC: Hồ sơ trả về sẽ trả về đúng tài khoản của người lập (recipientId: doc.creatorId)
         setNotifications(prev => [{
           id: `notif-${Date.now()}`,
           title: 'Yêu cầu bổ sung hồ sơ',
@@ -861,6 +1181,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           type: 'ACTION_REQUIRED',
           read: false,
           createdAt: now,
+          actorId: activeUser.id,
+          recipientId: doc.creatorId,
         }, ...prev]);
 
         return updatedDoc;
@@ -882,6 +1204,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   ): { success: boolean; message?: string } => {
     if (!activeUser) return { success: false, message: 'Người dùng chưa đăng nhập' };
     const now = new Date().toISOString();
+
+    // BẢO MẬT: Hồ sơ trả về chỉ đúng người lập mới có quyền bổ sung và gửi lại!
+    const targetDocToResubmit = documents.find(d => d.id === documentId);
+    if (!targetDocToResubmit) return { success: false, message: 'Không tìm thấy hồ sơ.' };
+    if (targetDocToResubmit.creatorId !== activeUser.id && activeUser.role !== 'ADMIN') {
+      return { success: false, message: 'Hồ sơ đã được trả về cho người lập. Chỉ đúng tài khoản người lập mới có quyền bổ sung và gửi lại.' };
+    }
 
     let isSuccess = false;
 
@@ -965,6 +1294,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           type: 'ACTION_REQUIRED',
           read: false,
           createdAt: now,
+          actorId: activeUser.id,
+          recipientId: targetApprover?.approverId,
+          recipientRole: targetApprover?.approverRole,
+          targetStepIndex: targetStepIndex,
+          targetDepartment: targetApprover?.department,
         }, ...prev]);
 
         isSuccess = true;
@@ -993,18 +1327,52 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     window.location.reload();
   };
 
-  // Tính toán số liệu thống kê
+  // 1. Hồ sơ được phân quyền xem:
+  // "Hồ sơ của ai lập thì chỉ có người lập và người phê duyệt với người theo dõi được thấy thôi. Còn lại các tài khoản khác sẽ không thấy của nhau."
+  const accessibleDocuments = useMemo(() => {
+    if (!activeUser) return [];
+    return documents.filter(doc => canUserAccessDocument(activeUser, doc));
+  }, [documents, activeUser]);
+
+  // Tự động đóng nếu hồ sơ đang chọn không thuộc quyền xem của người dùng
+  useEffect(() => {
+    if (selectedDocument && activeUser && !canUserAccessDocument(activeUser, selectedDocument)) {
+      setSelectedDocument(null);
+    }
+  }, [activeUser, selectedDocument]);
+
+  // 2. Thông báo được phân quyền nhận:
+  // "Thông báo của hồ sơ người nào người đó nhận được đúng thông báo đó. Chỉ có người được phân quyền theo dõi toàn bộ hồ sơ mới nhận được toàn bộ thông báo."
+  const userNotifications = useMemo(() => {
+    if (!activeUser) return [];
+    const docMap = new Map(documents.map(d => [d.id, d]));
+    return notifications.filter(notif => {
+      const doc = notif.documentId ? docMap.get(notif.documentId) : undefined;
+      return canUserReceiveNotification(activeUser, notif, doc);
+    });
+  }, [notifications, activeUser, documents]);
+
+  const unreadNotificationCount = useMemo(() => {
+    return userNotifications.filter(n => !n.read).length;
+  }, [userNotifications]);
+
+  const markAllNotificationsAsRead = () => {
+    const userNotifIds = new Set(userNotifications.map(n => n.id));
+    setNotifications(prev => prev.map(n => userNotifIds.has(n.id) ? { ...n, read: true } : n));
+  };
+
+  // Tính toán số liệu thống kê dựa trên các hồ sơ người dùng có quyền thấy
   const stats = useMemo(() => {
-    const total = documents.length;
-    const pending = documents.filter(d => d.status === 'PENDING').length;
-    const inProgress = documents.filter(d => d.status === 'IN_PROGRESS').length;
-    const approved = documents.filter(d => d.status === 'APPROVED').length;
-    const rejected = documents.filter(d => d.status === 'REJECTED').length;
-    const additionalReq = documents.filter(d => d.status === 'ADDITIONAL_REQ').length;
-    const urgentCount = documents.filter(d => (d.priority === 'URGENT' || d.priority === 'VERY_URGENT') && d.status !== 'APPROVED').length;
+    const total = accessibleDocuments.length;
+    const pending = accessibleDocuments.filter(d => d.status === 'PENDING').length;
+    const inProgress = accessibleDocuments.filter(d => d.status === 'IN_PROGRESS').length;
+    const approved = accessibleDocuments.filter(d => d.status === 'APPROVED').length;
+    const rejected = accessibleDocuments.filter(d => d.status === 'REJECTED').length;
+    const additionalReq = accessibleDocuments.filter(d => d.status === 'ADDITIONAL_REQ').length;
+    const urgentCount = accessibleDocuments.filter(d => (d.priority === 'URGENT' || d.priority === 'VERY_URGENT') && d.status !== 'APPROVED').length;
     
     // Đếm số hồ sơ cần người dùng hiện tại duyệt dựa trên thẩm quyền (xét cả chức vụ chính & kiêm nhiệm)
-    const myPendingApprovalsCount = activeUser ? documents.filter(doc => {
+    const myPendingApprovalsCount = activeUser ? accessibleDocuments.filter(doc => {
       if (doc.status === 'APPROVED' || doc.status === 'REJECTED') return false;
       const currentStep = doc.steps[doc.currentStepIndex];
       if (!currentStep || currentStep.status !== 'CURRENT') return false;
@@ -1039,7 +1407,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return (canApprove && (isExactUser || isDeptApprover)) || canOverride;
     }).length : 0;
 
-    const myCreatedCount = activeUser ? documents.filter(d => d.creatorId === activeUser.id).length : 0;
+    const myCreatedCount = activeUser ? accessibleDocuments.filter(d => d.creatorId === activeUser.id).length : 0;
 
     return {
       total,
@@ -1052,11 +1420,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       myPendingApprovalsCount,
       myCreatedCount,
     };
-  }, [documents, activeUser]);
-
-  const unreadNotificationCount = useMemo(() => {
-    return notifications.filter(n => !n.read).length;
-  }, [notifications]);
+  }, [accessibleDocuments, activeUser]);
 
   return (
     <DocumentContext.Provider
@@ -1081,8 +1445,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         createJobTitle,
         updateJobTitle,
         deleteJobTitle,
-        documents,
-        notifications,
+        documents: accessibleDocuments,
+        notifications: userNotifications,
         unreadNotificationCount,
         markNotificationAsRead,
         markAllNotificationsAsRead,
@@ -1112,6 +1476,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         syncFromNAS,
         testNAS,
         listBackups,
+        persistStateToDatabase,
       }}
     >
       {children}

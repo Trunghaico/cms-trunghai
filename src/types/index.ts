@@ -167,6 +167,12 @@ export interface NotificationItem {
   type: 'INFO' | 'ACTION_REQUIRED' | 'APPROVED' | 'REJECTED' | 'SLA_WARNING';
   read: boolean;
   createdAt: string;
+  actorId?: string;           // ID người thực hiện hành động (để người thực hiện không tự nhận thông báo của chính mình)
+  recipientId?: string;       // ID người nhận cụ thể (VD: người lập hồ sơ khi trả về, người duyệt ở bước kế tiếp)
+  recipientIds?: string[];    // Danh sách các ID người nhận
+  recipientRole?: UserRole;   // Vai trò người nhận
+  targetStepIndex?: number;   // Bước duyệt mục tiêu (người chịu trách nhiệm duyệt bước này sẽ nhận thông báo)
+  targetDepartment?: string;  // Phòng ban duyệt mục tiêu
 }
 
 export interface WorkflowTemplate {

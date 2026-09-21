@@ -75,8 +75,7 @@ export const DocumentDetailModal: React.FC = () => {
   const canPrint = hasPermission('doc.print_export');
 
   const isCreator = selectedDocument ? selectedDocument.creatorId === activeUser.id : false;
-  const canEditDoc = hasPermission('doc.edit') || activeUser.role === 'ADMIN';
-  const canUserResubmit = selectedDocument.status === 'ADDITIONAL_REQ' && (isCreator || canEditDoc);
+  const canUserResubmit = selectedDocument?.status === 'ADDITIONAL_REQ' && (isCreator || activeUser.role === 'ADMIN');
 
   const latestRequestInfoLog = selectedDocument 
     ? [...selectedDocument.auditLogs].reverse().find(l => l.action === 'REQUEST_INFO') 
