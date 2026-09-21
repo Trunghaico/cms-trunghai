@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, NotificationItem, User, DocumentStatus, UserRole, PermissionId, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog } from '../types';
+import { DocumentItem, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog } from '../types';
 import { 
   loadDocuments, 
   saveDocuments, 
@@ -903,7 +903,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (idx === doc.currentStepIndex) {
               return {
                 ...step,
-                status: 'CURRENT' as const,
+                status: 'CURRENT' as StepStatus,
               };
             }
             return step;
@@ -911,7 +911,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // Trình duyệt lại từ đầu: reset tất cả các bước về PENDING, bước 0 thành CURRENT
             return {
               ...step,
-              status: (idx === 0 ? 'CURRENT' : 'PENDING') as const,
+              status: (idx === 0 ? 'CURRENT' : 'PENDING') as StepStatus,
               comment: undefined,
               decisionDate: undefined,
               signatureImage: undefined,

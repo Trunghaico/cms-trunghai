@@ -522,9 +522,10 @@ export const ResubmitDocumentModal: React.FC<ResubmitDocumentModalProps> = ({
       {/* Preview modal if active */}
       {previewAttachment && (
         <PDFViewerModal
-          isOpen={!!previewAttachment}
-          onClose={() => setPreviewAttachment(null)}
           attachment={previewAttachment}
+          documentTitle={doc.title}
+          documentCode={doc.code}
+          onClose={() => setPreviewAttachment(null)}
         />
       )}
     </>
