@@ -12,7 +12,16 @@ import {
   loadDepartments,
   saveDepartments,
   loadJobTitles,
-  saveJobTitles
+  saveJobTitles,
+  loadDeletedUserIds,
+  addDeletedUserId,
+  removeDeletedUserId,
+  loadDeletedDeptIds,
+  addDeletedDeptId,
+  removeDeletedDeptId,
+  loadDeletedJobIds,
+  addDeletedJobId,
+  removeDeletedJobId
 } from '../lib/storage';
 import {
   saveDatabaseToNAS,
@@ -260,6 +269,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         departments: targetDepts,
         jobTitles: targetJobs,
         notifications: targetNotifs,
+        deletedUserIds: loadDeletedUserIds(),
+        deletedDepartmentIds: loadDeletedDeptIds(),
+        deletedJobTitleIds: loadDeletedJobIds(),
         savedBy: overrides?.actionDescription || (activeUser?.name ? `${activeUser.name} (${activeUser.roleTitle})` : 'Tài khoản quản trị'),
       });
       if (res.success) {
@@ -346,26 +358,37 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const snapshot = await fetchDatabaseFromNAS();
           if (!isMounted) return;
           if (snapshot) {
+            if (Array.isArray(snapshot.deletedUserIds)) {
+              snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
+            }
+            if (Array.isArray(snapshot.deletedDepartmentIds)) {
+              snapshot.deletedDepartmentIds.forEach(id => addDeletedDeptId(id));
+            }
+            if (Array.isArray(snapshot.deletedJobTitleIds)) {
+              snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
+            }
+
+            const deletedUsersSet = new Set(loadDeletedUserIds().map(s => s.toLowerCase()));
+            const deletedDeptsSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
+            const deletedJobsSet = new Set(loadDeletedJobIds().map(s => s.toLowerCase()));
+
             // MERGE USERS:
             const localUsers = loadUsers();
             const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
             const userMap = new Map<string, User>();
             snapUsers.forEach(u => {
-              if (u && (u.username || u.id)) userMap.set((u.username || u.id).toLowerCase(), u);
+              if (!u) return;
+              const uId = u.id?.toLowerCase();
+              const uName = u.username?.toLowerCase();
+              if ((uId && deletedUsersSet.has(uId)) || (uName && deletedUsersSet.has(uName))) return;
+              userMap.set(uName || uId, u);
             });
             localUsers.forEach(u => {
-              const key = (u.username || u.id).toLowerCase();
-              if (!userMap.has(key)) {
-                userMap.set(key, u);
-              } else {
-                const existing = userMap.get(key)!;
-                userMap.set(key, {
-                  ...existing,
-                  ...u,
-                  permissions: (u.permissions && u.permissions.length > 0) ? u.permissions : existing.permissions,
-                  secondaryPositions: (u.secondaryPositions && u.secondaryPositions.length > 0) ? u.secondaryPositions : existing.secondaryPositions
-                });
-              }
+              if (!u) return;
+              const uId = u.id?.toLowerCase();
+              const uName = u.username?.toLowerCase();
+              if ((uId && deletedUsersSet.has(uId)) || (uName && deletedUsersSet.has(uName))) return;
+              userMap.set(uName || uId, u);
             });
             const mergedUsers = Array.from(userMap.values());
 
@@ -374,11 +397,20 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const snapDepts = Array.isArray(snapshot.departments) ? snapshot.departments : [];
             const deptMap = new Map<string, DepartmentItem>();
             snapDepts.forEach(d => {
-              if (d && (d.code || d.id)) deptMap.set((d.code || d.id).toLowerCase(), d);
+              if (!d) return;
+              const dId = d.id?.toLowerCase();
+              const dCode = d.code?.toLowerCase();
+              const dName = d.name?.toLowerCase();
+              if ((dId && deletedDeptsSet.has(dId)) || (dCode && deletedDeptsSet.has(dCode)) || (dName && deletedDeptsSet.has(dName))) return;
+              deptMap.set(dCode || dId, d);
             });
             localDepts.forEach(d => {
-              const key = (d.code || d.id).toLowerCase();
-              if (!deptMap.has(key)) deptMap.set(key, d);
+              if (!d) return;
+              const dId = d.id?.toLowerCase();
+              const dCode = d.code?.toLowerCase();
+              const dName = d.name?.toLowerCase();
+              if ((dId && deletedDeptsSet.has(dId)) || (dCode && deletedDeptsSet.has(dCode)) || (dName && deletedDeptsSet.has(dName))) return;
+              deptMap.set(dCode || dId, d);
             });
             const mergedDepts = Array.from(deptMap.values());
 
@@ -387,11 +419,20 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
             const jobMap = new Map<string, JobTitleItem>();
             snapJobs.forEach(j => {
-              if (j && (j.code || j.id)) jobMap.set((j.code || j.id).toLowerCase(), j);
+              if (!j) return;
+              const jId = j.id?.toLowerCase();
+              const jCode = j.code?.toLowerCase();
+              const jName = j.name?.toLowerCase();
+              if ((jId && deletedJobsSet.has(jId)) || (jCode && deletedJobsSet.has(jCode)) || (jName && deletedJobsSet.has(jName))) return;
+              jobMap.set(jCode || jId, j);
             });
             localJobs.forEach(j => {
-              const key = (j.code || j.id).toLowerCase();
-              if (!jobMap.has(key)) jobMap.set(key, j);
+              if (!j) return;
+              const jId = j.id?.toLowerCase();
+              const jCode = j.code?.toLowerCase();
+              const jName = j.name?.toLowerCase();
+              if ((jId && deletedJobsSet.has(jId)) || (jCode && deletedJobsSet.has(jCode)) || (jName && deletedJobsSet.has(jName))) return;
+              jobMap.set(jCode || jId, j);
             });
             const mergedJobs = Array.from(jobMap.values());
 
@@ -520,25 +561,36 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (remoteTime - localTime > 10000 && !isSyncInProgress.current) {
             const snapshot = await fetchDatabaseFromNAS();
             if (snapshot) {
+              if (Array.isArray(snapshot.deletedUserIds)) {
+                snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
+              }
+              if (Array.isArray(snapshot.deletedDepartmentIds)) {
+                snapshot.deletedDepartmentIds.forEach(id => addDeletedDeptId(id));
+              }
+              if (Array.isArray(snapshot.deletedJobTitleIds)) {
+                snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
+              }
+
+              const deletedUsersSet = new Set(loadDeletedUserIds().map(s => s.toLowerCase()));
+              const deletedDeptsSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
+              const deletedJobsSet = new Set(loadDeletedJobIds().map(s => s.toLowerCase()));
+
               const currentUsers = loadUsers();
               const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
               const userMap = new Map<string, User>();
               snapUsers.forEach(u => {
-                if (u && (u.username || u.id)) userMap.set((u.username || u.id).toLowerCase(), u);
+                if (!u) return;
+                const uId = u.id?.toLowerCase();
+                const uName = u.username?.toLowerCase();
+                if ((uId && deletedUsersSet.has(uId)) || (uName && deletedUsersSet.has(uName))) return;
+                userMap.set(uName || uId, u);
               });
               currentUsers.forEach(u => {
-                const key = (u.username || u.id).toLowerCase();
-                if (!userMap.has(key)) {
-                  userMap.set(key, u);
-                } else {
-                  const existing = userMap.get(key)!;
-                  userMap.set(key, {
-                    ...existing,
-                    ...u,
-                    permissions: (u.permissions && u.permissions.length > 0) ? u.permissions : existing.permissions,
-                    secondaryPositions: (u.secondaryPositions && u.secondaryPositions.length > 0) ? u.secondaryPositions : existing.secondaryPositions
-                  });
-                }
+                if (!u) return;
+                const uId = u.id?.toLowerCase();
+                const uName = u.username?.toLowerCase();
+                if ((uId && deletedUsersSet.has(uId)) || (uName && deletedUsersSet.has(uName))) return;
+                userMap.set(uName || uId, u);
               });
               const mergedUsers = Array.from(userMap.values());
 
@@ -546,11 +598,20 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               const snapDepts = Array.isArray(snapshot.departments) ? snapshot.departments : [];
               const deptMap = new Map<string, DepartmentItem>();
               snapDepts.forEach(d => {
-                if (d && (d.code || d.id)) deptMap.set((d.code || d.id).toLowerCase(), d);
+                if (!d) return;
+                const dId = d.id?.toLowerCase();
+                const dCode = d.code?.toLowerCase();
+                const dName = d.name?.toLowerCase();
+                if ((dId && deletedDeptsSet.has(dId)) || (dCode && deletedDeptsSet.has(dCode)) || (dName && deletedDeptsSet.has(dName))) return;
+                deptMap.set(dCode || dId, d);
               });
               currentDepts.forEach(d => {
-                const key = (d.code || d.id).toLowerCase();
-                if (!deptMap.has(key)) deptMap.set(key, d);
+                if (!d) return;
+                const dId = d.id?.toLowerCase();
+                const dCode = d.code?.toLowerCase();
+                const dName = d.name?.toLowerCase();
+                if ((dId && deletedDeptsSet.has(dId)) || (dCode && deletedDeptsSet.has(dCode)) || (dName && deletedDeptsSet.has(dName))) return;
+                deptMap.set(dCode || dId, d);
               });
               const mergedDepts = Array.from(deptMap.values());
 
@@ -558,11 +619,20 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
               const jobMap = new Map<string, JobTitleItem>();
               snapJobs.forEach(j => {
-                if (j && (j.code || j.id)) jobMap.set((j.code || j.id).toLowerCase(), j);
+                if (!j) return;
+                const jId = j.id?.toLowerCase();
+                const jCode = j.code?.toLowerCase();
+                const jName = j.name?.toLowerCase();
+                if ((jId && deletedJobsSet.has(jId)) || (jCode && deletedJobsSet.has(jCode)) || (jName && deletedJobsSet.has(jName))) return;
+                jobMap.set(jCode || jId, j);
               });
               currentJobs.forEach(j => {
-                const key = (j.code || j.id).toLowerCase();
-                if (!jobMap.has(key)) jobMap.set(key, j);
+                if (!j) return;
+                const jId = j.id?.toLowerCase();
+                const jCode = j.code?.toLowerCase();
+                const jName = j.name?.toLowerCase();
+                if ((jId && deletedJobsSet.has(jId)) || (jCode && deletedJobsSet.has(jCode)) || (jName && deletedJobsSet.has(jName))) return;
+                jobMap.set(jCode || jId, j);
               });
               const mergedJobs = Array.from(jobMap.values());
 
@@ -658,6 +728,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (users.some(u => u.username.toLowerCase() === trimmedUsername)) {
       return { success: false, message: 'Tên đăng nhập này đã tồn tại trong hệ thống.' };
     }
+    removeDeletedUserId(trimmedUsername);
 
     const assignedRole = userData.role || 'STAFF';
     const assignedPermissions = userData.permissions && userData.permissions.length > 0
@@ -690,11 +761,16 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateUser = (userId: string, userData: Partial<User>): { success: boolean; message?: string } => {
+    const targetUser = users.find(u => u.id === userId);
     if (userData.username) {
       const trimmed = userData.username.trim().toLowerCase();
       const existing = users.find(u => u.username.toLowerCase() === trimmed && u.id !== userId);
       if (existing) {
         return { success: false, message: 'Tên đăng nhập này đã được sử dụng bởi người dùng khác.' };
+      }
+      if (targetUser && targetUser.username.toLowerCase() !== trimmed) {
+        addDeletedUserId(targetUser.username);
+        removeDeletedUserId(trimmed);
       }
     }
 
@@ -726,12 +802,16 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (activeUser?.id === userId) {
       return { success: false, message: 'Không thể xóa tài khoản đang đăng nhập hiện tại.' };
     }
+    const userToDelete = users.find(u => u.id === userId);
+    if (userToDelete?.id) addDeletedUserId(userToDelete.id);
+    if (userToDelete?.username) addDeletedUserId(userToDelete.username);
+
     const updatedUsers = users.filter(u => u.id !== userId);
     setUsers(updatedUsers);
     saveUsers(updatedUsers);
     persistStateToDatabase({
       users: updatedUsers,
-      actionDescription: `Xóa nhân sự: ${userId}`
+      actionDescription: `Xóa nhân sự: ${userToDelete?.name || userId}`
     });
     return { success: true };
   };
@@ -762,6 +842,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (departments.some(d => d.name.toLowerCase() === trimmedName.toLowerCase() || d.code.toUpperCase() === trimmedCode)) {
       return { success: false, message: 'Phòng ban hoặc mã phòng ban này đã tồn tại.' };
     }
+    removeDeletedDeptId(trimmedCode);
+    removeDeletedDeptId(trimmedName);
+
     const newDept: DepartmentItem = {
       id: `dept-${Date.now()}`,
       name: trimmedName,
@@ -780,16 +863,25 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateDepartment = (id: string, deptData: Partial<DepartmentItem>): { success: boolean; message?: string } => {
+    const currentDept = departments.find(d => d.id === id);
     if (deptData.name) {
       const trimmedName = deptData.name.trim();
       if (departments.some(d => d.id !== id && d.name.toLowerCase() === trimmedName.toLowerCase())) {
         return { success: false, message: 'Tên phòng ban này đã được sử dụng.' };
+      }
+      if (currentDept && currentDept.name.toLowerCase() !== trimmedName.toLowerCase()) {
+        addDeletedDeptId(currentDept.name);
+        removeDeletedDeptId(trimmedName);
       }
     }
     if (deptData.code) {
       const trimmedCode = deptData.code.trim().toUpperCase();
       if (departments.some(d => d.id !== id && d.code.toUpperCase() === trimmedCode)) {
         return { success: false, message: 'Mã phòng ban này đã được sử dụng.' };
+      }
+      if (currentDept && currentDept.code.toUpperCase() !== trimmedCode) {
+        addDeletedDeptId(currentDept.code);
+        removeDeletedDeptId(trimmedCode);
       }
     }
     const updatedDepts = departments.map(d => {
@@ -815,12 +907,16 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (hasUsers) {
       return { success: false, message: `Không thể xóa phòng ban "${target.name}" vì đang có ${users.filter(u => u.department.toLowerCase() === target.name.toLowerCase()).length} nhân sự trực thuộc. Vui lòng chuyển phòng ban của nhân sự trước.` };
     }
+    addDeletedDeptId(id);
+    if (target.code) addDeletedDeptId(target.code);
+    if (target.name) addDeletedDeptId(target.name);
+
     const updatedDepts = departments.filter(d => d.id !== id);
     setDepartments(updatedDepts);
     saveDepartments(updatedDepts);
     persistStateToDatabase({
       departments: updatedDepts,
-      actionDescription: `Xóa phòng ban: ${id}`
+      actionDescription: `Xóa phòng ban: ${target.name}`
     });
     return { success: true };
   };
@@ -836,6 +932,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (jobTitles.some(j => j.name.toLowerCase() === trimmedName.toLowerCase() || j.code.toUpperCase() === trimmedCode)) {
       return { success: false, message: 'Chức vụ hoặc mã chức vụ này đã tồn tại.' };
     }
+    removeDeletedJobId(trimmedCode);
+    removeDeletedJobId(trimmedName);
+
     const newJobTitle: JobTitleItem = {
       id: `job-${Date.now()}`,
       name: trimmedName,
@@ -856,16 +955,25 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const updateJobTitle = (id: string, titleData: Partial<JobTitleItem>): { success: boolean; message?: string } => {
+    const currentJob = jobTitles.find(j => j.id === id);
     if (titleData.name) {
       const trimmedName = titleData.name.trim();
       if (jobTitles.some(j => j.id !== id && j.name.toLowerCase() === trimmedName.toLowerCase())) {
         return { success: false, message: 'Tên chức vụ này đã được sử dụng.' };
+      }
+      if (currentJob && currentJob.name.toLowerCase() !== trimmedName.toLowerCase()) {
+        addDeletedJobId(currentJob.name);
+        removeDeletedJobId(trimmedName);
       }
     }
     if (titleData.code) {
       const trimmedCode = titleData.code.trim().toUpperCase();
       if (jobTitles.some(j => j.id !== id && j.code.toUpperCase() === trimmedCode)) {
         return { success: false, message: 'Mã chức vụ này đã được sử dụng.' };
+      }
+      if (currentJob && currentJob.code.toUpperCase() !== trimmedCode) {
+        addDeletedJobId(currentJob.code);
+        removeDeletedJobId(trimmedCode);
       }
     }
     const updatedJobs = jobTitles.map(j => {
@@ -891,12 +999,16 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (hasUsers) {
       return { success: false, message: `Không thể xóa chức vụ "${target.name}" vì đang có ${users.filter(u => u.roleTitle.toLowerCase() === target.name.toLowerCase()).length} nhân sự nắm giữ. Vui lòng thay đổi chức vụ của nhân sự trước.` };
     }
+    addDeletedJobId(id);
+    if (target.code) addDeletedJobId(target.code);
+    if (target.name) addDeletedJobId(target.name);
+
     const updatedJobs = jobTitles.filter(j => j.id !== id);
     setJobTitles(updatedJobs);
     saveJobTitles(updatedJobs);
     persistStateToDatabase({
       jobTitles: updatedJobs,
-      actionDescription: `Xóa chức vụ: ${id}`
+      actionDescription: `Xóa chức vụ: ${target.name}`
     });
     return { success: true };
   };

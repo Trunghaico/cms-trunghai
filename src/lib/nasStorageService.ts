@@ -22,6 +22,9 @@ export interface DatabaseSnapshot {
   departments: DepartmentItem[];
   jobTitles: JobTitleItem[];
   notifications?: NotificationItem[];
+  deletedUserIds?: string[];
+  deletedDepartmentIds?: string[];
+  deletedJobTitleIds?: string[];
   meta?: {
     totalDocuments: number;
     totalUsers: number;
@@ -272,6 +275,9 @@ export const saveDatabaseToNAS = async (
     departments: DepartmentItem[];
     jobTitles: JobTitleItem[];
     notifications?: NotificationItem[];
+    deletedUserIds?: string[];
+    deletedDepartmentIds?: string[];
+    deletedJobTitleIds?: string[];
     savedBy?: string;
   }
 ): Promise<{ success: boolean; path?: string; message?: string }> => {
@@ -311,6 +317,9 @@ export const saveDatabaseToNAS = async (
       departments: snapshotData.departments,
       jobTitles: snapshotData.jobTitles,
       notifications: snapshotData.notifications || [],
+      deletedUserIds: snapshotData.deletedUserIds || [],
+      deletedDepartmentIds: snapshotData.deletedDepartmentIds || [],
+      deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],
       meta: {
         totalDocuments: snapshotData.documents.length,
         totalUsers: snapshotData.users.length,
