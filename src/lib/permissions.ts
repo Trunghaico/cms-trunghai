@@ -529,7 +529,7 @@ export function canUserPerformInternalCheck(user: User | null | undefined, step:
     isSameDepartment(pos.department, step.department)
   );
   if (matchingPositions.length === 0) return false;
-  return hasPermission(user, 'approval.internal_check') || hasPermission(user, 'approval.approve');
+  return hasPermission(user, 'approval.internal_check');
 }
 
 // 2b. Kiểm tra người dùng có thẩm quyền ký phê duyệt cấp Quản lý (Trưởng phòng/Trưởng ban/Giám đốc)
