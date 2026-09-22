@@ -26,7 +26,8 @@ export const DashboardView: React.FC = () => {
     documents, 
     setSelectedDocument, 
     setActiveTab, 
-    setIsCreateModalOpen 
+    setIsCreateModalOpen,
+    hasPermission 
   } = useDocument();
 
   if (!activeUser) return null;
@@ -107,7 +108,7 @@ export const DashboardView: React.FC = () => {
           iconColor="text-brand-red"
           bgColor="bg-brand-red-light"
           borderColor={stats.overdueCount > 0 ? 'border-brand-red/60 ring-1 ring-brand-red/20' : 'border-slate-200'}
-          onClick={() => setActiveTab('report-sla')}
+          onClick={() => (hasPermission('report.sla') || activeUser.role === 'ADMIN') ? setActiveTab('report-sla') : setActiveTab('all-documents')}
           urgentBadge={stats.overdueCount > 0}
         />
 

@@ -19,7 +19,6 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { canUserOverseeAllDocuments } from '../../lib/permissions';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -42,14 +41,10 @@ export const Sidebar: React.FC = () => {
   const canManageWorkflow = hasPermission('workflow.manage') || activeUser.role === 'ADMIN';
   const canManageUsers = hasPermission('user.view') || hasPermission('user.create') || hasPermission('user.edit') || activeUser.role === 'ADMIN';
 
-  const canViewLeadershipReports =
-    activeUser.role === 'ADMIN' ||
-    activeUser.role === 'DIRECTOR' ||
-    activeUser.role === 'BOARD_HEAD' ||
-    activeUser.role === 'DEPT_HEAD' ||
-    activeUser.role === 'CHIEF_ACCOUNTANT' ||
-    activeUser.role === 'LEGAL_DEPT' ||
-    canUserOverseeAllDocuments(activeUser);
+  // Quyền truy cập từng mục trong Dữ liệu & Báo cáo
+  const canViewReportSLA = hasPermission('report.sla') || activeUser.role === 'ADMIN';
+  const canViewReportAnalytics = hasPermission('report.analytics') || activeUser.role === 'ADMIN';
+  const canViewAuditLog = hasPermission('system.audit_log') || activeUser.role === 'ADMIN';
 
   // Tính toán số lượng badge thời gian thực
   const badgeCounts = useMemo(() => {
@@ -148,20 +143,23 @@ export const Sidebar: React.FC = () => {
       icon: Clock,
       badge: badgeCounts.overdueCount > 0 ? `Trễ ${badgeCounts.overdueCount}` : null,
       badgeColor: 'bg-brand-red text-white font-bold animate-pulse',
+      visible: canViewReportSLA,
     },
     {
       id: 'report-analytics',
       label: 'Thống kê hồ sơ',
       icon: BarChart3,
       badge: null,
+      visible: canViewReportAnalytics,
     },
     {
       id: 'audit-logs',
       label: 'Nhật ký hoạt động',
       icon: History,
       badge: null,
+      visible: canViewAuditLog,
     },
-  ];
+  ].filter(item => item.visible);
 
   const block3Items = [
     {
@@ -235,44 +233,46 @@ export const Sidebar: React.FC = () => {
           })}
         </div>
 
-        {/* KHỐI 2: DỮ LIỆU & BÁO CÁO */}
-        <div className="space-y-1 pt-1 border-t border-slate-800/80">
-          <div className="px-2.5 pb-1 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>DỮ LIỆU & BÁO CÁO</span>
+        {/* KHỐI 2: DỮ LIỆU & BÁO CÁO (Chỉ hiển thị cho người có quyền từng mục) */}
+        {block2Items.length > 0 && (
+          <div className="space-y-1 pt-1 border-t border-slate-800/80">
+            <div className="px-2.5 pb-1 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>DỮ LIỆU & BÁO CÁO</span>
+            </div>
+
+            {block2Items.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${isActive
+                    ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
+                    : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
+                    }`}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-red rounded-r" />
+                  )}
+
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'
+                      }`} />
+                    <span className="truncate text-xs">{item.label}</span>
+                  </div>
+
+                  {item.badge !== null && (
+                    <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-[3px] shrink-0 ${item.badgeColor || 'bg-slate-700 text-white'}`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-
-          {block2Items.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${isActive
-                  ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
-                  : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
-                  }`}
-              >
-                {isActive && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-red rounded-r" />
-                )}
-
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'
-                    }`} />
-                  <span className="truncate text-xs">{item.label}</span>
-                </div>
-
-                {item.badge !== null && (
-                  <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-[3px] shrink-0 ${item.badgeColor || 'bg-slate-700 text-white'}`}>
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        )}
 
         {/* KHỐI 3: THIẾT LẬP HỆ THỐNG & DANH MỤC (Chỉ hiển thị cho người có quyền) */}
         {block3Items.length > 0 && (

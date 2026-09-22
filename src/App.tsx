@@ -77,12 +77,21 @@ const AppContent: React.FC = () => {
           />
         );
 
-      // KHỐI 2: DỮ LIỆU & BÁO CÁO
+      // KHỐI 2: DỮ LIỆU & BÁO CÁO (Bảo vệ phân quyền từng mục)
       case 'report-sla':
+        if (!hasPermission('report.sla') && activeUser?.role !== 'ADMIN') {
+          return <DashboardView />;
+        }
         return <SLAReportView />;
       case 'report-analytics':
+        if (!hasPermission('report.analytics') && activeUser?.role !== 'ADMIN') {
+          return <DashboardView />;
+        }
         return <DocumentAnalyticsView />;
       case 'audit-logs':
+        if (!hasPermission('system.audit_log') && activeUser?.role !== 'ADMIN') {
+          return <DashboardView />;
+        }
         return <AuditLogView />;
 
       // KHỐI 3: THIẾT LẬP HỆ THỐNG & DANH MỤC (Bảo vệ phân quyền)

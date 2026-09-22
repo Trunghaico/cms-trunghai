@@ -4,7 +4,8 @@ import { formatDate } from '../../lib/storage';
 import { CheckCircle2, XCircle, Clock, FilePlus, AlertCircle, ArrowRight, RotateCcw } from 'lucide-react';
 
 export const RecentActivity: React.FC = () => {
-  const { documents, setSelectedDocument, setActiveTab } = useDocument();
+  const { documents, setSelectedDocument, setActiveTab, hasPermission, activeUser } = useDocument();
+  const canViewAuditLog = hasPermission('system.audit_log') || activeUser?.role === 'ADMIN';
 
   // Gom các audit logs gần nhất từ tất cả hồ sơ
   const allLogs = documents
@@ -53,13 +54,15 @@ export const RecentActivity: React.FC = () => {
           <h3 className="text-sm font-bold text-slate-800">Nhật Ký Luân Chuyển Trình Ký (Audit Trail)</h3>
           <p className="text-xs text-slate-500">Các hành động duyệt, ký và chuyển bước theo thời gian thực</p>
         </div>
-        <button 
-          onClick={() => setActiveTab('audit-logs')}
-          className="text-xs font-semibold text-brand-blue hover:text-brand-blue-dark flex items-center gap-1 hover:underline"
-        >
-          <span>Xem tất cả nhật ký</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </button>
+        {canViewAuditLog && (
+          <button 
+            onClick={() => setActiveTab('audit-logs')}
+            className="text-xs font-semibold text-brand-blue hover:text-brand-blue-dark flex items-center gap-1 hover:underline"
+          >
+            <span>Xem tất cả nhật ký</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="divide-y divide-slate-100">

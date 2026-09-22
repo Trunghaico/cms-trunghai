@@ -60,6 +60,9 @@ export type PermissionId =
   // Categories & Settings
   | 'category.view'
   | 'category.manage'
+  // Reports & Analytics
+  | 'report.sla'
+  | 'report.analytics'
   // System & Analytics
   | 'system.dashboard'
   | 'system.audit_log';

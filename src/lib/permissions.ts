@@ -185,6 +185,27 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
     category: 'SYSTEM',
   },
   {
+    id: 'report.sla',
+    name: 'Báo cáo tiến độ & SLA',
+    code: 'RPT_SLA',
+    description: 'Xem báo cáo giám sát tiến độ SLA, tỷ lệ trễ hạn và các bước xử lý',
+    category: 'SYSTEM',
+  },
+  {
+    id: 'report.analytics',
+    name: 'Báo cáo thống kê hồ sơ',
+    code: 'RPT_ANALYTICS',
+    description: 'Xem báo cáo phân tích khối lượng hồ sơ, thời gian xử lý và hiệu suất',
+    category: 'SYSTEM',
+  },
+  {
+    id: 'system.audit_log',
+    name: 'Xem nhật ký hệ thống',
+    code: 'SYS_AUDIT',
+    description: 'Tra cứu Audit Trail lịch sử ký duyệt và thời gian thao tác',
+    category: 'SYSTEM',
+  },
+  {
     id: 'category.view',
     name: 'Hiển thị danh mục',
     code: 'CAT_VIEW',
@@ -196,13 +217,6 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
     name: 'Quản lý danh mục',
     code: 'CAT_MANAGE',
     description: 'Thêm mới, cập nhật và xóa các danh mục phòng ban, chức vụ hệ thống',
-    category: 'SYSTEM',
-  },
-  {
-    id: 'system.audit_log',
-    name: 'Xem nhật ký hệ thống',
-    code: 'SYS_AUDIT',
-    description: 'Tra cứu Audit Trail lịch sử ký duyệt và thời gian thao tác',
     category: 'SYSTEM',
   }
 ];
@@ -216,8 +230,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'doc.print_export',
     'workflow.view',
     'dms.view',
-    'system.dashboard',
-    'system.audit_log'
+    'system.dashboard'
   ],
   DEPT_HEAD: [
     'doc.view',
@@ -230,7 +243,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'workflow.view',
     'dms.view',
     'system.dashboard',
-    'system.audit_log'
+    'report.sla'
   ],
   BOARD_HEAD: [
     'doc.view',
@@ -243,7 +256,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'workflow.view',
     'dms.view',
     'system.dashboard',
-    'system.audit_log'
+    'report.sla'
   ],
   CHIEF_ACCOUNTANT: [
     'doc.view',
@@ -257,7 +270,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'dms.view',
     'dms.export',
     'system.dashboard',
-    'system.audit_log'
+    'report.analytics'
   ],
   LEGAL_DEPT: [
     'doc.view',
@@ -270,8 +283,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'workflow.view',
     'dms.view',
     'dms.export',
-    'system.dashboard',
-    'system.audit_log'
+    'system.dashboard'
   ],
   DIRECTOR: [
     'doc.view',
@@ -288,6 +300,8 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'dms.view',
     'dms.export',
     'system.dashboard',
+    'report.sla',
+    'report.analytics',
     'system.audit_log'
   ],
   ADMIN: [
@@ -312,6 +326,8 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'category.view',
     'category.manage',
     'system.dashboard',
+    'report.sla',
+    'report.analytics',
     'system.audit_log'
   ]
 };
