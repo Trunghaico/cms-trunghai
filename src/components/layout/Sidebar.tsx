@@ -1,18 +1,18 @@
 import React, { useMemo } from 'react';
-import { 
-  LayoutDashboard, 
-  FolderGit2, 
-  Inbox, 
-  FileStack, 
-  Archive, 
-  CheckSquare, 
-  History, 
-  Clock, 
-  BarChart3, 
-  ListTree, 
-  SlidersHorizontal, 
-  GitFork, 
-  Users, 
+import {
+  LayoutDashboard,
+  FolderGit2,
+  Inbox,
+  FileStack,
+  Archive,
+  CheckSquare,
+  History,
+  Clock,
+  BarChart3,
+  ListTree,
+  SlidersHorizontal,
+  GitFork,
+  Users,
   ShieldCheck,
   Building2,
   FileCheck2,
@@ -22,10 +22,10 @@ import { useDocument } from '../../context/DocumentContext';
 import { canUserOverseeAllDocuments } from '../../lib/permissions';
 
 export const Sidebar: React.FC = () => {
-  const { 
-    activeTab, 
-    setActiveTab, 
-    stats, 
+  const {
+    activeTab,
+    setActiveTab,
+    stats,
     activeUser,
     users,
     documents,
@@ -38,14 +38,14 @@ export const Sidebar: React.FC = () => {
   const canViewDashboard = hasPermission('system.dashboard');
   const canViewDocs = hasPermission('doc.view') || hasPermission('doc.view_all');
   const canApprove = hasPermission('approval.approve') || hasPermission('approval.override');
-  const isManagerOrAdmin = 
-    activeUser.role === 'ADMIN' || 
-    activeUser.role === 'DIRECTOR' || 
-    activeUser.role === 'BOARD_HEAD' || 
+  const isManagerOrAdmin =
+    activeUser.role === 'ADMIN' ||
+    activeUser.role === 'DIRECTOR' ||
+    activeUser.role === 'BOARD_HEAD' ||
     activeUser.role === 'DEPT_HEAD' ||
     activeUser.role === 'CHIEF_ACCOUNTANT' ||
     activeUser.role === 'LEGAL_DEPT' ||
-    hasPermission('user.view') || 
+    hasPermission('user.view') ||
     hasPermission('workflow.manage') ||
     canUserOverseeAllDocuments(activeUser);
 
@@ -53,27 +53,27 @@ export const Sidebar: React.FC = () => {
   const badgeCounts = useMemo(() => {
     const now = Date.now();
     const myCreated = documents.filter(d => d.creatorId === activeUser.id).length;
-    
-    const received = documents.filter(d => 
+
+    const received = documents.filter(d =>
       (d.status === 'PENDING' || d.status === 'IN_PROGRESS' || d.status === 'ADDITIONAL_REQ') &&
-      (d.department?.toLowerCase() === activeUser.department.toLowerCase() || 
-       d.steps[d.currentStepIndex]?.department?.toLowerCase() === activeUser.department.toLowerCase())
+      (d.department?.toLowerCase() === activeUser.department.toLowerCase() ||
+        d.steps[d.currentStepIndex]?.department?.toLowerCase() === activeUser.department.toLowerCase())
     ).length;
 
     const archive = documents.filter(d => d.status === 'APPROVED').length;
 
-    const myApprovedHistory = documents.filter(d => 
+    const myApprovedHistory = documents.filter(d =>
       d.steps.some(s => s.status === 'APPROVED' && (
-        s.approverId === activeUser.id || 
+        s.approverId === activeUser.id ||
         (s.approverName && s.approverName.trim().toLowerCase() === activeUser.name.trim().toLowerCase())
       ))
     ).length;
 
-    const overdueCount = documents.filter(d => 
-      d.isOverdue || 
-      (d.steps[d.currentStepIndex]?.status === 'CURRENT' && 
-       d.steps[d.currentStepIndex]?.deadline && 
-       now > new Date(d.steps[d.currentStepIndex].deadline!).getTime())
+    const overdueCount = documents.filter(d =>
+      d.isOverdue ||
+      (d.steps[d.currentStepIndex]?.status === 'CURRENT' &&
+        d.steps[d.currentStepIndex]?.deadline &&
+        now > new Date(d.steps[d.currentStepIndex].deadline!).getTime())
     ).length;
 
     return {
@@ -185,15 +185,15 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside className="fixed left-0 top-16 bottom-0 w-60 bg-slate-900 text-slate-300 flex flex-col shrink-0 z-20 border-r border-slate-800 shadow-xl transition-all select-none">
-      
+
       {/* Main Navigation Menu */}
       <div className="flex-1 py-3 px-2 space-y-4 overflow-y-auto custom-scrollbar text-xs">
-        
+
         {/* KHỐI 1: TỔNG QUAN & HỒ SƠ */}
         <div className="space-y-1">
           <div className="px-2.5 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-blue" />
-            <span>KHỐI 1: TỔNG QUAN & HỒ SƠ</span>
+            <span>TỔNG QUAN & HỒ SƠ</span>
           </div>
 
           {block1Items.map((item) => {
@@ -203,25 +203,23 @@ export const Sidebar: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${
-                  isActive
-                    ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
-                    : item.isHot
+                className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${isActive
+                  ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
+                  : item.isHot
                     ? 'text-white bg-red-950/40 border border-brand-red/30 hover:bg-brand-red/20'
                     : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
-                }`}
+                  }`}
               >
                 {isActive && (
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-red rounded-r" />
                 )}
 
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
-                    isActive ? 'text-white' : item.isHot ? 'text-brand-red' : 'text-slate-400 group-hover:text-brand-blue'
-                  }`} />
+                  <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${isActive ? 'text-white' : item.isHot ? 'text-brand-red' : 'text-slate-400 group-hover:text-brand-blue'
+                    }`} />
                   <span className="truncate text-xs">{item.label}</span>
                 </div>
-                
+
                 {item.badge !== null && (
                   <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-[3px] shrink-0 ${item.badgeColor || 'bg-slate-700 text-white'}`}>
                     {item.badge}
@@ -236,7 +234,7 @@ export const Sidebar: React.FC = () => {
         <div className="space-y-1 pt-1 border-t border-slate-800/80">
           <div className="px-2.5 pb-1 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>KHỐI 2: DỮ LIỆU & BÁO CÁO</span>
+            <span>DỮ LIỆU & BÁO CÁO</span>
           </div>
 
           {block2Items.map((item) => {
@@ -246,23 +244,21 @@ export const Sidebar: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${
-                  isActive
-                    ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
-                    : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
-                }`}
+                className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${isActive
+                  ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
+                  : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
+                  }`}
               >
                 {isActive && (
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-red rounded-r" />
                 )}
 
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
-                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'
-                  }`} />
+                  <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'
+                    }`} />
                   <span className="truncate text-xs">{item.label}</span>
                 </div>
-                
+
                 {item.badge !== null && (
                   <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-[3px] shrink-0 ${item.badgeColor || 'bg-slate-700 text-white'}`}>
                     {item.badge}
@@ -279,7 +275,7 @@ export const Sidebar: React.FC = () => {
             <div className="px-2.5 pb-1 pt-2 text-[10px] font-black uppercase tracking-wider text-amber-400/90 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span>KHỐI 3: CẤU HÌNH & QUẢN TRỊ</span>
+                <span>CẤU HÌNH & QUẢN TRỊ</span>
               </div>
               <span className="text-[9px] px-1 bg-amber-500/20 text-amber-300 rounded font-normal">Admin</span>
             </div>
@@ -291,23 +287,21 @@ export const Sidebar: React.FC = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${
-                    isActive
-                      ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
-                      : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
-                  }`}
+                  className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${isActive
+                    ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
+                    : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
+                    }`}
                 >
                   {isActive && (
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-red rounded-r" />
                   )}
 
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${
-                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-amber-400'
-                    }`} />
+                    <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-amber-400'
+                      }`} />
                     <span className="truncate text-xs">{item.label}</span>
                   </div>
-                  
+
                   {item.badge !== null && (
                     <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-[3px] shrink-0 ${item.badgeColor || 'bg-slate-700 text-white'}`}>
                       {item.badge}
