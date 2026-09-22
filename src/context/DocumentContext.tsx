@@ -55,7 +55,8 @@ import {
   canUserAccessDocument,
   canUserReceiveNotification,
   canUserOverseeAllDocuments,
-  isUserApproverForStep
+  isUserApproverForStep,
+  isSameDepartment
 } from '../lib/permissions';
 
 interface DocumentContextType {
@@ -1391,16 +1392,24 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const currentStep = doc.steps[currentStepIdx];
         if (!currentStep) return doc;
 
+        const isCurrentInternalCheck = Boolean(
+          currentStep.isInternalCheck || 
+          currentStep.stepType === 'INTERNAL_CHECK' || 
+          currentStep.title?.toLowerCase().includes('kiểm tra nội bộ')
+        );
+
         // Cập nhật bước hiện tại
         const updatedSteps = [...doc.steps];
         updatedSteps[currentStepIdx] = {
           ...currentStep,
           status: 'APPROVED',
-          comment: comment || 'Đã kiểm tra và phê duyệt',
+          comment: comment || (isCurrentInternalCheck ? 'Đã kiểm tra nội bộ hồ sơ' : 'Đã kiểm tra và phê duyệt'),
           decisionDate: now,
-          signatureImage: signatureImage || 'signature_stamp',
+          signatureImage: signatureImage || (isCurrentInternalCheck ? 'internal_checked' : 'signature_stamp'),
           approverId: activeUser.id,
           approverName: activeUser.name,
+          checkedByName: isCurrentInternalCheck ? activeUser.name : currentStep.checkedByName,
+          checkedAt: isCurrentInternalCheck ? now : currentStep.checkedAt,
         };
 
         const isLastStep = currentStepIdx === doc.steps.length - 1;
@@ -1409,17 +1418,26 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (!isLastStep) {
           newStepIdx = currentStepIdx + 1;
-          const nextStepSla = updatedSteps[newStepIdx].slaHours || 8;
+          const nextStep = updatedSteps[newStepIdx];
+          const nextStepSla = nextStep.slaHours || 8;
+
+          // Nếu bước tiếp theo là bước duyệt cùng phòng ban (vd: bước Kiểm tra nội bộ -> Lãnh đạo ban duyệt),
+          // kế thừa hạn SLA đang chạy của phòng ban để không bị kéo dài thêm hạn
+          const isSameDeptChain = isCurrentInternalCheck && isSameDepartment(currentStep.department, nextStep.department);
+          const nextDeadline = (isSameDeptChain && currentStep.deadline) 
+            ? currentStep.deadline 
+            : new Date(Date.now() + nextStepSla * 3600 * 1000).toISOString();
+
           updatedSteps[newStepIdx] = {
-            ...updatedSteps[newStepIdx],
+            ...nextStep,
             status: 'CURRENT',
             startedAt: now,
-            deadline: new Date(Date.now() + nextStepSla * 3600 * 1000).toISOString(),
+            deadline: nextDeadline,
             isOverdue: false,
           };
         }
 
-        const newLog = {
+        const newLog: AuditLog = {
           id: `log-${Date.now()}`,
           documentId: doc.id,
           action: 'APPROVE' as const,
@@ -1427,7 +1445,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           actorName: activeUser.name,
           actorTitle: activeUser.roleTitle,
           timestamp: now,
-          comment: comment ? `Phê duyệt: ${comment}` : `Đã duyệt bước ${currentStepIdx + 1}`,
+          comment: comment 
+            ? (isCurrentInternalCheck ? `[Kiểm tra nội bộ]: ${comment}` : `Phê duyệt: ${comment}`) 
+            : (isCurrentInternalCheck 
+                ? `Đã kiểm tra nội bộ hồ sơ và chuyển cấp quản lý (${currentStep.department}) duyệt` 
+                : `Đã duyệt bước ${currentStepIdx + 1}`),
           previousStatus: doc.status,
           newStatus: newStatus,
         };
@@ -1466,12 +1488,28 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }, ...prev]);
         } else {
           const nextApprover = updatedSteps[newStepIdx];
+          const isNextInternalCheck = Boolean(
+            nextApprover.isInternalCheck || 
+            nextApprover.stepType === 'INTERNAL_CHECK' || 
+            nextApprover.title?.toLowerCase().includes('kiểm tra nội bộ')
+          );
+
+          const nextNotifTitle = isNextInternalCheck 
+            ? 'Hồ sơ mới cần kiểm tra nội bộ' 
+            : (isCurrentInternalCheck ? 'Hồ sơ đã qua kiểm tra nội bộ - Chờ bạn duyệt' : 'Hồ sơ mới cần duyệt');
+
+          const nextNotifMsg = isCurrentInternalCheck 
+            ? `Hồ sơ "${doc.code} - ${doc.title}" đã được nhân sự ${activeUser.name} kiểm tra nội bộ. Đang chờ bạn phê duyệt tại bước ${newStepIdx + 1} (${nextApprover.title}).`
+            : `Hồ sơ "${doc.code} - ${doc.title}" đang chờ bạn ${isNextInternalCheck ? 'kiểm tra nội bộ' : 'phê duyệt'} tại bước ${newStepIdx + 1} (${nextApprover.title}). SLA: ${nextApprover.slaHours || 8}h.`;
+
           const newNotifs: NotificationItem[] = [
             // 1. Chỉ người lập hồ sơ nhận được thông báo hồ sơ đã được duyệt bước này
             {
               id: `notif-${Date.now()}-creator`,
-              title: `Hồ sơ đã được duyệt bước ${currentStepIdx + 1}`,
-              message: `Hồ sơ "${doc.code} - ${doc.title}" đã được ${activeUser.name} phê duyệt tại bước ${currentStepIdx + 1}. Hồ sơ đã chuyển đến bước tiếp theo.`,
+              title: isCurrentInternalCheck 
+                ? `Hồ sơ đã hoàn tất kiểm tra nội bộ tại ${currentStep.department}` 
+                : `Hồ sơ đã được duyệt bước ${currentStepIdx + 1}`,
+              message: `Hồ sơ "${doc.code} - ${doc.title}" đã được ${activeUser.name} ${isCurrentInternalCheck ? 'kiểm tra nội bộ' : 'phê duyệt'} tại bước ${currentStepIdx + 1}. Hồ sơ đã chuyển đến bước tiếp theo.`,
               documentId: doc.id,
               documentCode: doc.code,
               type: 'INFO',
@@ -1483,8 +1521,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // 2. Người có trách nhiệm duyệt bước tiếp theo nhận được thông báo chờ duyệt trước khi thực hiện
             {
               id: `notif-${Date.now()}-next`,
-              title: 'Hồ sơ mới cần duyệt',
-              message: `Hồ sơ "${doc.code} - ${doc.title}" đang chờ bạn phê duyệt tại bước ${newStepIdx + 1} (${nextApprover.title}). SLA: ${nextApprover.slaHours || 8}h.`,
+              title: nextNotifTitle,
+              message: nextNotifMsg,
               documentId: doc.id,
               documentCode: doc.code,
               type: 'ACTION_REQUIRED',

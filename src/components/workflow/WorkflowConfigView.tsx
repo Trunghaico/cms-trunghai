@@ -132,6 +132,11 @@ export const WorkflowConfigView: React.FC = () => {
                             <h5 className="text-xs font-bold text-slate-900">
                               Bước {step.order}: {step.title}
                             </h5>
+                            {step.isInternalCheck && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded border border-indigo-200">
+                                Kiểm tra nội bộ ban
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[11px]">
                             <span className="font-semibold text-brand-blue flex items-center gap-1">

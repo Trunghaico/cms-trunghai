@@ -25,7 +25,8 @@ import {
   RotateCcw,
   Edit3,
   Undo2,
-  Zap
+  Zap,
+  UserCheck
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { ApprovalTimeline } from './ApprovalTimeline';
@@ -85,6 +86,22 @@ export const DocumentDetailModal: React.FC = () => {
   // Kiểm tra xem người dùng hiện tại có thẩm quyền duyệt bước này không
   // Quy định: Hồ sơ trình cho phòng ban nào thì chỉ phòng ban đó mới được duyệt.
   const isApproverForCurrentStep = currentStep ? isUserApproverForStep(activeUser, currentStep) : false;
+
+  const isCurrentStepInternalCheck = Boolean(
+    currentStep?.isInternalCheck || 
+    currentStep?.stepType === 'INTERNAL_CHECK' || 
+    currentStep?.title?.toLowerCase().includes('kiểm tra nội bộ')
+  );
+
+  const previousStep = (selectedDocument && selectedDocument.currentStepIndex > 0) 
+    ? selectedDocument.steps[selectedDocument.currentStepIndex - 1] 
+    : null;
+
+  const isPreviousStepInternalCheck = Boolean(
+    previousStep && 
+    previousStep.status === 'APPROVED' && 
+    (previousStep.isInternalCheck || previousStep.stepType === 'INTERNAL_CHECK' || previousStep.title?.toLowerCase().includes('kiểm tra nội bộ'))
+  );
 
   const canUserApprove = 
     selectedDocument.status !== 'APPROVED' &&
@@ -493,20 +510,58 @@ export const DocumentDetailModal: React.FC = () => {
                 />
               </div>
 
+              {/* Internal Check Verification Banner for Manager */}
+              {!isCurrentStepInternalCheck && isPreviousStepInternalCheck && selectedDocument.status !== 'APPROVED' && (
+                <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-[3px] flex items-center gap-3 text-xs text-indigo-950 shadow-2xs">
+                  <div className="h-7 w-7 rounded-[3px] bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-indigo-900">
+                      ✓ Hồ sơ đã được thẩm định & kiểm tra nội bộ ban: <span className="text-indigo-700 underline font-semibold">{previousStep?.checkedByName || previousStep?.approverName}</span>
+                      {previousStep?.decisionDate ? ` (${formatDate(previousStep.decisionDate)})` : ''}
+                    </p>
+                    <p className="text-[11px] text-indigo-700 mt-0.5">
+                      Nội bộ phòng ban đã xác nhận hồ sơ đầy đủ căn cứ, hồ sơ hợp lệ và chuyển cấp quản lý ({currentStep?.department || currentStep?.approverName}) xem xét phê duyệt.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Approval Actions Box for Authorized User */}
               {canUserApprove && (
-                <div className="p-5 bg-blue-50/70 border-2 border-brand-blue/30 rounded-[3px] space-y-4">
+                <div className={`p-5 rounded-[3px] space-y-4 border-2 ${
+                  isCurrentStepInternalCheck 
+                    ? 'bg-indigo-50/80 border-indigo-400/50 shadow-xs' 
+                    : 'bg-blue-50/70 border-brand-blue/30'
+                }`}>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-[3px] bg-brand-blue text-white flex items-center justify-center font-bold text-xs">
-                        ✓
+                    <div className="flex items-center gap-2.5">
+                      <div className={`h-8 w-8 rounded-[3px] text-white flex items-center justify-center font-bold text-xs shrink-0 ${
+                        isCurrentStepInternalCheck ? 'bg-indigo-600 shadow-xs' : 'bg-brand-blue'
+                      }`}>
+                        {isCurrentStepInternalCheck ? <UserCheck className="h-4 w-4" /> : '✓'}
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-brand-blue">
-                          Xử Lý Ký Duyệt Bước {selectedDocument.currentStepIndex + 1}: {currentStep?.title}
-                        </h4>
-                        <p className="text-xs text-slate-600">
-                          Bạn đang đăng nhập với tư cách <strong>{activeUser.name}</strong> ({activeUser.roleTitle})
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-sm font-bold ${
+                            isCurrentStepInternalCheck ? 'text-indigo-950' : 'text-brand-blue'
+                          }`}>
+                            {isCurrentStepInternalCheck
+                              ? `Kiểm Tra Nội Bộ Ban - Bước ${selectedDocument.currentStepIndex + 1}: ${currentStep?.title}`
+                              : `Xử Lý Ký Duyệt Bước ${selectedDocument.currentStepIndex + 1}: ${currentStep?.title}`}
+                          </h4>
+                          {isCurrentStepInternalCheck && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-indigo-200/80 text-indigo-900 rounded-[2px]">
+                              Nội bộ {currentStep?.department}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          {isCurrentStepInternalCheck 
+                            ? `Tất cả nhân sự thuộc ${currentStep?.department} đều có quyền kiểm tra hồ sơ. Bạn đang thao tác: ` 
+                            : 'Bạn đang đăng nhập với tư cách: '}
+                          <strong>{activeUser.name}</strong> ({activeUser.roleTitle} - {activeUser.department})
                         </p>
                       </div>
                     </div>
@@ -516,10 +571,14 @@ export const DocumentDetailModal: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-3 pt-2">
                       <button
                         onClick={() => setApprovalAction('APPROVE')}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2"
+                        className={`px-4 py-2 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 ${
+                          isCurrentStepInternalCheck 
+                            ? 'bg-indigo-600 hover:bg-indigo-700' 
+                            : 'bg-emerald-600 hover:bg-emerald-700'
+                        }`}
                       >
                         <CheckCircle2 className="h-4 w-4" />
-                        <span>Phê Duyệt & Ký Số</span>
+                        <span>{isCurrentStepInternalCheck ? '✓ Xác Nhận Đã Kiểm Tra (Chuyển Quản Lý Duyệt)' : 'Phê Duyệt & Ký Số'}</span>
                       </button>
 
                       <button
@@ -535,7 +594,7 @@ export const DocumentDetailModal: React.FC = () => {
                         className="px-4 py-2 bg-brand-red hover:bg-brand-red-dark text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2"
                       >
                         <XCircle className="h-4 w-4" />
-                        <span>Từ Chối Duyệt</span>
+                        <span>{isCurrentStepInternalCheck ? 'Yêu Cầu Sửa / Từ Chối' : 'Từ Chối Duyệt'}</span>
                       </button>
                     </div>
                   ) : (
@@ -543,7 +602,9 @@ export const DocumentDetailModal: React.FC = () => {
                       {approvalAction === 'APPROVE' && (
                         <div>
                           <p className="text-xs font-bold text-slate-700 mb-2">
-                            Xác thực chữ ký số điện tử của bạn:
+                            {isCurrentStepInternalCheck 
+                              ? 'Xác nhận chữ ký kiểm tra nội bộ ban của bạn:' 
+                              : 'Xác thực chữ ký số điện tử của bạn:'}
                           </p>
                           <DigitalSignaturePad
                             approverName={activeUser.name}
@@ -555,18 +616,30 @@ export const DocumentDetailModal: React.FC = () => {
 
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">
-                          {approvalAction === 'APPROVE' ? 'Ý kiến phê duyệt / Ghi chú (Không bắt buộc):' :
-                           approvalAction === 'REJECT' ? 'Lý do từ chối hồ sơ (Bắt buộc):' :
-                           'Nội dung yêu cầu bổ sung hồ sơ/tài liệu (Bắt buộc):'}
+                          {approvalAction === 'APPROVE' ? (
+                            isCurrentStepInternalCheck
+                              ? 'Ý kiến kiểm tra nội bộ / Ghi chú cho Quản lý ban duyệt (Không bắt buộc):'
+                              : 'Ý kiến phê duyệt / Ghi chú (Không bắt buộc):'
+                          ) : approvalAction === 'REJECT' ? (
+                            'Lý do từ chối hồ sơ (Bắt buộc):'
+                          ) : (
+                            'Nội dung yêu cầu bổ sung hồ sơ/tài liệu (Bắt buộc):'
+                          )}
                         </label>
                         <textarea
                           rows={3}
                           value={commentText}
                           onChange={(e) => setCommentText(e.target.value)}
                           placeholder={
-                            approvalAction === 'APPROVE' ? 'Đã kiểm tra kỹ các điều khoản, đồng ý phê duyệt...' :
-                            approvalAction === 'REJECT' ? 'Nhập lý do từ chối cụ thể để người lập hồ sơ nắm rõ...' :
-                            'Nêu rõ cần bổ sung bảng báo giá, phụ lục hợp đồng, chứng từ...'
+                            approvalAction === 'APPROVE' ? (
+                              isCurrentStepInternalCheck
+                                ? 'Đã kiểm tra đầy đủ danh mục hồ sơ, số liệu và các tài liệu đính kèm, kính chuyển Quản lý ban phê duyệt...'
+                                : 'Đã kiểm tra kỹ các điều khoản, đồng ý phê duyệt...'
+                            ) : approvalAction === 'REJECT' ? (
+                              'Nhập lý do từ chối cụ thể để người lập hồ sơ nắm rõ...'
+                            ) : (
+                              'Nêu rõ cần bổ sung bảng báo giá, phụ lục hợp đồng, chứng từ...'
+                            )
                           }
                           className="w-full p-2.5 text-xs border border-slate-300 rounded-[3px] focus:outline-none focus:ring-1 focus:ring-brand-blue"
                         />
@@ -577,10 +650,14 @@ export const DocumentDetailModal: React.FC = () => {
                           <button
                             onClick={handleApproveSubmit}
                             disabled={isSubmitting}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2"
+                            className={`px-4 py-2 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 ${
+                              isCurrentStepInternalCheck 
+                                ? 'bg-indigo-600 hover:bg-indigo-700' 
+                                : 'bg-emerald-600 hover:bg-emerald-700'
+                            }`}
                           >
                             <ShieldCheck className="h-4 w-4" />
-                            <span>Xác Nhận Ký Số & Chuyển Bước Tiếp</span>
+                            <span>{isCurrentStepInternalCheck ? 'Xác Nhận Đã Kiểm Tra & Chuyển Quản Lý' : 'Xác Nhận Ký Số & Chuyển Bước Tiếp'}</span>
                           </button>
                         )}
 
@@ -627,7 +704,11 @@ export const DocumentDetailModal: React.FC = () => {
                   <Clock className="h-4 w-4 text-amber-600 shrink-0" />
                   <span>
                     Hồ sơ đang chờ xử lý tại <strong>Bước {selectedDocument.currentStepIndex + 1}: {currentStep?.title || currentStep?.approverTitle} ({currentStep?.department || currentStep?.approverName})</strong>.
-                    {currentStep?.department ? ` Chỉ nhân sự có thẩm quyền thuộc ${currentStep.department} mới được phê duyệt.` : ''}
+                    {currentStep?.department ? (
+                      isCurrentStepInternalCheck
+                        ? ` Mọi nhân sự thuộc ${currentStep.department} đều có quyền kiểm tra hồ sơ và chuyển cấp quản lý.`
+                        : ` Chỉ cấp quản lý có thẩm quyền thuộc ${currentStep.department} mới được phê duyệt.`
+                    ) : ''}
                   </span>
                 </div>
               )}

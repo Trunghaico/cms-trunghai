@@ -1,7 +1,7 @@
 import React from 'react';
 import { ApprovalStep, StepStatus, DocumentStatus } from '../../types';
 import { formatDate } from '../../lib/storage';
-import { CheckCircle2, Clock, XCircle, AlertCircle, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, AlertCircle, ShieldCheck, Zap, AlertTriangle, UserCheck } from 'lucide-react';
 
 interface ApprovalTimelineProps {
   steps: ApprovalStep[];
@@ -11,6 +11,12 @@ interface ApprovalTimelineProps {
 
 export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, currentStepIndex, documentStatus }) => {
   const getStepBadge = (step: ApprovalStep, isCurrent: boolean) => {
+    const isInternal = Boolean(
+      step.isInternalCheck || 
+      step.stepType === 'INTERNAL_CHECK' || 
+      (step.title && step.title.toLowerCase().includes('kiểm tra nội bộ'))
+    );
+
     if (step.autoApprovedBySystem) {
       return {
         icon: Zap,
@@ -45,10 +51,10 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
       case 'APPROVED':
         return {
           icon: CheckCircle2,
-          bgColor: 'bg-emerald-500 text-white',
-          borderColor: 'border-emerald-500',
-          textColor: 'text-emerald-700',
-          labelText: 'Đã phê duyệt',
+          bgColor: isInternal ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white',
+          borderColor: isInternal ? 'border-indigo-500' : 'border-emerald-500',
+          textColor: isInternal ? 'text-indigo-700' : 'text-emerald-700',
+          labelText: isInternal ? 'Đã kiểm tra nội bộ' : 'Đã phê duyệt',
         };
       case 'REJECTED':
         return {
@@ -56,15 +62,15 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
           bgColor: 'bg-brand-red text-white',
           borderColor: 'border-brand-red',
           textColor: 'text-brand-red',
-          labelText: 'Từ chối duyệt',
+          labelText: isInternal ? 'Yêu cầu chỉnh sửa' : 'Từ chối duyệt',
         };
       case 'CURRENT':
         return {
-          icon: Clock,
-          bgColor: 'bg-amber-500 text-white animate-pulse',
-          borderColor: 'border-amber-500 ring-2 ring-amber-200',
-          textColor: 'text-amber-700 font-bold',
-          labelText: 'Đang chờ xử lý',
+          icon: isInternal ? UserCheck : Clock,
+          bgColor: isInternal ? 'bg-indigo-500 text-white animate-pulse' : 'bg-amber-500 text-white animate-pulse',
+          borderColor: isInternal ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-amber-500 ring-2 ring-amber-200',
+          textColor: isInternal ? 'text-indigo-700 font-bold' : 'text-amber-700 font-bold',
+          labelText: isInternal ? 'Đang kiểm tra nội bộ' : 'Đang chờ xử lý',
         };
       default:
         return {
@@ -72,7 +78,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
           bgColor: 'bg-slate-200 text-slate-500',
           borderColor: 'border-slate-300',
           textColor: 'text-slate-400',
-          labelText: 'Chưa tới lượt',
+          labelText: isInternal ? 'Chờ kiểm tra nội bộ' : 'Chưa tới lượt',
         };
     }
   };
@@ -107,6 +113,11 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative z-10">
           {steps.map((step, index) => {
             const isCurrent = index === currentStepIndex;
+            const isInternal = Boolean(
+              step.isInternalCheck || 
+              step.stepType === 'INTERNAL_CHECK' || 
+              (step.title && step.title.toLowerCase().includes('kiểm tra nội bộ'))
+            );
             const badge = getStepBadge(step, isCurrent);
             const Icon = badge.icon;
             const slaStatus = isCurrent ? formatSlaRemaining(step) : null;
@@ -120,9 +131,9 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                     : isCurrent && step.isOverdue
                     ? 'bg-red-50/80 border-red-400 shadow-md ring-2 ring-red-300'
                     : isCurrent
-                    ? 'bg-amber-50/70 border-amber-400 shadow-md ring-1 ring-amber-300/60'
+                    ? (isInternal ? 'bg-indigo-50/70 border-indigo-400 shadow-md ring-1 ring-indigo-300/60' : 'bg-amber-50/70 border-amber-400 shadow-md ring-1 ring-amber-300/60')
                     : step.status === 'APPROVED'
-                    ? 'bg-emerald-50/40 border-emerald-300 shadow-xs'
+                    ? (isInternal ? 'bg-indigo-50/30 border-indigo-200 shadow-xs' : 'bg-emerald-50/40 border-emerald-300 shadow-xs')
                     : step.status === 'REJECTED'
                     ? 'bg-red-50/40 border-red-300 shadow-xs'
                     : 'bg-slate-50 border-slate-200 opacity-80 hover:opacity-100'
@@ -134,9 +145,16 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                     <div className={`h-7 w-7 rounded-[3px] flex items-center justify-center text-xs font-bold shadow-xs transition-transform duration-200 ${badge.bgColor}`}>
                       {index + 1}
                     </div>
-                    <span className="text-xs font-bold text-slate-800">
-                      Bước {index + 1}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-bold text-slate-800">
+                        Bước {index + 1}
+                      </span>
+                      {isInternal && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded border border-indigo-200">
+                          Nội bộ ban
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <Icon className={`h-4 w-4 ${badge.textColor}`} />
                 </div>
@@ -160,9 +178,9 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] shadow-2xs ${
                       step.autoApprovedBySystem ? 'bg-purple-100 text-purple-900 border border-purple-200' :
                       step.isOverdue && isCurrent ? 'bg-red-100 text-red-900 border border-red-300 animate-pulse' :
-                      step.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                      step.status === 'APPROVED' ? (isInternal ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800') :
                       step.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                      step.status === 'CURRENT' ? 'bg-amber-100 text-amber-900 animate-pulse' :
+                      step.status === 'CURRENT' ? (isInternal ? 'bg-indigo-100 text-indigo-900 animate-pulse' : 'bg-amber-100 text-amber-900 animate-pulse') :
                       'bg-slate-100 text-slate-500'
                     }`}>
                       {badge.labelText}
@@ -180,7 +198,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                     <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
                       slaStatus.isOverdue 
                         ? 'bg-red-100 text-red-700 border border-red-200' 
-                        : 'bg-amber-100/80 text-amber-800 border border-amber-200'
+                        : (isInternal ? 'bg-indigo-100/80 text-indigo-800 border border-indigo-200' : 'bg-amber-100/80 text-amber-800 border border-amber-200')
                     }`}>
                       <Clock className="w-3 h-3 shrink-0" />
                       <span>{slaStatus.text}</span>
@@ -208,12 +226,19 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                     <div className={`mt-2 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[3px] shadow-2xs animate-fade-in ${
                       step.autoApprovedBySystem 
                         ? 'text-purple-800 bg-purple-100 border border-purple-200' 
+                        : isInternal
+                        ? 'text-indigo-800 bg-indigo-100/90 border border-indigo-200'
                         : 'text-emerald-700 bg-emerald-100/90 border border-emerald-200'
                     }`}>
                       {step.autoApprovedBySystem ? (
                         <>
                           <Zap className="h-3 w-3 text-purple-600 shrink-0" />
                           <span>Hệ thống ký điện tử tự động</span>
+                        </>
+                      ) : isInternal ? (
+                        <>
+                          <CheckCircle2 className="h-3 w-3 text-indigo-600 shrink-0" />
+                          <span>Đã thẩm tra: {step.checkedByName || step.approverName}</span>
                         </>
                       ) : (
                         <>

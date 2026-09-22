@@ -532,7 +532,18 @@ export function isUserApproverForStep(user: User | null | undefined, step: Appro
     return false;
   }
 
-  // Thuộc phòng ban được trình tới -> Xét tiếp thẩm quyền ký duyệt
+  // NẾU LÀ BƯỚC KIỂM TRA NỘI BỘ BAN (step.isInternalCheck hoặc step.stepType === 'INTERNAL_CHECK' hoặc tiêu đề chứa 'kiểm tra nội bộ'):
+  // -> MỌI NHÂN SỰ TRONG BAN ĐỀU CÓ QUYỀN KIỂM TRA VÀ XÁC NHẬN CHUYỂN CẤP QUẢN LÝ
+  const isInternalCheckStep = Boolean(
+    step.isInternalCheck || 
+    step.stepType === 'INTERNAL_CHECK' || 
+    (step.title && step.title.toLowerCase().includes('kiểm tra nội bộ'))
+  );
+  if (isInternalCheckStep) {
+    return true;
+  }
+
+  // Thuộc phòng ban được trình tới và là bước duyệt cấp Quản lý -> Xét tiếp thẩm quyền ký duyệt
   const canApprove = hasPermission(user, 'approval.approve');
   if (!canApprove) return false;
 
