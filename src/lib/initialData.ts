@@ -102,11 +102,10 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Hợp đồng kinh tế',
     description: 'Áp dụng cho mọi hợp đồng mua sắm vật tư, thiết bị, gói thầu có giá trị trên 100.000.000 VNĐ',
     steps: [
-      { order: 1, title: 'Kiểm tra nội bộ kỹ thuật', role: 'STAFF', roleTitle: 'Nhân sự Phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 8, isInternalCheck: true },
-      { order: 2, title: 'Kiểm tra kỹ thuật & phạm vi', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 8 },
-      { order: 3, title: 'Thẩm định điều khoản pháp lý & Rủi ro', role: 'LEGAL_DEPT', roleTitle: 'Pháp chế', department: 'Ban Pháp chế & Kiểm soát', slaHours: 12 },
-      { order: 4, title: 'Kiểm soát ngân sách & Điều khoản thanh toán', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 8 },
-      { order: 5, title: 'Phê duyệt & Ký số Hợp đồng', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 24 },
+      { order: 1, title: 'Kiểm tra kỹ thuật & phạm vi', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 8 },
+      { order: 2, title: 'Thẩm định điều khoản pháp lý & Rủi ro', role: 'LEGAL_DEPT', roleTitle: 'Pháp chế', department: 'Ban Pháp chế & Kiểm soát', slaHours: 12 },
+      { order: 3, title: 'Kiểm soát ngân sách & Điều khoản thanh toán', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 8 },
+      { order: 4, title: 'Phê duyệt & Ký số Hợp đồng', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 24 },
     ]
   },
   {
@@ -115,10 +114,9 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Tờ trình phê duyệt',
     description: 'Dành cho tờ trình mua sắm nội bộ, chi phí công tác, nâng cấp hạ tầng',
     steps: [
-      { order: 1, title: 'Kiểm tra nội bộ bộ phận', role: 'STAFF', roleTitle: 'Nhân sự bộ phận đề xuất', department: 'Phòng ban đề xuất', slaHours: 8, isInternalCheck: true },
-      { order: 2, title: 'Xác nhận sự cần thiết & Kế hoạch', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Bộ phận', department: 'Phòng ban đề xuất', slaHours: 8 },
-      { order: 3, title: 'Thẩm định định mức chi & Nguồn vốn', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 8 },
-      { order: 4, title: 'Phê duyệt hạn mức thực hiện', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 16 },
+      { order: 1, title: 'Xác nhận sự cần thiết & Kế hoạch', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Bộ phận', department: 'Phòng ban đề xuất', slaHours: 8 },
+      { order: 2, title: 'Thẩm định định mức chi & Nguồn vốn', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 8 },
+      { order: 3, title: 'Phê duyệt hạn mức thực hiện', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 16 },
     ]
   },
   {
@@ -127,10 +125,9 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Hồ sơ thanh toán',
     description: 'Thanh toán tiền hàng nhà cung cấp, tạm ứng hợp đồng, hoàn ứng công tác',
     steps: [
-      { order: 1, title: 'Kiểm tra nội bộ hồ sơ thanh toán', role: 'STAFF', roleTitle: 'Chuyên viên Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 4, isInternalCheck: true },
-      { order: 2, title: 'Đối soát khối lượng nghiệm thu', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 4 },
-      { order: 3, title: 'Kiểm tra hóa đơn chứng từ hợp lệ', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 4 },
-      { order: 4, title: 'Duyệt chi chuyển khoản / Tiền mặt', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 8 },
+      { order: 1, title: 'Đối soát khối lượng nghiệm thu', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 4 },
+      { order: 2, title: 'Kiểm tra hóa đơn chứng từ hợp lệ', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 4 },
+      { order: 3, title: 'Duyệt chi chuyển khoản / Tiền mặt', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 8 },
     ]
   }
 ];

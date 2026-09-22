@@ -141,10 +141,15 @@ export interface ApprovalStep {
   deadline?: string; // Thời hạn duyệt cụ thể tính theo SLA
   isOverdue?: boolean; // Cờ đánh dấu bước đã bị quá hạn
   autoApprovedBySystem?: boolean; // Được duyệt tự động bởi hệ thống
-  stepType?: 'INTERNAL_CHECK' | 'APPROVAL'; // Phân loại bước: Kiểm tra nội bộ ban hoặc Ký duyệt
-  isInternalCheck?: boolean; // true nếu là bước kiểm tra nội bộ ban trước khi lên cấp quản lý
+  // Tích hợp khâu kiểm tra nội bộ ban trong cùng 1 bước
+  requiresInternalCheck?: boolean; // true nếu bước này yêu cầu nhân sự ban kiểm tra trước khi quản lý duyệt
+  isInternalChecked?: boolean; // true khi đã hoàn tất kiểm tra nội bộ ban
   checkedByName?: string; // Tên nhân sự nội bộ ban đã thực hiện kiểm tra
   checkedAt?: string; // Thời điểm hoàn thành kiểm tra nội bộ
+  checkedComment?: string; // Ý kiến kiểm tra nội bộ
+  checkedSignature?: string; // Chữ ký xác nhận kiểm tra
+  stepType?: 'INTERNAL_CHECK' | 'APPROVAL';
+  isInternalCheck?: boolean;
 }
 
 export type ResubmitMode = 'CONTINUE_FROM_CURRENT' | 'RESTART_FROM_BEGINNING';

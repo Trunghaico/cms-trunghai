@@ -518,46 +518,34 @@ export function isSameDepartment(dept1?: string, dept2?: string): boolean {
   return false;
 }
 
-// 2. Kiểm tra xem người dùng có phải là người duyệt của một bước cụ thể
-// NGUYÊN TẮC: Hồ sơ trình cho phòng ban nào thì chỉ phòng ban đó mới được duyệt.
-// Không phải ai có quyền duyệt hồ sơ cũng duyệt được.
-export function isUserApproverForStep(user: User | null | undefined, step: ApprovalStep): boolean {
+// 2a. Kiểm tra người dùng có thẩm quyền kiểm tra nội bộ tại phòng ban của bước duyệt
+export function canUserPerformInternalCheck(user: User | null | undefined, step: ApprovalStep): boolean {
   if (!user || !step) return false;
-
-  // Trường hợp 1: Chỉ định đích danh cá nhân duyệt
-  if (step.approverId) {
-    return step.approverId === user.id;
-  }
-
-  // Trường hợp 2: Trình cho PHÒNG BAN (step.department)
-  // Thu thập toàn bộ vị trí & phòng ban của người dùng (chức vụ chính + kiêm nhiệm)
   const userPositions = [
     { department: user.department, role: user.role, roleTitle: user.roleTitle },
     ...(user.secondaryPositions || [])
   ];
-
-  // BẮT BUỘC: Người dùng phải thuộc đúng phòng ban được trình
   const matchingPositions = userPositions.filter(pos => 
     isSameDepartment(pos.department, step.department)
   );
+  if (matchingPositions.length === 0) return false;
+  return hasPermission(user, 'approval.internal_check') || hasPermission(user, 'approval.approve');
+}
 
-  // Không thuộc phòng ban được trình tới -> TUYỆT ĐỐI KHÔNG ĐƯỢC DUYỆT
-  if (matchingPositions.length === 0) {
-    return false;
-  }
+// 2b. Kiểm tra người dùng có thẩm quyền ký phê duyệt cấp Quản lý (Trưởng phòng/Trưởng ban/Giám đốc)
+export function canUserPerformManagerApproval(user: User | null | undefined, step: ApprovalStep): boolean {
+  if (!user || !step) return false;
+  if (step.approverId) return step.approverId === user.id;
 
-  // NẾU LÀ BƯỚC KIỂM TRA NỘI BỘ BAN (step.isInternalCheck hoặc step.stepType === 'INTERNAL_CHECK' hoặc tiêu đề chứa 'kiểm tra nội bộ'):
-  // -> Người dùng phải thuộc phòng ban và được cấp quyền kiểm tra nội bộ ('approval.internal_check') hoặc phê duyệt ('approval.approve')
-  const isInternalCheckStep = Boolean(
-    step.isInternalCheck || 
-    step.stepType === 'INTERNAL_CHECK' || 
-    (step.title && step.title.toLowerCase().includes('kiểm tra nội bộ'))
+  const userPositions = [
+    { department: user.department, role: user.role, roleTitle: user.roleTitle },
+    ...(user.secondaryPositions || [])
+  ];
+  const matchingPositions = userPositions.filter(pos => 
+    isSameDepartment(pos.department, step.department)
   );
-  if (isInternalCheckStep) {
-    return hasPermission(user, 'approval.internal_check') || hasPermission(user, 'approval.approve');
-  }
+  if (matchingPositions.length === 0) return false;
 
-  // Thuộc phòng ban được trình tới và là bước duyệt cấp Quản lý -> Xét tiếp thẩm quyền ký duyệt
   const canApprove = hasPermission(user, 'approval.approve');
   if (!canApprove) return false;
 
@@ -582,6 +570,30 @@ export function isUserApproverForStep(user: User | null | undefined, step: Appro
 
     return isLeadershipRole || isLeadershipTitle || pos.role !== 'STAFF';
   });
+}
+
+// 2c. Kiểm tra xem người dùng có phải là người duyệt hoặc kiểm tra của một bước cụ thể
+export function isUserApproverForStep(user: User | null | undefined, step: ApprovalStep): boolean {
+  if (!user || !step) return false;
+
+  // Trường hợp 1: Chỉ định đích danh cá nhân duyệt
+  if (step.approverId) {
+    return step.approverId === user.id;
+  }
+
+  // Trường hợp 2: Bước duyệt phòng ban gộp khâu kiểm tra & duyệt
+  // Nếu bước yêu cầu kiểm tra nội bộ và CHƯA kiểm tra: Nhân sự kiểm tra HOẶC Quản lý ban đều có quyền thao tác
+  if (step.requiresInternalCheck && !step.isInternalChecked) {
+    return canUserPerformInternalCheck(user, step) || canUserPerformManagerApproval(user, step);
+  }
+
+  // Trường hợp tương thích ngược với bước riêng:
+  if (step.isInternalCheck || step.stepType === 'INTERNAL_CHECK') {
+    return canUserPerformInternalCheck(user, step);
+  }
+
+  // Nếu đã kiểm tra nội bộ xong (hoặc không yêu cầu kiểm tra): Chỉ cấp Quản lý ban mới duyệt
+  return canUserPerformManagerApproval(user, step);
 }
 
 // 3. Kiểm tra xem người dùng có phải là người duyệt trong bất kỳ bước nào của hồ sơ

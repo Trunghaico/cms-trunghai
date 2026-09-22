@@ -165,7 +165,7 @@ export const CreateDocumentModal: React.FC = () => {
     setIsApproverDropdownOpen(false);
   };
 
-  // Thêm người duyệt là PHÒNG BAN (Tự động tạo chuỗi 2 bước: Kiểm tra nội bộ ban -> Lãnh đạo ban duyệt)
+  // Thêm người duyệt là PHÒNG BAN (Gộp chung 1 bước: Kiểm tra nội bộ + Phê duyệt quản lý)
   const handleAddDeptApprover = (dept: { id: string; name: string; code: string; defaultSlaHours?: number }) => {
     setErrorMsg('');
     const sla = dept.defaultSlaHours || getDeptDefaultSla(dept.name);
@@ -180,19 +180,10 @@ export const CreateDocumentModal: React.FC = () => {
         type: 'DEPARTMENT', 
         departmentName: dName, 
         departmentCode: dept.code, 
-        title: `Kiểm tra nội bộ (${dName})`, 
+        title: isBoard ? `Ban ${dName}` : `Phòng ${dName}`, 
         slaHours: sla, 
         overdueAction: docOverdueAction,
-        isInternalCheck: true
-      },
-      { 
-        type: 'DEPARTMENT', 
-        departmentName: dName, 
-        departmentCode: dept.code, 
-        title: isBoard ? `Duyệt cấp Ban (${dName})` : `Duyệt cấp phòng (${dName})`, 
-        slaHours: sla, 
-        overdueAction: docOverdueAction,
-        isInternalCheck: false
+        requiresInternalCheck: true
       }
     ]);
     setApproverSearchQuery('');
@@ -384,16 +375,13 @@ export const CreateDocumentModal: React.FC = () => {
                                dName.includes('Kế toán') ? 'CHIEF_ACCOUNTANT' :
                                dName.includes('Pháp chế') ? 'LEGAL_DEPT' : 
                                isBoard ? 'BOARD_HEAD' : 'DEPT_HEAD';
-        const isInternal = Boolean(item.isInternalCheck);
         return {
           id: `step-${Date.now()}-${idx}`,
           stepOrder: idx + 1,
-          title: item.title || (isInternal 
-            ? `Kiểm tra nội bộ (${dName})`
-            : (isBoard ? `Duyệt cấp Ban (${dName})` : `Duyệt cấp phòng (${dName})`)),
-          approverRole: isInternal ? 'STAFF' : role,
-          approverName: isInternal ? `Nhân sự ${dName}` : dName,
-          approverTitle: isInternal ? 'Nhân sự trong ban' : (isBoard ? 'Đại diện Ban' : 'Đại diện phòng ban'),
+          title: item.title || (isBoard ? `Ban ${dName}` : `Phòng ${dName}`),
+          approverRole: role,
+          approverName: dName,
+          approverTitle: isBoard ? 'Đại diện Ban' : 'Đại diện phòng ban',
           department: dName,
           status: isFirst ? 'CURRENT' : 'PENDING',
           slaHours: sla,
@@ -401,8 +389,9 @@ export const CreateDocumentModal: React.FC = () => {
           startedAt: isFirst ? nowIso : undefined,
           deadline: stepDeadline,
           isOverdue: false,
-          stepType: isInternal ? 'INTERNAL_CHECK' : 'APPROVAL',
-          isInternalCheck: isInternal,
+          requiresInternalCheck: true,
+          isInternalChecked: false,
+          stepType: 'APPROVAL',
         };
       }
     });
@@ -671,12 +660,8 @@ export const CreateDocumentModal: React.FC = () => {
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
                             {item.type === 'DEPARTMENT' && (
-                              <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-bold shrink-0 ${
-                                item.isInternalCheck 
-                                  ? 'bg-blue-100 text-brand-blue border border-brand-blue/30' 
-                                  : 'bg-purple-100 text-purple-800 border border-purple-300'
-                              }`}>
-                                {item.isInternalCheck ? '🔍 1. Kiểm tra nội bộ ban' : '👑 2. Cấp quản lý duyệt'}
+                              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold shrink-0 bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                🏢 Duyệt cấp Ban/Phòng (Gồm khâu Kiểm tra nội bộ + Quản lý duyệt)
                               </span>
                             )}
                           </div>
