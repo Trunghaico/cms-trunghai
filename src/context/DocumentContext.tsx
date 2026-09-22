@@ -86,6 +86,15 @@ interface DocumentContextType {
   deleteUser: (userId: string) => { success: boolean; message?: string };
   registerUser?: (userData: { name: string; username: string; pass: string; roleTitle: string; department: string; role?: UserRole; permissions?: PermissionId[]; secondaryPositions?: UserPosition[] }) => { success: boolean; message?: string };
   
+  // User Profile & Password Management
+  isProfileModalOpen: boolean;
+  setIsProfileModalOpen: (open: boolean) => void;
+  profileInitialTab: 'PROFILE' | 'PASSWORD' | 'SIGNATURE';
+  setProfileInitialTab: (tab: 'PROFILE' | 'PASSWORD' | 'SIGNATURE') => void;
+  openProfileModal: (initialTab?: 'PROFILE' | 'PASSWORD' | 'SIGNATURE') => void;
+  changePassword: (currentPass: string, newPass: string) => { success: boolean; message?: string };
+  updateMyProfile: (data: { name?: string; email?: string; avatar?: string; signatureUrl?: string }) => { success: boolean; message?: string };
+
   // NAS Synology MinIO Storage & Database Sync & Auto-Backup
   isNASSyncing: boolean;
   lastNASSyncTime: string | null;
@@ -1066,6 +1075,52 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ...userData,
       role: userData.role || 'STAFF',
     });
+  };
+
+  // Profile modal state & User Self-Service (Đổi mật khẩu & Cập nhật Avatar)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileInitialTab, setProfileInitialTab] = useState<'PROFILE' | 'PASSWORD' | 'SIGNATURE'>('PROFILE');
+
+  const openProfileModal = (initialTab: 'PROFILE' | 'PASSWORD' | 'SIGNATURE' = 'PROFILE') => {
+    setProfileInitialTab(initialTab);
+    setIsProfileModalOpen(true);
+  };
+
+  const changePassword = (currentPass: string, newPass: string): { success: boolean; message?: string } => {
+    if (!activeUser) {
+      return { success: false, message: 'Bạn chưa đăng nhập.' };
+    }
+    const currentTrimmed = currentPass.trim();
+    const newTrimmed = newPass.trim();
+
+    if (activeUser.pass && activeUser.pass !== currentTrimmed) {
+      return { success: false, message: 'Mật khẩu hiện tại không chính xác. Vui lòng kiểm tra lại!' };
+    }
+
+    if (newTrimmed.length < 6) {
+      return { success: false, message: 'Mật khẩu mới phải có tối thiểu 6 ký tự.' };
+    }
+
+    if (newTrimmed === currentTrimmed) {
+      return { success: false, message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại.' };
+    }
+
+    const res = updateUser(activeUser.id, { pass: newTrimmed });
+    if (res.success) {
+      return { success: true, message: 'Đổi mật khẩu thành công!' };
+    }
+    return res;
+  };
+
+  const updateMyProfile = (data: { name?: string; email?: string; avatar?: string; signatureUrl?: string }): { success: boolean; message?: string } => {
+    if (!activeUser) {
+      return { success: false, message: 'Bạn chưa đăng nhập.' };
+    }
+    const res = updateUser(activeUser.id, data);
+    if (res.success) {
+      return { success: true, message: 'Cập nhật thông tin tài khoản thành công!' };
+    }
+    return res;
   };
 
   // Department Management
@@ -2294,6 +2349,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         testNAS,
         listBackups,
         persistStateToDatabase,
+
+        // Profile & Password Management
+        isProfileModalOpen,
+        setIsProfileModalOpen,
+        profileInitialTab,
+        setProfileInitialTab,
+        openProfileModal,
+        changePassword,
+        updateMyProfile,
       }}
     >
       {children}

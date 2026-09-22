@@ -28,7 +28,8 @@ export const Sidebar: React.FC = () => {
     activeUser,
     users,
     documents,
-    hasPermission
+    hasPermission,
+    openProfileModal
   } = useDocument();
 
   const isAdmin = activeUser?.role === 'ADMIN';
@@ -334,15 +335,31 @@ export const Sidebar: React.FC = () => {
 
       {/* User Footer */}
       <div className="p-2.5 border-t border-slate-800 bg-slate-950/80">
-        <div className="flex items-center gap-2.5 px-2 py-1.5 bg-slate-900/90 rounded-[3px] border border-slate-800">
-          <div className="h-8 w-8 rounded-[3px] bg-brand-blue flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs">
-            {activeUser.name.split(' ').pop()?.charAt(0) || 'U'}
-          </div>
+        <button
+          type="button"
+          onClick={() => openProfileModal('PROFILE')}
+          className="w-full text-left flex items-center gap-2.5 px-2 py-2 bg-slate-900/90 hover:bg-slate-800 rounded-[4px] border border-slate-800 hover:border-slate-700 transition-all group cursor-pointer"
+          title="Xem hồ sơ, đổi mật khẩu & cập nhật Avatar"
+        >
+          {activeUser.avatar ? (
+            <img
+              src={activeUser.avatar}
+              alt={activeUser.name}
+              className="h-8 w-8 rounded-[4px] object-cover ring-1 ring-white/10 shrink-0 group-hover:ring-brand-blue"
+            />
+          ) : (
+            <div className="h-8 w-8 rounded-[4px] bg-brand-blue flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs group-hover:brightness-110">
+              {activeUser.name.split(' ').pop()?.charAt(0) || 'U'}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-white truncate">{activeUser.name}</p>
+            <p className="text-xs font-bold text-white truncate group-hover:text-blue-300 transition-colors">{activeUser.name}</p>
             <p className="text-[10px] text-brand-red font-medium truncate">{activeUser.roleTitle}</p>
           </div>
-        </div>
+          <div className="text-[10px] text-slate-500 group-hover:text-slate-300 font-mono">
+            ⚙️
+          </div>
+        </button>
       </div>
 
     </aside>

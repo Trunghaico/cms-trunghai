@@ -8,6 +8,7 @@ import { WorkflowConfigView } from './components/workflow/WorkflowConfigView';
 import { DMSStorageView } from './components/dms/DMSStorageView';
 import { CreateDocumentModal } from './components/documents/CreateDocumentModal';
 import { DocumentDetailModal } from './components/documents/DocumentDetailModal';
+import { UserProfileModal } from './components/users/UserProfileModal';
 import { UserManagementView } from './components/users/UserManagementView';
 import { SystemSettingsView } from './components/settings/SystemSettingsView';
 import { SLAReportView } from './components/reports/SLAReportView';
@@ -142,6 +143,7 @@ const AppContent: React.FC = () => {
       {/* Global Modals */}
       <CreateDocumentModal />
       <DocumentDetailModal />
+      <UserProfileModal />
     </div>
   );
 };
