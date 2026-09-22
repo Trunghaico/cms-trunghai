@@ -200,15 +200,15 @@ export const Sidebar: React.FC = () => {
   if (!activeUser) return null;
 
   return (
-    <aside className="fixed left-0 top-16 bottom-0 w-60 bg-slate-900 text-slate-300 flex flex-col shrink-0 z-20 border-r border-slate-800 shadow-xl transition-all select-none">
+    <aside className="fixed left-0 top-16 bottom-0 w-60 bg-slate-950/95 backdrop-blur-2xl text-slate-300 flex flex-col shrink-0 z-20 border-r border-slate-800/80 shadow-2xl transition-all select-none">
 
       {/* Main Navigation Menu */}
-      <div className="flex-1 py-3 px-2 space-y-4 overflow-y-auto custom-scrollbar text-xs">
+      <div className="flex-1 py-3.5 px-3 space-y-4 overflow-y-auto custom-scrollbar text-xs">
 
         {/* KHỐI 1: TỔNG QUAN & HỒ SƠ */}
         <div className="space-y-1">
-          <div className="px-2.5 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-blue" />
+          <div className="px-3 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400/90 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
             <span>TỔNG QUAN & HỒ SƠ</span>
           </div>
 
@@ -219,25 +219,22 @@ export const Sidebar: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${isActive
-                  ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
+                className={`w-full flex items-center justify-between px-3 py-2.5 font-semibold rounded-xl transition-all duration-200 group relative cursor-pointer ${isActive
+                  ? 'bg-gradient-to-r from-indigo-600 to-brand-blue text-white shadow-[0_4px_16px_rgba(99,102,241,0.35)] font-bold translate-x-1'
                   : item.isHot
-                    ? 'text-white bg-red-950/40 border border-brand-red/30 hover:bg-brand-red/20'
-                    : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
+                    ? 'text-red-200 bg-red-950/40 border border-red-800/40 hover:bg-red-900/40 hover:text-white'
+                    : 'text-slate-300 hover:bg-slate-900/90 hover:text-white hover:translate-x-1'
                   }`}
               >
-                {isActive && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-red rounded-r" />
-                )}
-
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${isActive ? 'text-white' : item.isHot ? 'text-brand-red' : 'text-slate-400 group-hover:text-brand-blue'
-                    }`} />
+                  <Icon className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                    isActive ? 'text-white' : item.isHot ? 'text-red-400' : 'text-slate-400 group-hover:text-indigo-400'
+                  }`} />
                   <span className="truncate text-xs">{item.label}</span>
                 </div>
 
                 {item.badge !== null && (
-                  <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-[3px] shrink-0 ${item.badgeColor || 'bg-slate-700 text-white'}`}>
+                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0 shadow-xs ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
                     {item.badge}
                   </span>
                 )}
@@ -248,9 +245,9 @@ export const Sidebar: React.FC = () => {
 
         {/* KHỐI 2: DỮ LIỆU & BÁO CÁO (Chỉ hiển thị cho người có quyền từng mục) */}
         {block2Items.length > 0 && (
-          <div className="space-y-1 pt-1 border-t border-slate-800/80">
-            <div className="px-2.5 pb-1 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <div className="space-y-1 pt-2 border-t border-slate-800/80">
+            <div className="px-3 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-wider text-slate-400/90 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
               <span>DỮ LIỆU & BÁO CÁO</span>
             </div>
 
@@ -261,23 +258,20 @@ export const Sidebar: React.FC = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${isActive
-                    ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
-                    : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
+                  className={`w-full flex items-center justify-between px-3 py-2.5 font-semibold rounded-xl transition-all duration-200 group relative cursor-pointer ${isActive
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-[0_4px_16px_rgba(16,185,129,0.3)] font-bold translate-x-1'
+                    : 'text-slate-300 hover:bg-slate-900/90 hover:text-white hover:translate-x-1'
                     }`}
                 >
-                  {isActive && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-red rounded-r" />
-                  )}
-
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'
-                      }`} />
+                    <Icon className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-emerald-400'
+                    }`} />
                     <span className="truncate text-xs">{item.label}</span>
                   </div>
 
                   {item.badge !== null && (
-                    <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-[3px] shrink-0 ${item.badgeColor || 'bg-slate-700 text-white'}`}>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0 shadow-xs ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
                       {item.badge}
                     </span>
                   )}
@@ -289,13 +283,13 @@ export const Sidebar: React.FC = () => {
 
         {/* KHỐI 3: THIẾT LẬP HỆ THỐNG & DANH MỤC (Chỉ hiển thị cho người có quyền) */}
         {block3Items.length > 0 && (
-          <div className="space-y-1 pt-1 border-t border-slate-800/80">
-            <div className="px-2.5 pb-1 pt-2 text-[10px] font-black uppercase tracking-wider text-amber-400/90 flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <div className="space-y-1 pt-2 border-t border-slate-800/80">
+            <div className="px-3 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-wider text-amber-400/90 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
                 <span>CẤU HÌNH & QUẢN TRỊ</span>
               </div>
-              <span className="text-[9px] px-1 bg-amber-500/20 text-amber-300 rounded font-normal">Admin</span>
+              <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded-full font-bold">Admin</span>
             </div>
 
             {block3Items.map((item) => {
@@ -305,23 +299,20 @@ export const Sidebar: React.FC = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 font-semibold rounded-[3px] transition-all duration-150 group relative cursor-pointer ${isActive
-                    ? 'bg-brand-blue text-white shadow-sm font-bold translate-x-0.5'
-                    : 'text-slate-300 hover:bg-slate-800/90 hover:text-white hover:translate-x-0.5'
+                  className={`w-full flex items-center justify-between px-3 py-2.5 font-semibold rounded-xl transition-all duration-200 group relative cursor-pointer ${isActive
+                    ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-[0_4px_16px_rgba(245,158,11,0.3)] font-bold translate-x-1'
+                    : 'text-slate-300 hover:bg-slate-900/90 hover:text-white hover:translate-x-1'
                     }`}
                 >
-                  {isActive && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-red rounded-r" />
-                  )}
-
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-amber-400'
-                      }`} />
+                    <Icon className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-amber-400'
+                    }`} />
                     <span className="truncate text-xs">{item.label}</span>
                   </div>
 
                   {item.badge !== null && (
-                    <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-[3px] shrink-0 ${item.badgeColor || 'bg-slate-700 text-white'}`}>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0 shadow-xs ${item.badgeColor || 'bg-slate-800 text-white'}`}>
                       {item.badge}
                     </span>
                   )}
@@ -333,30 +324,35 @@ export const Sidebar: React.FC = () => {
 
       </div>
 
-      {/* User Footer */}
-      <div className="p-2.5 border-t border-slate-800 bg-slate-950/80">
+      {/* User Footer with AI modern glow card */}
+      <div className="p-3 border-t border-slate-800/80 bg-slate-950">
         <button
           type="button"
           onClick={() => openProfileModal('PROFILE')}
-          className="w-full text-left flex items-center gap-2.5 px-2 py-2 bg-slate-900/90 hover:bg-slate-800 rounded-[4px] border border-slate-800 hover:border-slate-700 transition-all group cursor-pointer"
+          className="w-full text-left flex items-center gap-2.5 p-2 bg-slate-900/90 hover:bg-slate-850 rounded-2xl border border-slate-800 hover:border-indigo-500/40 hover:shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all group cursor-pointer"
           title="Xem hồ sơ, đổi mật khẩu & cập nhật Avatar"
         >
-          {activeUser.avatar ? (
-            <img
-              src={activeUser.avatar}
-              alt={activeUser.name}
-              className="h-8 w-8 rounded-[4px] object-cover ring-1 ring-white/10 shrink-0 group-hover:ring-brand-blue"
-            />
-          ) : (
-            <div className="h-8 w-8 rounded-[4px] bg-brand-blue flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs group-hover:brightness-110">
-              {activeUser.name.split(' ').pop()?.charAt(0) || 'U'}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-white truncate group-hover:text-blue-300 transition-colors">{activeUser.name}</p>
-            <p className="text-[10px] text-brand-red font-medium truncate">{activeUser.roleTitle}</p>
+          <div className="relative shrink-0">
+            {activeUser.avatar ? (
+              <img
+                src={activeUser.avatar}
+                alt={activeUser.name}
+                className="h-8.5 w-8.5 rounded-full object-cover ring-2 ring-indigo-500/30 group-hover:ring-indigo-400 transition-all shadow-xs"
+              />
+            ) : (
+              <div className="h-8.5 w-8.5 rounded-full bg-gradient-to-br from-indigo-500 to-brand-blue flex items-center justify-center text-white font-bold text-xs shadow-xs group-hover:brightness-110">
+                {activeUser.name.split(' ').pop()?.charAt(0) || 'U'}
+              </div>
+            )}
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
           </div>
-          <div className="text-[10px] text-slate-500 group-hover:text-slate-300 font-mono">
+
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-white truncate group-hover:text-indigo-300 transition-colors">{activeUser.name}</p>
+            <p className="text-[10px] text-red-400 font-medium truncate">{activeUser.roleTitle}</p>
+          </div>
+
+          <div className="text-xs text-slate-500 group-hover:text-indigo-400 transition-colors">
             ⚙️
           </div>
         </button>
@@ -365,4 +361,3 @@ export const Sidebar: React.FC = () => {
     </aside>
   );
 };
-

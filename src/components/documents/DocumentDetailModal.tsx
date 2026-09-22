@@ -184,7 +184,7 @@ export const DocumentDetailModal: React.FC = () => {
 
   return (
     <div 
-      className={`fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto ${
+      className={`fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto ${
         isClosing ? 'animate-backdrop-out pointer-events-none' : 'animate-backdrop-in'
       }`}
       onClick={(e) => {
@@ -192,57 +192,58 @@ export const DocumentDetailModal: React.FC = () => {
       }}
     >
       <div 
-        className={`bg-white rounded-[3px] max-w-5xl w-full shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] overflow-hidden ${
+        className={`bg-white/95 backdrop-blur-xl rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200/80 flex flex-col max-h-[92vh] overflow-hidden ${
           isClosing ? 'animate-modal-out' : 'animate-modal-in'
         }`}
       >
         
         {/* Header Bar */}
-        <div className="px-6 py-4 bg-brand-blue text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-[3px] bg-white/10 flex items-center justify-center border border-white/20">
+        <div className="px-6 py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 relative overflow-hidden">
+          <div className="absolute top-0 right-1/4 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center gap-3.5 relative z-10">
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-brand-blue to-cyan-500 flex items-center justify-center shadow-glow-blue border border-white/20">
               <FileCheck2 className="h-5 w-5 text-white" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-black text-sm bg-brand-red px-2 py-0.5 rounded-[3px] text-white">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono font-black text-xs bg-brand-red px-2.5 py-0.5 rounded-full text-white shadow-xs">
                   {selectedDocument.code}
                 </span>
-                <span className="text-xs text-blue-100 font-semibold">
+                <span className="text-xs text-blue-200/90 font-semibold px-2 py-0.5 bg-white/10 rounded-full">
                   {selectedDocument.category}
                 </span>
                 {selectedDocument.priority === 'VERY_URGENT' && (
-                  <span className="text-[10px] font-bold bg-amber-400 text-slate-900 px-1.5 py-0.5 rounded-[3px] flex items-center gap-1">
+                  <span className="text-[10px] font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-glow-amber">
                     <Flame className="h-3 w-3" />
                     Hỏa tốc
                   </span>
                 )}
                 {isCurrentStepOverdue && (
-                  <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-[3px] flex items-center gap-1 animate-pulse">
+                  <span className="text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-glow-red animate-pulse">
                     <AlertTriangle className="h-3 w-3" />
                     Quá hạn SLA ({currentStep?.department})
                   </span>
                 )}
               </div>
-              <h2 className="text-sm sm:text-base font-bold text-white mt-1 line-clamp-1">
+              <h2 className="text-sm sm:text-base font-bold text-white mt-1.5 line-clamp-1">
                 {selectedDocument.title}
               </h2>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative z-10">
             <button
               type="button"
               onClick={handlePrint}
               title="In phiếu trình ký"
-              className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-[3px] transition-colors"
+              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
             >
               <Printer className="h-5 w-5" />
             </button>
             <button
               type="button"
               onClick={handleClose}
-              className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-[3px] transition-colors"
+              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
@@ -250,13 +251,13 @@ export const DocumentDetailModal: React.FC = () => {
         </div>
 
         {/* Navigation Sub-Tabs */}
-        <div className="flex items-center justify-between px-6 bg-slate-50 border-b border-slate-200 text-xs font-semibold shrink-0">
-          <div className="flex gap-4">
+        <div className="flex items-center justify-between px-6 bg-slate-50/90 border-b border-slate-200/80 text-xs font-semibold shrink-0 gap-2 flex-wrap pt-2">
+          <div className="flex gap-2">
             <button
               onClick={() => setActiveTab('DETAILS')}
-              className={`py-3 border-b-2 transition-all ${
+              className={`px-4 py-2.5 rounded-t-xl border-b-2 transition-all cursor-pointer ${
                 activeTab === 'DETAILS'
-                  ? 'border-brand-blue text-brand-blue font-bold'
+                  ? 'border-brand-blue text-brand-blue font-bold bg-white shadow-xs'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -264,22 +265,22 @@ export const DocumentDetailModal: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('ATTACHMENTS')}
-              className={`py-3 border-b-2 flex items-center gap-1.5 transition-all ${
+              className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
                 activeTab === 'ATTACHMENTS'
-                  ? 'border-brand-blue text-brand-blue font-bold'
+                  ? 'border-brand-blue text-brand-blue font-bold bg-white shadow-xs'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
               <span>Hồ sơ scan & Đính kèm (DMS)</span>
-              <span className="px-1.5 py-0.2 text-[10px] bg-slate-200 text-slate-700 rounded-[3px]">
+              <span className="px-2 py-0.5 text-[10px] bg-slate-200 text-slate-700 rounded-full font-bold">
                 {selectedDocument.attachments.length}
               </span>
             </button>
             <button
               onClick={() => setActiveTab('AUDIT')}
-              className={`py-3 border-b-2 flex items-center gap-1.5 transition-all ${
+              className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
                 activeTab === 'AUDIT'
-                  ? 'border-brand-blue text-brand-blue font-bold'
+                  ? 'border-brand-blue text-brand-blue font-bold bg-white shadow-xs'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -288,13 +289,13 @@ export const DocumentDetailModal: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pb-2">
             <span className="text-[11px] text-slate-500">Trạng thái:</span>
-            <span className={`px-2 py-0.5 text-xs font-bold rounded-[3px] ${
+            <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
               selectedDocument.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
               selectedDocument.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
               selectedDocument.status === 'ADDITIONAL_REQ' ? 'bg-amber-100 text-amber-900' :
-              selectedDocument.status === 'IN_PROGRESS' ? 'bg-brand-blue-light text-brand-blue' :
+              selectedDocument.status === 'IN_PROGRESS' ? 'bg-blue-100 text-brand-blue' :
               'bg-slate-200 text-slate-700'
             }`}>
               {selectedDocument.status === 'APPROVED' ? 'Đã hoàn tất phê duyệt & Ký số' :
@@ -306,22 +307,22 @@ export const DocumentDetailModal: React.FC = () => {
         </div>
 
         {/* Body Content (Scrollable) */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar text-xs text-slate-800">
           
           {activeTab === 'DETAILS' && (
             <div className="space-y-6">
 
               {/* Alert Banner: CẢNH BÁO QUÁ HẠN SLA */}
               {isCurrentStepOverdue && (
-                <div className="p-4 bg-red-50 border-2 border-red-400 rounded-[4px] shadow-sm space-y-3 animate-fade-in">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-red-200 pb-2">
-                    <div className="flex items-center gap-2 text-red-950 font-bold text-xs uppercase tracking-wider">
-                      <div className="h-6 w-6 rounded-[2px] bg-red-600 text-white flex items-center justify-center shrink-0 shadow-2xs animate-pulse">
-                        <AlertTriangle className="h-3.5 w-3.5" />
+                <div className="p-5 bg-gradient-to-r from-red-50 to-rose-50/70 border border-red-300 rounded-2xl shadow-sm space-y-3 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-red-200/80 pb-2.5">
+                    <div className="flex items-center gap-2.5 text-red-950 font-bold text-xs uppercase tracking-wider">
+                      <div className="h-7 w-7 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-glow-red animate-pulse">
+                        <AlertTriangle className="h-4 w-4" />
                       </div>
                       <span>Cảnh Báo Vi Phạm Thời Gian Phê Duyệt (SLA)</span>
                     </div>
-                    <span className="text-[11px] font-bold text-red-800 bg-red-100 px-2 py-0.5 rounded border border-red-300">
+                    <span className="text-[11px] font-bold text-red-800 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-300">
                       Phòng: {currentStep?.department} • SLA: {currentStep?.slaHours || 8}h
                     </span>
                   </div>
@@ -340,13 +341,13 @@ export const DocumentDetailModal: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsReturningOverdue(true)}
-                          className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded-[3px] shadow transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded-xl shadow transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
                         >
-                          <Undo2 className="w-3.5 h-3.5" />
+                          <Undo2 className="w-4 h-4" />
                           <span>Trả Hồ Sơ Do Quá Hạn</span>
                         </button>
                       ) : (
-                        <div className="w-full space-y-2 bg-white p-3 rounded border border-red-300">
+                        <div className="w-full space-y-2 bg-white p-3.5 rounded-2xl border border-red-300 shadow-2xs">
                           <label className="block text-xs font-bold text-red-900">
                             Lý do trả hồ sơ vi phạm SLA:
                           </label>
@@ -355,20 +356,20 @@ export const DocumentDetailModal: React.FC = () => {
                             value={returnOverdueReason}
                             onChange={(e) => setReturnOverdueReason(e.target.value)}
                             placeholder={`Phòng ${currentStep?.department} xử lý quá hạn SLA cam kết...`}
-                            className="w-full px-2.5 py-1.5 text-xs border border-red-300 rounded focus:outline-none focus:ring-1 focus:ring-red-500"
+                            className="w-full px-3 py-2 text-xs border border-red-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/30"
                           />
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
                               onClick={handleReturnOverdueSubmit}
-                              className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded cursor-pointer"
+                              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl cursor-pointer"
                             >
                               Xác Nhận Trả Hồ Sơ
                             </button>
                             <button
                               type="button"
                               onClick={() => setIsReturningOverdue(false)}
-                              className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded cursor-pointer"
+                              className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
                             >
                               Hủy
                             </button>
@@ -382,11 +383,11 @@ export const DocumentDetailModal: React.FC = () => {
               
               {/* Alert Banner: Yêu cầu bổ sung thông tin */}
               {selectedDocument.status === 'ADDITIONAL_REQ' && (
-                <div className="p-4 bg-amber-50/90 border border-amber-300 rounded-[3px] shadow-xs space-y-3 animate-fade-in">
+                <div className="p-5 bg-gradient-to-r from-amber-50 to-yellow-50/70 border border-amber-300/80 rounded-2xl shadow-xs space-y-3.5 animate-fade-in">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/80 pb-2.5">
-                    <div className="flex items-center gap-2 text-amber-950 font-bold text-xs uppercase tracking-wider">
-                      <div className="h-6 w-6 rounded-[2px] bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                        <AlertTriangle className="h-3.5 w-3.5" />
+                    <div className="flex items-center gap-2.5 text-amber-950 font-bold text-xs uppercase tracking-wider">
+                      <div className="h-7 w-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-glow-amber">
+                        <AlertTriangle className="h-4 w-4" />
                       </div>
                       <span>Hồ Sơ Đang Có Yêu Cầu Bổ Sung Thông Tin / Tài Liệu</span>
                     </div>
@@ -402,14 +403,14 @@ export const DocumentDetailModal: React.FC = () => {
                       <p className="font-semibold text-slate-700">
                         Cấp yêu cầu: <span className="text-brand-blue font-bold">{latestRequestInfoLog.actorName}</span> ({latestRequestInfoLog.actorTitle})
                       </p>
-                      <div className="bg-white p-3 rounded-[3px] border border-amber-200 text-slate-800 italic leading-relaxed shadow-2xs font-medium">
+                      <div className="bg-white p-3.5 rounded-xl border border-amber-200 text-slate-800 italic leading-relaxed shadow-2xs font-medium">
                         "{latestRequestInfoLog.comment?.replace(/^Yêu cầu bổ sung tài liệu\/thông tin:\s*/i, '') || selectedDocument.description}"
                       </div>
                     </div>
                   )}
 
                   {canUserResubmit ? (
-                    <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-100/60 p-3 rounded-[3px] border border-amber-200/60">
+                    <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-100/70 p-3.5 rounded-2xl border border-amber-200/80">
                       <div className="text-xs text-amber-950">
                         <p className="font-bold">Bạn là người lập hồ sơ / quản trị viên.</p>
                         <p className="text-[11px] text-amber-800">
@@ -419,7 +420,7 @@ export const DocumentDetailModal: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsResubmitModalOpen(true)}
-                        className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center justify-center gap-2 shrink-0"
+                        className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
                       >
                         <RotateCcw className="h-4 w-4" />
                         <span>Bổ Sung Hồ Sơ & Gửi Lại</span>
@@ -434,7 +435,7 @@ export const DocumentDetailModal: React.FC = () => {
               )}
 
               {/* Document Metadata Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 border border-slate-200 rounded-[3px]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-5 bg-gradient-to-br from-slate-50 to-indigo-50/20 border border-slate-200/80 rounded-2xl shadow-2xs">
                 <div>
                   <p className="text-[11px] text-slate-500 font-medium">Người lập hồ sơ</p>
                   <p className="text-xs font-bold text-slate-800 mt-0.5">{selectedDocument.creatorName}</p>
@@ -471,15 +472,15 @@ export const DocumentDetailModal: React.FC = () => {
 
               {/* CC Followers list if present */}
               {selectedDocument.ccUsers && selectedDocument.ccUsers.length > 0 && (
-                <div className="p-3 bg-slate-50/80 border border-slate-200 rounded-[3px] flex items-center gap-3">
+                <div className="p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl flex items-center gap-3">
                   <span className="text-[11px] font-bold text-slate-600 shrink-0">Người theo dõi (Cc):</span>
                   <div className="flex flex-wrap gap-2">
                     {selectedDocument.ccUsers.map((cc) => (
                       <span
                         key={cc.id}
-                        className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white border border-slate-200 rounded-[3px] text-[11px] text-slate-700 font-semibold"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-full text-[11px] text-slate-700 font-semibold shadow-2xs"
                       >
-                        {cc.avatar && <img src={cc.avatar} alt={cc.name} className="h-4 w-4 rounded-[3px] object-cover" />}
+                        {cc.avatar && <img src={cc.avatar} alt={cc.name} className="h-4 w-4 rounded-full object-cover" />}
                         <span>{cc.name}</span>
                         <span className="text-slate-400 text-[10px] font-normal">({cc.roleTitle})</span>
                       </span>
@@ -490,10 +491,11 @@ export const DocumentDetailModal: React.FC = () => {
 
               {/* Description / Quill Content Box */}
               <div>
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Nội dung tờ trình / Căn cứ phê duyệt
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-brand-blue" />
+                  <span>Nội dung tờ trình / Căn cứ phê duyệt</span>
                 </h4>
-                <div className="p-4 bg-white border border-slate-200 rounded-[3px] text-xs text-slate-800 leading-relaxed max-h-72 overflow-y-auto">
+                <div className="p-5 bg-white border border-slate-200/80 rounded-2xl text-xs text-slate-800 leading-relaxed max-h-72 overflow-y-auto shadow-2xs">
                   {selectedDocument.contentHtml ? (
                     <div 
                       className="rich-content space-y-2 [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-xs [&_h3]:font-bold [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-slate-200 [&_td]:p-1.5 [&_th]:border [&_th]:border-slate-300 [&_th]:p-1.5 [&_th]:bg-slate-50"
@@ -506,12 +508,13 @@ export const DocumentDetailModal: React.FC = () => {
               </div>
 
               {/* Visual Approval Stepper (BPM Flow) */}
-              <div>
+              <div className="bg-slate-50/50 p-4 border border-slate-200/70 rounded-2xl">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Tiến trình luân chuyển & Chữ ký số các cấp (BPM Routing)
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-brand-blue" />
+                    <span>Tiến trình luân chuyển & Chữ ký số các cấp (BPM Routing)</span>
                   </h4>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs font-bold text-brand-blue bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
                     Bước {selectedDocument.currentStepIndex + 1} / {selectedDocument.steps.length}
                   </span>
                 </div>
@@ -524,8 +527,8 @@ export const DocumentDetailModal: React.FC = () => {
 
               {/* Internal Check Verification Banner for Manager */}
               {isInternalChecked && selectedDocument.status !== 'APPROVED' && (
-                <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-[3px] flex items-center gap-3 text-xs text-indigo-950 shadow-2xs">
-                  <div className="h-7 w-7 rounded-[3px] bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200/90 rounded-2xl flex items-center gap-3.5 text-xs text-indigo-950 shadow-2xs">
+                  <div className="h-8 w-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-glow-blue">
                     <CheckCircle2 className="h-4 w-4" />
                   </div>
                   <div>
@@ -533,7 +536,7 @@ export const DocumentDetailModal: React.FC = () => {
                       ✓ Hồ sơ đã qua kiểm tra nội bộ: <span className="text-indigo-700 underline font-semibold">{currentStep?.checkedByName || previousStep?.checkedByName || 'Đã kiểm tra'}</span>
                       {currentStep?.checkedAt ? ` (${formatDate(currentStep.checkedAt)})` : ''}
                     </p>
-                    <p className="text-[11px] text-indigo-700 mt-0.5">
+                    <p className="text-[11px] text-indigo-700 mt-0.5 leading-relaxed">
                       {currentStep?.checkedComment ? (
                         <>Ghi chú kiểm tra: <em>"{currentStep.checkedComment}"</em> • Chuyển cấp Quản lý ({currentStep?.approverTitle || currentStep?.department}) phê duyệt.</>
                       ) : (
@@ -546,17 +549,17 @@ export const DocumentDetailModal: React.FC = () => {
 
               {/* Approval Actions Box for Authorized User */}
               {canUserApprove && (
-                <div className={`p-5 rounded-[3px] space-y-4 border-2 ${
+                <div className={`p-5 rounded-2xl space-y-4 border ${
                   !canUserDoManagerApprove && canUserDoInternalCheck 
-                    ? 'bg-indigo-50/80 border-indigo-400/50 shadow-xs' 
-                    : 'bg-blue-50/70 border-brand-blue/30'
+                    ? 'bg-gradient-to-br from-indigo-50/90 to-blue-50/70 border-indigo-300 shadow-sm' 
+                    : 'bg-gradient-to-br from-blue-50/90 to-indigo-50/70 border-brand-blue/40 shadow-sm'
                 }`}>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`h-8 w-8 rounded-[3px] text-white flex items-center justify-center font-bold text-xs shrink-0 ${
-                        !canUserDoManagerApprove && canUserDoInternalCheck ? 'bg-indigo-600 shadow-xs' : 'bg-brand-blue'
+                    <div className="flex items-center gap-3">
+                      <div className={`h-9 w-9 rounded-2xl text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs ${
+                        !canUserDoManagerApprove && canUserDoInternalCheck ? 'bg-indigo-600 shadow-glow-blue' : 'bg-brand-blue shadow-glow-blue'
                       }`}>
-                        {!canUserDoManagerApprove && canUserDoInternalCheck ? <UserCheck className="h-4 w-4" /> : '✓'}
+                        {!canUserDoManagerApprove && canUserDoInternalCheck ? <UserCheck className="h-5 w-5" /> : '✓'}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -567,7 +570,7 @@ export const DocumentDetailModal: React.FC = () => {
                               ? `Phê Duyệt & Ký Số - Bước ${selectedDocument.currentStepIndex + 1}: ${currentStep?.title}`
                               : `Kiểm Tra Nội Bộ Ban - Bước ${selectedDocument.currentStepIndex + 1}: ${currentStep?.title}`}
                           </h4>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[2px] ${
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             !canUserDoManagerApprove && canUserDoInternalCheck 
                               ? 'bg-indigo-200/80 text-indigo-900' 
                               : 'bg-blue-200/80 text-brand-blue'
@@ -591,7 +594,7 @@ export const DocumentDetailModal: React.FC = () => {
                       {canUserDoManagerApprove && (
                         <button
                           onClick={() => setApprovalAction('APPROVE')}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 cursor-pointer"
+                          className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-glow-emerald transition-all flex items-center gap-2 cursor-pointer"
                         >
                           <CheckCircle2 className="h-4 w-4" />
                           <span>Phê Duyệt & Ký Số</span>
@@ -602,7 +605,7 @@ export const DocumentDetailModal: React.FC = () => {
                       {isNeedingInternalCheck && canUserDoInternalCheck && (
                         <button
                           onClick={() => setApprovalAction('INTERNAL_CHECK')}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 cursor-pointer"
+                          className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-glow-blue transition-all flex items-center gap-2 cursor-pointer"
                         >
                           <UserCheck className="h-4 w-4" />
                           <span>{canUserDoManagerApprove ? 'Ghi Nhận Đã Kiểm Tra (Nội Bộ)' : '✓ Xác Nhận Đã Kiểm Tra (Chuyển Quản Lý Duyệt)'}</span>
@@ -611,7 +614,7 @@ export const DocumentDetailModal: React.FC = () => {
 
                       <button
                         onClick={() => setApprovalAction('REQUEST_INFO')}
-                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 cursor-pointer"
+                        className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center gap-2 cursor-pointer"
                       >
                         <MessageSquare className="h-4 w-4" />
                         <span>Yêu Cầu Bổ Sung</span>
@@ -619,7 +622,7 @@ export const DocumentDetailModal: React.FC = () => {
 
                       <button
                         onClick={() => setApprovalAction('REJECT')}
-                        className="px-4 py-2 bg-brand-red hover:bg-brand-red-dark text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 cursor-pointer"
+                        className="px-4 py-2.5 bg-gradient-to-r from-brand-red to-red-700 hover:from-brand-red-dark hover:to-red-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center gap-2 cursor-pointer"
                       >
                         <XCircle className="h-4 w-4" />
                         <span>{canUserDoManagerApprove ? 'Từ Chối Duyệt' : 'Yêu Cầu Sửa / Từ Chối'}</span>
@@ -669,16 +672,16 @@ export const DocumentDetailModal: React.FC = () => {
                               'Nêu rõ cần bổ sung bảng báo giá, phụ lục hợp đồng, chứng từ...'
                             )
                           }
-                          className="w-full p-2.5 text-xs border border-slate-300 rounded-[3px] focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                          className="w-full p-3 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue bg-white"
                         />
                       </div>
 
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex items-center gap-2.5 pt-1">
                         {approvalAction === 'APPROVE' && (
                           <button
                             onClick={handleApproveSubmit}
                             disabled={isSubmitting}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 cursor-pointer"
+                            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-glow-emerald transition-all flex items-center gap-2 cursor-pointer"
                           >
                             <ShieldCheck className="h-4 w-4" />
                             <span>Xác Nhận Ký Số & Chuyển Bước Tiếp</span>
@@ -689,7 +692,7 @@ export const DocumentDetailModal: React.FC = () => {
                           <button
                             onClick={handleInternalCheckSubmit}
                             disabled={isSubmitting}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 cursor-pointer"
+                            className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-glow-blue transition-all flex items-center gap-2 cursor-pointer"
                           >
                             <UserCheck className="h-4 w-4" />
                             <span>Xác Nhận Đã Kiểm Tra & Chuyển Quản Lý</span>
@@ -700,7 +703,7 @@ export const DocumentDetailModal: React.FC = () => {
                           <button
                             onClick={handleRejectSubmit}
                             disabled={isSubmitting}
-                            className="px-4 py-2 bg-brand-red hover:bg-brand-red-dark text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 cursor-pointer"
+                            className="px-4 py-2.5 bg-gradient-to-r from-brand-red to-red-700 hover:from-brand-red-dark hover:to-red-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center gap-2 cursor-pointer"
                           >
                             <XCircle className="h-4 w-4" />
                             <span>Xác Nhận Từ Chối Hồ Sơ</span>
@@ -711,7 +714,7 @@ export const DocumentDetailModal: React.FC = () => {
                           <button
                             onClick={handleRequestInfoSubmit}
                             disabled={isSubmitting}
-                            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-2 cursor-pointer"
+                            className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center gap-2 cursor-pointer"
                           >
                             <MessageSquare className="h-4 w-4" />
                             <span>Gửi Yêu Cầu Bổ Sung Cho Người Trình</span>
@@ -723,7 +726,7 @@ export const DocumentDetailModal: React.FC = () => {
                             setApprovalAction('NONE');
                             setCommentText('');
                           }}
-                          className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-[3px] transition-colors cursor-pointer"
+                          className="px-3.5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                         >
                           Hủy
                         </button>
@@ -735,7 +738,7 @@ export const DocumentDetailModal: React.FC = () => {
 
               {/* Status Banner when user is not the current approver */}
               {!canUserApprove && selectedDocument.status !== 'APPROVED' && selectedDocument.status !== 'REJECTED' && selectedDocument.status !== 'ADDITIONAL_REQ' && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-[3px] flex items-center gap-2 text-xs text-amber-900">
+                <div className="p-4 bg-gradient-to-r from-amber-50 to-yellow-50/60 border border-amber-200 rounded-2xl flex items-center gap-2.5 text-xs text-amber-900">
                   <Clock className="h-4 w-4 text-amber-600 shrink-0" />
                   <span>
                     Hồ sơ đang chờ xử lý tại <strong>Bước {selectedDocument.currentStepIndex + 1}: {currentStep?.title || currentStep?.approverTitle} ({currentStep?.department || currentStep?.approverName})</strong>.
@@ -749,15 +752,15 @@ export const DocumentDetailModal: React.FC = () => {
               )}
 
               {selectedDocument.status === 'APPROVED' && (
-                <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-[3px] flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-[3px] bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                <div className="p-5 bg-gradient-to-r from-emerald-50 to-teal-50/60 border border-emerald-300 rounded-2xl flex items-center gap-3.5 shadow-2xs">
+                  <div className="h-10 w-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-glow-emerald">
                     <ShieldCheck className="h-6 w-6" />
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-emerald-900 uppercase">
                       Hồ Sơ Đã Hoàn Tất Toàn Bộ Quy Trình Ký Duyệt & Đóng Dấu Điện Tử
                     </h4>
-                    <p className="text-[11px] text-emerald-700 mt-0.5">
+                    <p className="text-[11px] text-emerald-700 mt-0.5 leading-relaxed">
                       Văn bản đã có đầy đủ giá trị pháp lý nội bộ theo quy định của Ban Giám đốc Công ty Trung Hải.
                     </p>
                   </div>
@@ -771,14 +774,15 @@ export const DocumentDetailModal: React.FC = () => {
           {activeTab === 'ATTACHMENTS' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-800">
-                  Danh Sách Tệp Đính Kèm & Bản Scan ({selectedDocument.attachments.length})
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                  <Paperclip className="h-4 w-4 text-brand-blue" />
+                  <span>Danh Sách Tệp Đính Kèm & Bản Scan ({selectedDocument.attachments.length})</span>
                 </h4>
                 {canUserResubmit && (
                   <button
                     type="button"
                     onClick={() => setIsResubmitModalOpen(true)}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-[3px] flex items-center gap-1.5 shadow-2xs transition-colors"
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                     <span>Bổ Sung Thêm Tệp</span>
@@ -787,7 +791,7 @@ export const DocumentDetailModal: React.FC = () => {
               </div>
 
               {selectedDocument.attachments.length === 0 ? (
-                <div className="p-8 border border-dashed border-slate-300 rounded-[3px] text-center text-xs text-slate-500">
+                <div className="p-10 border-2 border-dashed border-slate-300/80 rounded-2xl text-center text-xs text-slate-500 bg-slate-50/50">
                   Không có tài liệu đính kèm.
                 </div>
               ) : (
@@ -795,17 +799,17 @@ export const DocumentDetailModal: React.FC = () => {
                   {selectedDocument.attachments.map((att) => (
                     <div
                       key={att.id}
-                      className="p-3 bg-slate-50 hover:bg-blue-50/50 border border-slate-200 rounded-[3px] flex items-center justify-between gap-3 transition-colors"
+                      className="p-3.5 bg-slate-50 hover:bg-blue-50/50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3 transition-all hover:shadow-sm"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="h-8 w-8 rounded-[3px] bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-9 w-9 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
                           <FileText className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-800 truncate" title={att.name}>
                             {att.name}
                           </p>
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[10px] text-slate-500 mt-0.5">
                             {(att.size / 1024).toFixed(1)} KB • {formatDate(att.uploadedAt)}
                           </p>
                         </div>
@@ -815,7 +819,7 @@ export const DocumentDetailModal: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setPreviewAttachment(att)}
-                          className="p-1.5 text-slate-600 hover:text-brand-blue hover:bg-white rounded-[2px] border border-transparent hover:border-slate-200 transition-colors"
+                          className="p-2 text-slate-600 hover:text-brand-blue hover:bg-white rounded-xl border border-transparent hover:border-slate-200 transition-colors shadow-2xs"
                           title="Xem tài liệu"
                         >
                           <Eye className="h-4 w-4" />
@@ -825,7 +829,7 @@ export const DocumentDetailModal: React.FC = () => {
                           download={att.name}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 text-slate-600 hover:text-brand-blue hover:bg-white rounded-[2px] border border-transparent hover:border-slate-200 transition-colors"
+                          className="p-2 text-slate-600 hover:text-brand-blue hover:bg-white rounded-xl border border-transparent hover:border-slate-200 transition-colors shadow-2xs"
                           title="Tải xuống"
                         >
                           <Download className="h-4 w-4" />
@@ -851,19 +855,20 @@ export const DocumentDetailModal: React.FC = () => {
           {/* Audit History Tab */}
           {activeTab === 'AUDIT' && (
             <div className="space-y-4">
-              <h4 className="text-xs font-bold text-slate-800">
-                Toàn Bộ Lịch Sử Thao Tác & Trình Ký (Audit Trail)
+              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <History className="h-4 w-4 text-brand-blue" />
+                <span>Toàn Bộ Lịch Sử Thao Tác & Trình Ký (Audit Trail)</span>
               </h4>
 
               <div className="relative border-l-2 border-slate-200 ml-4 space-y-4 py-2">
                 {selectedDocument.auditLogs.map((log) => (
                   <div key={log.id} className="relative pl-6">
                     {/* Dot on timeline */}
-                    <div className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-brand-blue flex items-center justify-center">
+                    <div className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-brand-blue flex items-center justify-center shadow-xs">
                       <span className="h-1.5 w-1.5 rounded-full bg-brand-blue" />
                     </div>
 
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-[3px]">
+                    <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl shadow-2xs space-y-1">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-bold text-slate-900">
                           {log.actorName} <span className="text-slate-500 font-normal">({log.actorTitle})</span>
@@ -873,7 +878,7 @@ export const DocumentDetailModal: React.FC = () => {
                         </span>
                       </div>
 
-                      <p className={`text-xs font-semibold mt-0.5 ${
+                      <p className={`text-xs font-semibold ${
                         log.action === 'APPROVE' ? 'text-emerald-700' :
                         log.action === 'REJECT' ? 'text-brand-red' :
                         log.action === 'REQUEST_INFO' ? 'text-amber-700' :
@@ -888,7 +893,7 @@ export const DocumentDetailModal: React.FC = () => {
                       </p>
 
                       {log.comment && (
-                        <p className="text-[11px] text-slate-600 mt-1.5 bg-white p-2 border border-slate-200 rounded-[3px] italic">
+                        <p className="text-[11px] text-slate-600 mt-1.5 bg-white p-2.5 border border-slate-200 rounded-xl italic">
                           "{log.comment}"
                         </p>
                       )}
@@ -902,11 +907,11 @@ export const DocumentDetailModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <div className="px-6 py-3.5 bg-slate-50/90 border-t border-slate-200/80 flex items-center justify-between shrink-0 rounded-b-3xl">
           <div className="text-[11px] text-slate-500 flex items-center gap-2">
-            <span>Mã hệ thống: <span className="font-mono">{selectedDocument.id}</span></span>
+            <span>Mã hệ thống: <span className="font-mono font-bold text-slate-700">{selectedDocument.id}</span></span>
             {canUserResubmit && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-[2px]">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
                 <AlertTriangle className="h-3 w-3" />
                 Cần bạn bổ sung hồ sơ
               </span>
@@ -922,7 +927,7 @@ export const DocumentDetailModal: React.FC = () => {
                     deleteDocument(selectedDocument.id);
                   }
                 }}
-                className="px-3 py-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:text-red-800 rounded-[3px] transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 text-xs font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:text-red-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 <span>Xóa Hồ Sơ</span>
@@ -932,7 +937,7 @@ export const DocumentDetailModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsResubmitModalOpen(true)}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-[3px] shadow transition-colors flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 rounded-xl shadow transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 <span>Bổ Sung & Gửi Lại</span>
@@ -941,7 +946,7 @@ export const DocumentDetailModal: React.FC = () => {
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-[3px] hover:bg-slate-100 transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
             >
               Đóng
             </button>

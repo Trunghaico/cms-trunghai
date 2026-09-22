@@ -90,10 +90,10 @@ export const WorkflowSLAChart: React.FC = () => {
       
       {/* KHỐI 1: BÁO CÁO CẢNH BÁO VI PHẠM SLA DÀNH CHO BAN LÃNH ĐẠO */}
       {overdueDocuments.length > 0 && (
-        <div className="bg-white rounded-[4px] border-2 border-red-400 shadow-card overflow-hidden animate-fade-in">
-          <div className="px-5 py-3.5 bg-gradient-to-r from-red-600 to-rose-700 text-white flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-white/20 rounded">
+        <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-red-300 shadow-card hover:shadow-elevated transition-all overflow-hidden">
+          <div className="px-5 py-4 bg-gradient-to-r from-red-600 to-rose-700 text-white flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl">
                 <ShieldAlert className="w-5 h-5 text-amber-300 animate-pulse" />
               </div>
               <div>
@@ -105,7 +105,7 @@ export const WorkflowSLAChart: React.FC = () => {
                 </p>
               </div>
             </div>
-            <span className="text-xs font-bold px-2.5 py-1 bg-white text-red-700 rounded-[3px] shadow-xs">
+            <span className="text-xs font-bold px-3 py-1 bg-white text-red-700 rounded-full shadow-xs">
               {overdueDocuments.length} vi phạm
             </span>
           </div>
@@ -114,12 +114,12 @@ export const WorkflowSLAChart: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-red-50/70 text-red-950 font-bold border-b border-red-200 uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="px-4 py-3">Số Hiệu / Trích Yếu</th>
-                  <th className="px-4 py-3">Phòng Ban Chậm Trễ</th>
-                  <th className="px-4 py-3">Bước Tắc Nghẽn</th>
-                  <th className="px-4 py-3">SLA Cam Kết</th>
-                  <th className="px-4 py-3">Chính Sách</th>
-                  <th className="px-4 py-3 text-right">Thao Tác</th>
+                  <th className="px-4 py-3.5">Số Hiệu / Trích Yếu</th>
+                  <th className="px-4 py-3.5">Phòng Ban Chậm Trễ</th>
+                  <th className="px-4 py-3.5">Bước Tắc Nghẽn</th>
+                  <th className="px-4 py-3.5">SLA Cam Kết</th>
+                  <th className="px-4 py-3.5">Chính Sách</th>
+                  <th className="px-4 py-3.5 text-right">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-red-100">
@@ -131,10 +131,10 @@ export const WorkflowSLAChart: React.FC = () => {
 
                   return (
                     <tr key={doc.id} className="hover:bg-red-50/40 transition-colors">
-                      <td className="px-4 py-3 min-w-[200px]">
+                      <td className="px-4 py-3.5 min-w-[200px]">
                         <div 
                           onClick={() => setSelectedDocument(doc)}
-                          className="font-bold text-brand-blue hover:underline cursor-pointer"
+                          className="font-bold text-indigo-700 hover:underline cursor-pointer"
                         >
                           {doc.code}
                         </div>
@@ -142,7 +142,7 @@ export const WorkflowSLAChart: React.FC = () => {
                           {doc.title}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           <Building2 className="w-3.5 h-3.5 text-red-600 shrink-0" />
                           <span className="font-bold text-red-900">{currentStep?.department || doc.department}</span>
@@ -151,31 +151,31 @@ export const WorkflowSLAChart: React.FC = () => {
                           Quá hạn: ~{overdueHours} giờ
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="px-2 py-0.5 bg-red-100 text-red-800 font-bold text-[10px] rounded border border-red-300">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className="px-2.5 py-0.5 bg-red-100 text-red-800 font-bold text-[10px] rounded-full border border-red-300">
                           Bước {doc.currentStepIndex + 1}: {currentStep?.title}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-slate-700 font-medium">
+                      <td className="px-4 py-3.5 whitespace-nowrap text-slate-700 font-medium">
                         {currentStep?.slaHours || 8} giờ
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         {action === 'AUTO_APPROVE' ? (
-                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 font-bold text-[10px] rounded border border-purple-200 flex items-center gap-1 w-max">
-                            <Zap className="w-2.5 h-2.5" />
+                          <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 font-bold text-[10px] rounded-full border border-purple-200 flex items-center gap-1 w-max">
+                            <Zap className="w-3 h-3" />
                             Tự động duyệt
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 bg-amber-100 text-amber-900 font-bold text-[10px] rounded border border-amber-300 flex items-center gap-1 w-max">
-                            <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                          <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 font-bold text-[10px] rounded-full border border-amber-300 flex items-center gap-1 w-max">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" />
                             Cảnh báo & Trả hồ sơ
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
                         <button
                           onClick={() => setSelectedDocument(doc)}
-                          className="px-3 py-1 bg-brand-red hover:bg-brand-red-dark text-white font-bold text-xs rounded transition-colors shadow-2xs cursor-pointer"
+                          className="px-3.5 py-1.5 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer"
                         >
                           Xử Lý Ngay
                         </button>
@@ -193,28 +193,28 @@ export const WorkflowSLAChart: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         
         {/* Tiến độ xử lý luồng phê duyệt (BPM Status Distribution) */}
-        <div className="bg-white p-5 rounded-[3px] border border-slate-200 shadow-card">
+        <div className="bg-white/90 backdrop-blur-md p-5.5 rounded-2xl border border-slate-200/90 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Tỷ lệ Luân chuyển Hồ sơ (BPM)</h3>
               <p className="text-xs text-slate-500">Phân bổ trạng thái phê duyệt toàn công ty</p>
             </div>
-            <span className="text-xs font-bold px-2 py-1 bg-brand-blue-light text-brand-blue rounded-[3px]">
+            <span className="text-xs font-bold px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full">
               {stats.total} hồ sơ
             </span>
           </div>
 
           {/* Multi-segmented Progress Bar */}
-          <div className="w-full h-3.5 bg-slate-100 rounded-[3px] overflow-hidden flex mb-4">
-            <div style={{ width: `${approvedPct}%` }} className="bg-emerald-500 h-full transition-all" title={`Đã duyệt: ${approvedPct}%`} />
-            <div style={{ width: `${inProgressPct}%` }} className="bg-brand-blue h-full transition-all" title={`Đang xử lý: ${inProgressPct}%`} />
+          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex mb-4.5 p-0.5">
+            <div style={{ width: `${approvedPct}%` }} className="bg-emerald-500 h-full rounded-full transition-all" title={`Đã duyệt: ${approvedPct}%`} />
+            <div style={{ width: `${inProgressPct}%` }} className="bg-indigo-600 h-full transition-all" title={`Đang xử lý: ${inProgressPct}%`} />
             <div style={{ width: `${pendingPct}%` }} className="bg-amber-500 h-full transition-all" title={`Chờ duyệt: ${pendingPct}%`} />
-            <div style={{ width: `${rejectedPct}%` }} className="bg-brand-red h-full transition-all" title={`Từ chối/Bổ sung: ${rejectedPct}%`} />
+            <div style={{ width: `${rejectedPct}%` }} className="bg-brand-red h-full rounded-full transition-all" title={`Từ chối/Bổ sung: ${rejectedPct}%`} />
           </div>
 
           {/* Legend */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-            <div className="p-2 bg-emerald-50 border border-emerald-100 rounded-[3px]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+            <div className="p-2.5 bg-emerald-50/80 border border-emerald-100 rounded-xl">
               <div className="flex items-center gap-1.5 text-emerald-700 font-semibold mb-0.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 <span>Đã duyệt</span>
@@ -222,15 +222,15 @@ export const WorkflowSLAChart: React.FC = () => {
               <p className="text-base font-bold text-emerald-900">{stats.approved} <span className="text-[11px] font-normal text-emerald-700">({approvedPct}%)</span></p>
             </div>
 
-            <div className="p-2 bg-brand-blue-light border border-brand-blue/20 rounded-[3px]">
-              <div className="flex items-center gap-1.5 text-brand-blue font-semibold mb-0.5">
-                <span className="h-2 w-2 rounded-full bg-brand-blue" />
+            <div className="p-2.5 bg-indigo-50/80 border border-indigo-100 rounded-xl">
+              <div className="flex items-center gap-1.5 text-indigo-700 font-semibold mb-0.5">
+                <span className="h-2 w-2 rounded-full bg-indigo-600" />
                 <span>Đang xử lý</span>
               </div>
-              <p className="text-base font-bold text-brand-blue">{stats.inProgress} <span className="text-[11px] font-normal text-brand-blue/80">({inProgressPct}%)</span></p>
+              <p className="text-base font-bold text-indigo-900">{stats.inProgress} <span className="text-[11px] font-normal text-indigo-700">({inProgressPct}%)</span></p>
             </div>
 
-            <div className="p-2 bg-amber-50 border border-amber-100 rounded-[3px]">
+            <div className="p-2.5 bg-amber-50/80 border border-amber-100 rounded-xl">
               <div className="flex items-center gap-1.5 text-amber-700 font-semibold mb-0.5">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
                 <span>Chờ duyệt</span>
@@ -238,18 +238,18 @@ export const WorkflowSLAChart: React.FC = () => {
               <p className="text-base font-bold text-amber-900">{stats.pending} <span className="text-[11px] font-normal text-amber-700">({pendingPct}%)</span></p>
             </div>
 
-            <div className="p-2 bg-brand-red-light border border-brand-red/20 rounded-[3px]">
-              <div className="flex items-center gap-1.5 text-brand-red font-semibold mb-0.5">
+            <div className="p-2.5 bg-red-50/80 border border-red-100 rounded-xl">
+              <div className="flex items-center gap-1.5 text-red-700 font-semibold mb-0.5">
                 <span className="h-2 w-2 rounded-full bg-brand-red" />
                 <span>Từ chối/BS</span>
               </div>
-              <p className="text-base font-bold text-brand-red">{stats.rejected + stats.additionalReq} <span className="text-[11px] font-normal text-brand-red/80">({rejectedPct}%)</span></p>
+              <p className="text-base font-bold text-red-900">{stats.rejected + stats.additionalReq} <span className="text-[11px] font-normal text-red-700">({rejectedPct}%)</span></p>
             </div>
           </div>
         </div>
 
         {/* Bảng Giám Sát SLA Theo Từng Phòng Ban */}
-        <div className="bg-white p-5 rounded-[3px] border border-slate-200 shadow-card">
+        <div className="bg-white/90 backdrop-blur-md p-5.5 rounded-2xl border border-slate-200/90 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Giám Sát SLA Theo Phòng Ban</h3>
@@ -260,11 +260,11 @@ export const WorkflowSLAChart: React.FC = () => {
             </span>
           </div>
 
-          <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+          <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
             {departmentSlaMetrics.map((item) => {
               const hasOverdue = item.overdueCount > 0;
               return (
-                <div key={item.deptName} className="p-2.5 bg-slate-50 border border-slate-200 rounded-[3px] flex items-center justify-between text-xs">
+                <div key={item.deptName} className="p-3 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs transition-colors">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -272,21 +272,21 @@ export const WorkflowSLAChart: React.FC = () => {
                       <span className="text-[10px] text-slate-400 font-medium">(SLA: {item.defaultSlaHours}h)</span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-600">
-                      <span>Đang chờ duyệt: <strong>{item.totalActive}</strong></span>
-                      <span>Đã xử lý: <strong className="text-emerald-700">{item.completedCount}</strong></span>
+                      <span>Đang chờ: <strong>{item.totalActive}</strong></span>
+                      <span>Đã xong: <strong className="text-emerald-700">{item.completedCount}</strong></span>
                       {item.autoApprovedCount > 0 && (
-                        <span className="text-purple-700 font-semibold">Tự động duyệt: {item.autoApprovedCount}</span>
+                        <span className="text-purple-700 font-semibold">Tự động: {item.autoApprovedCount}</span>
                       )}
                     </div>
                   </div>
 
                   <div className="shrink-0 text-right">
                     {hasOverdue ? (
-                      <span className="px-2 py-0.5 bg-red-100 text-red-800 font-bold text-[10px] rounded border border-red-300 animate-pulse">
+                      <span className="px-2.5 py-0.5 bg-red-100 text-red-800 font-bold text-[10px] rounded-full border border-red-300 animate-pulse">
                         ⚠️ Trễ {item.overdueCount} hồ sơ
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded border border-emerald-200">
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-full border border-emerald-200">
                         ✓ Đúng hạn 100%
                       </span>
                     )}

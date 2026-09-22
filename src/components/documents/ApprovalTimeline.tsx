@@ -122,7 +122,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
       <div className="relative">
         
         {/* Horizontal Connector Line for Desktop */}
-        <div className="hidden md:block absolute top-5 left-8 right-8 h-0.5 bg-slate-200 -z-0" />
+        <div className="hidden md:block absolute top-6 left-8 right-8 h-0.5 bg-slate-200/80 -z-0" />
 
         <div className={`grid grid-cols-1 ${steps.length <= 3 ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4 relative z-10`}>
           {steps.map((step, index) => {
@@ -135,32 +135,32 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
             return (
               <div
                 key={step.id || index}
-                className={`p-3.5 rounded-[4px] border transition-all duration-200 hover:-translate-y-0.5 ${
+                className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-0.5 shadow-2xs ${
                   step.autoApprovedBySystem
                     ? 'bg-purple-50/70 border-purple-300 shadow-sm ring-1 ring-purple-200'
                     : isCurrent && step.isOverdue
-                    ? 'bg-red-50/80 border-red-400 shadow-md ring-2 ring-red-300'
+                    ? 'bg-red-50/80 border-red-400 shadow-glow-red ring-2 ring-red-300'
                     : isCurrent
-                    ? (isDept && !step.isInternalChecked ? 'bg-indigo-50/70 border-indigo-400 shadow-md ring-1 ring-indigo-300/60' : 'bg-amber-50/70 border-amber-400 shadow-md ring-1 ring-amber-300/60')
+                    ? (isDept && !step.isInternalChecked ? 'bg-indigo-50/80 border-indigo-400 shadow-glow-blue ring-1 ring-indigo-300/60' : 'bg-amber-50/80 border-amber-400 shadow-glow-amber ring-1 ring-amber-300/60')
                     : step.status === 'APPROVED'
-                    ? 'bg-emerald-50/40 border-emerald-300 shadow-xs'
+                    ? 'bg-emerald-50/50 border-emerald-300'
                     : step.status === 'REJECTED'
-                    ? 'bg-red-50/40 border-red-300 shadow-xs'
-                    : 'bg-slate-50 border-slate-200 opacity-80 hover:opacity-100'
+                    ? 'bg-red-50/50 border-red-300'
+                    : 'bg-white border-slate-200/80 opacity-85 hover:opacity-100'
                 }`}
               >
                 {/* Header with Step Number & Status Icon */}
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2.5">
                   <div className="flex items-center gap-2">
-                    <div className={`h-7 w-7 rounded-[3px] flex items-center justify-center text-xs font-bold shadow-xs transition-transform duration-200 ${badge.bgColor}`}>
+                    <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold shadow-xs transition-transform duration-200 ${badge.bgColor}`}>
                       {index + 1}
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs font-bold text-slate-800">
+                      <span className="text-xs font-bold text-slate-900">
                         Bước {index + 1}
                       </span>
                       {isDept && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded border border-indigo-200">
+                        <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full border border-indigo-200">
                           Ban/Phòng
                         </span>
                       )}
@@ -184,7 +184,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
 
                 {/* 2-Chặng Nội Bộ trong Ban */}
                 {isDept && (
-                  <div className="mt-2 p-2 bg-white/90 rounded-[3px] border border-slate-200/80 space-y-1 text-[10px] shadow-2xs">
+                  <div className="mt-2.5 p-2.5 bg-white/95 rounded-xl border border-slate-200/80 space-y-1.5 text-[10px] shadow-2xs">
                     {/* Stage 1: Kiểm tra nội bộ ban */}
                     <div className="flex items-center justify-between">
                       <span className="text-slate-600 font-medium">1. Kiểm tra nội bộ:</span>
@@ -204,7 +204,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                     </div>
 
                     {/* Stage 2: Quản lý phê duyệt */}
-                    <div className="flex items-center justify-between pt-0.5 border-t border-slate-100">
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
                       <span className="text-slate-600 font-medium">2. Quản lý duyệt:</span>
                       {step.status === 'APPROVED' ? (
                         <span className="text-emerald-700 font-bold flex items-center gap-0.5 truncate max-w-[130px]" title={step.approverName}>
@@ -226,9 +226,9 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                 )}
 
                 {/* Status Pill & Timestamp */}
-                <div className="mt-2.5 pt-2 border-t border-slate-200/60 space-y-1.5">
+                <div className="mt-3 pt-2.5 border-t border-slate-200/60 space-y-1.5">
                   <div className="flex items-center justify-between gap-1 flex-wrap">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] shadow-2xs ${
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-2xs ${
                       step.autoApprovedBySystem ? 'bg-purple-100 text-purple-900 border border-purple-200' :
                       step.isOverdue && isCurrent ? 'bg-red-100 text-red-900 border border-red-300 animate-pulse' :
                       step.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
@@ -240,7 +240,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                     </span>
 
                     {step.slaHours && (
-                      <span className="text-[9px] text-slate-500 font-semibold bg-slate-100 px-1 py-0.5 rounded">
+                      <span className="text-[9px] text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded-full">
                         SLA: {step.slaHours}h
                       </span>
                     )}
@@ -248,7 +248,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
 
                   {/* SLA Countdown / Overdue Indicator */}
                   {slaStatus && (
-                    <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-xl ${
                       slaStatus.isOverdue 
                         ? 'bg-red-100 text-red-700 border border-red-200' 
                         : (isDept && !step.isInternalChecked ? 'bg-indigo-100/80 text-indigo-800 border border-indigo-200' : 'bg-amber-100/80 text-amber-800 border border-amber-200')
@@ -269,14 +269,14 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
 
                   {/* Approver's Comment */}
                   {step.comment && (
-                    <div className="mt-1.5 p-1.5 bg-white rounded-[3px] border border-slate-200 text-[10px] text-slate-600 italic shadow-2xs">
+                    <div className="mt-1.5 p-2 bg-white rounded-xl border border-slate-200 text-[10px] text-slate-600 italic shadow-2xs">
                       "{step.comment}"
                     </div>
                   )}
 
                   {/* Stamp / Signature Verification Badge */}
                   {step.status === 'APPROVED' && (
-                    <div className={`mt-2 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-[3px] shadow-2xs animate-fade-in ${
+                    <div className={`mt-2 flex items-center gap-1.5 text-[9px] font-bold px-2 py-1 rounded-xl shadow-2xs animate-fade-in ${
                       step.autoApprovedBySystem 
                         ? 'text-purple-800 bg-purple-100 border border-purple-200' 
                         : 'text-emerald-700 bg-emerald-100/90 border border-emerald-200'
@@ -288,7 +288,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                         </>
                       ) : (
                         <>
-                          <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
+                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                           <span>Chữ ký số hợp lệ ({step.approverName})</span>
                         </>
                       )}

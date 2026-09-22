@@ -48,7 +48,7 @@ export const RecentActivity: React.FC = () => {
   };
 
   return (
-    <div className="bg-white p-5 rounded-[3px] border border-slate-200 shadow-card">
+    <div className="bg-white/90 backdrop-blur-md p-5.5 rounded-2xl border border-slate-200/90 shadow-card">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-bold text-slate-800">Nhật Ký Luân Chuyển Trình Ký (Audit Trail)</h3>
@@ -57,7 +57,7 @@ export const RecentActivity: React.FC = () => {
         {canViewAuditLog && (
           <button 
             onClick={() => setActiveTab('audit-logs')}
-            className="text-xs font-semibold text-brand-blue hover:text-brand-blue-dark flex items-center gap-1 hover:underline"
+            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline cursor-pointer"
           >
             <span>Xem tất cả nhật ký</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -73,24 +73,24 @@ export const RecentActivity: React.FC = () => {
             <div
               key={log.id}
               onClick={() => setSelectedDocument(log.document)}
-              className="py-3 flex items-start gap-3 hover:bg-slate-50 px-2 -mx-2 rounded-[3px] transition-colors cursor-pointer"
+              className="py-3 flex items-start gap-3 hover:bg-indigo-50/40 px-2.5 -mx-2 rounded-xl transition-colors cursor-pointer group"
             >
-              <div className="mt-0.5 shrink-0 p-1 bg-slate-50 border border-slate-200 rounded-[3px]">
+              <div className="mt-0.5 shrink-0 p-1.5 bg-slate-50 border border-slate-200/80 rounded-xl group-hover:border-indigo-300 transition-colors">
                 {getActionIcon(log.action)}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-slate-800">
                   <span className="font-bold text-slate-900">{log.actorName}</span>{' '}
                   <span className="text-slate-600">({log.actorTitle})</span>{' '}
-                  <span className="font-medium text-brand-blue">{getActionText(log.action)}</span>{' '}
+                  <span className="font-semibold text-indigo-600">{getActionText(log.action)}</span>{' '}
                   hồ sơ <span className="font-bold text-slate-900 underline underline-offset-2">[{log.docCode}]</span>
                 </p>
                 {log.comment && (
-                  <p className="text-[11px] text-slate-500 italic mt-0.5 bg-slate-50 p-1 rounded-[3px] border border-slate-100">
+                  <p className="text-[11px] text-slate-600 italic mt-1 bg-slate-50/80 p-2 rounded-xl border border-slate-100">
                     "{log.comment}"
                   </p>
                 )}
-                <span className="text-[10px] text-slate-400 mt-1 block">
+                <span className="text-[10px] text-slate-400 mt-1 block font-mono">
                   {formatDate(log.timestamp)}
                 </span>
               </div>

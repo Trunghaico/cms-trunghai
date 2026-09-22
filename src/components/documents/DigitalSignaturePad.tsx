@@ -75,21 +75,21 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
   };
 
   return (
-    <div className="bg-slate-50 p-3.5 rounded-[3px] border border-slate-200 space-y-3 animate-fade-in">
+    <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200/80 space-y-3.5 animate-fade-in shadow-2xs">
       
       {/* Mode Switcher */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <span className="text-xs font-bold text-slate-700">Phương thức xác thực ký số:</span>
-        <div className="flex gap-1 bg-slate-200 p-0.5 rounded-[3px]">
+        <div className="flex gap-1.5 bg-slate-200/80 p-1 rounded-xl">
           <button
             type="button"
             onClick={() => {
               setMode('STAMP');
               onSaveSignature('STAMP_OFFICIAL');
             }}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-[3px] flex items-center gap-1.5 transition-all duration-200 ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${
               mode === 'STAMP'
-                ? 'bg-white text-brand-blue shadow-sm scale-100'
+                ? 'bg-white text-brand-blue shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -99,9 +99,9 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
           <button
             type="button"
             onClick={() => setMode('DRAW')}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-[3px] flex items-center gap-1.5 transition-all duration-200 ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${
               mode === 'DRAW'
-                ? 'bg-white text-brand-blue shadow-sm scale-100'
+                ? 'bg-white text-brand-blue shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -113,9 +113,9 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
 
       {mode === 'STAMP' ? (
         /* Official Corporate Digital Stamp Preview with Stamp animation */
-        <div className="p-3.5 bg-white border-2 border-dashed border-brand-red/60 rounded-[3px] flex items-center justify-between shadow-xs animate-stamp hover:shadow-glow-red transition-all">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-[3px] border-2 border-brand-red flex flex-col items-center justify-center p-1 text-brand-red shrink-0 shadow-xs bg-red-50/50">
+        <div className="p-4 bg-white border-2 border-dashed border-brand-red/50 rounded-2xl flex items-center justify-between shadow-sm animate-stamp hover:shadow-glow-red transition-all">
+          <div className="flex items-center gap-3.5">
+            <div className="h-12 w-12 rounded-xl border-2 border-brand-red flex flex-col items-center justify-center p-1 text-brand-red shrink-0 shadow-xs bg-red-50/70">
               <ShieldCheck className="h-5 w-5 animate-pulse-subtle" />
               <span className="text-[8px] font-black uppercase leading-none mt-0.5">TRUNG HAI</span>
             </div>
@@ -124,7 +124,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
                 <span className="text-xs font-bold text-brand-red uppercase tracking-wide">
                   ĐÃ PHÊ DUYỆT ĐIỆN TỬ
                 </span>
-                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-[3px] shadow-xs">
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full shadow-2xs">
                   ✓ Hợp lệ
                 </span>
               </div>
@@ -139,8 +139,8 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
         </div>
       ) : (
         /* Draw Handwritten Signature Canvas */
-        <div className="space-y-2 animate-fade-in">
-          <div className="relative border border-slate-300 rounded-[3px] bg-white overflow-hidden shadow-inner">
+        <div className="space-y-2.5 animate-fade-in">
+          <div className="relative border border-slate-300 rounded-2xl bg-white overflow-hidden shadow-inner p-1">
             <canvas
               ref={canvasRef}
               width={480}
@@ -152,7 +152,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
               onTouchStart={startDrawing}
               onTouchMove={draw}
               onTouchEnd={stopDrawing}
-              className="w-full h-28 cursor-crosshair touch-none"
+              className="w-full h-28 cursor-crosshair touch-none rounded-xl"
             />
             {!hasDrawn && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-xs text-slate-400 font-medium animate-pulse">
@@ -165,7 +165,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
             <button
               type="button"
               onClick={clearCanvas}
-              className="flex items-center gap-1 text-slate-500 hover:text-brand-red font-medium text-xs transition-colors"
+              className="flex items-center gap-1.5 text-slate-500 hover:text-brand-red font-semibold text-xs transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-red-50"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               <span>Xóa vẽ lại</span>

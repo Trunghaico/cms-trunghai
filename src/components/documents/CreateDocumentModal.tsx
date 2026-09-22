@@ -565,22 +565,22 @@ export const CreateDocumentModal: React.FC = () => {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
       <div 
-        className={`bg-white rounded-[4px] shadow-2xl border border-slate-200 w-full max-w-4xl my-auto overflow-hidden transition-all duration-200 transform ${
+        className={`bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl my-auto overflow-hidden transition-all duration-200 transform ${
           isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100 animate-slide-down'
         }`}
       >
         
         {/* Modal Header */}
-        <div className="px-5 py-3.5 bg-brand-blue text-white flex items-center justify-between border-b border-blue-900 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 bg-white/10 rounded">
-              <FileText className="h-5 w-5 text-amber-300" />
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex items-center justify-between border-b border-indigo-900/60 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-xl shadow-xs">
+              <FileText className="h-5 w-5 text-cyan-300" />
             </div>
             <div>
               <h2 className="text-base font-bold tracking-tight">Khởi Tạo Hồ Sơ Trình Ký</h2>
-              <p className="text-[11px] text-blue-100">
+              <p className="text-[11px] text-indigo-200">
                 Thiết lập thông tin và cấu hình người / phòng ban phê duyệt
               </p>
             </div>
@@ -588,7 +588,7 @@ export const CreateDocumentModal: React.FC = () => {
           <button
             type="button"
             onClick={handleClose}
-            className="text-white/80 hover:text-white p-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
+            className="text-white/80 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -598,14 +598,14 @@ export const CreateDocumentModal: React.FC = () => {
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-xs text-slate-800 max-h-[85vh] overflow-y-auto">
           
           {errorMsg && (
-            <div className="p-3 bg-red-50 border-l-4 border-brand-red text-red-700 flex items-center gap-2 rounded-r-[3px] text-xs">
+            <div className="p-3.5 bg-red-50 border-l-4 border-brand-red text-red-700 flex items-center gap-2 rounded-r-xl text-xs">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span className="font-semibold">{errorMsg}</span>
             </div>
           )}
 
           {/* QUICK BPM WORKFLOW TEMPLATE SELECTOR (CHỌN NHANH QUY TRÌNH KÝ THEO LOẠI HỒ SƠ) */}
-          <div className="bg-gradient-to-r from-slate-900 via-brand-navy to-blue-950 p-4 rounded-[4px] border border-blue-800 text-white shadow-sm space-y-2.5">
+          <div className="bg-gradient-to-r from-slate-900 via-brand-navy to-indigo-950 p-4.5 rounded-2xl border border-indigo-500/30 text-white shadow-sm space-y-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-white/10 rounded-[3px] text-amber-400">

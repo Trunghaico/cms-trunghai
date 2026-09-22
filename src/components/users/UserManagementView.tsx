@@ -354,12 +354,12 @@ export const UserManagementView: React.FC = () => {
     <div className="space-y-5">
 
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-[3px] border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-brand-blue" />
             <span>Phân Quyền & Quản Lý Người Dùng</span>
-            <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-700 font-bold rounded-[3px] border border-slate-200">
+            <span className="px-2.5 py-0.5 text-xs bg-slate-100 text-slate-700 font-bold rounded-full border border-slate-200">
               {users.length} tài khoản
             </span>
           </h2>
@@ -372,7 +372,7 @@ export const UserManagementView: React.FC = () => {
           <button
             type="button"
             onClick={openCreateModal}
-            className="px-3.5 py-2 bg-brand-red hover:bg-brand-red-dark active:scale-[0.98] text-white text-xs font-bold uppercase tracking-wider rounded-[3px] shadow transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="px-4 py-2.5 bg-gradient-to-r from-brand-red to-red-700 hover:from-brand-red-dark hover:to-red-800 active:scale-[0.98] text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-glow-red transition-all flex items-center gap-2 cursor-pointer shrink-0"
           >
             <UserPlus className="h-4 w-4" />
             <span>Thêm Người Dùng</span>
@@ -381,15 +381,15 @@ export const UserManagementView: React.FC = () => {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-white p-3.5 rounded-[3px] border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm theo tên, username, chức vụ..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-[3px] focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue transition-colors"
+            className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
           />
         </div>
 
@@ -398,7 +398,7 @@ export const UserManagementView: React.FC = () => {
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
-            className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-[3px] font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue w-full sm:w-auto"
+            className="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30 w-full sm:w-auto"
           >
             <option value="ALL">Tất cả phòng ban</option>
             {departments.map((dept) => (
@@ -409,26 +409,26 @@ export const UserManagementView: React.FC = () => {
       </div>
 
       {/* Table with Vertical Column Dividers & STT */}
-      <div className="bg-white rounded-[3px] border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider divide-x divide-slate-200">
               <tr>
-                <th className="px-3 py-3 text-center w-12 shrink-0">STT</th>
-                <th className="px-4 py-3">Họ Và Tên</th>
-                <th className="px-4 py-3">Tên Đăng Nhập</th>
-                <th className="px-4 py-3">Mật Khẩu</th>
-                <th className="px-4 py-3">Chức Vụ</th>
-                <th className="px-4 py-3">Phòng Ban</th>
-                <th className="px-4 py-3 text-center">Ma Trận Quyền</th>
-                <th className="px-4 py-3 text-center w-24">Thao Tác</th>
+                <th className="px-3 py-3.5 text-center w-12 shrink-0">STT</th>
+                <th className="px-4 py-3.5">Họ Và Tên</th>
+                <th className="px-4 py-3.5">Tên Đăng Nhập</th>
+                <th className="px-4 py-3.5">Mật Khẩu</th>
+                <th className="px-4 py-3.5">Chức Vụ</th>
+                <th className="px-4 py-3.5">Phòng Ban</th>
+                <th className="px-4 py-3.5 text-center">Ma Trận Quyền</th>
+                <th className="px-4 py-3.5 text-center w-24">Thao Tác</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-200">
               {sortedAndFilteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     Không tìm thấy người dùng nào phù hợp
                   </td>
                 </tr>
@@ -446,16 +446,16 @@ export const UserManagementView: React.FC = () => {
                       className="hover:bg-blue-50/40 transition-colors divide-x divide-slate-200"
                     >
                       {/* 1. STT */}
-                      <td className="px-3 py-2.5 text-center text-slate-500 font-mono text-[11px] font-semibold bg-slate-50/50">
+                      <td className="px-3 py-3 text-center text-slate-500 font-mono text-[11px] font-semibold bg-slate-50/50">
                         {idx + 1}
                       </td>
 
                       {/* 2. Họ và tên (No Avatar) */}
-                      <td className="px-4 py-2.5 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-slate-900">{user.name}</span>
                           {isCurrentLoggedUser && (
-                            <span className="text-[9px] font-bold text-brand-blue bg-blue-50 border border-brand-blue/30 px-1.5 py-0.2 rounded-[2px]">
+                            <span className="text-[9px] font-bold text-brand-blue bg-blue-50 border border-brand-blue/30 px-2 py-0.5 rounded-full">
                               Tôi
                             </span>
                           )}
@@ -463,18 +463,18 @@ export const UserManagementView: React.FC = () => {
                       </td>
 
                       {/* 3. Username */}
-                      <td className="px-4 py-2.5 font-mono font-bold text-brand-blue whitespace-nowrap">
+                      <td className="px-4 py-3 font-mono font-bold text-brand-blue whitespace-nowrap">
                         @{user.username}
                       </td>
 
                       {/* 4. Password */}
-                      <td className="px-4 py-2.5 font-mono text-slate-700 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-4 py-3 font-mono text-slate-700 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
                           <span>{isPassVisible ? user.pass : '••••••'}</span>
                           <button
                             type="button"
                             onClick={() => togglePasswordVisibility(user.id)}
-                            className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer transition-colors"
+                            className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer transition-colors rounded-full hover:bg-slate-100"
                             title={isPassVisible ? 'Ẩn mật khẩu' : 'Xem mật khẩu'}
                           >
                             {isPassVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -483,12 +483,12 @@ export const UserManagementView: React.FC = () => {
                       </td>
 
                       {/* 5. Chức vụ */}
-                      <td className="px-4 py-2.5 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="font-bold text-slate-800">{user.roleTitle}</div>
                         {user.secondaryPositions && user.secondaryPositions.length > 0 && (
                           <div className="mt-1 flex flex-col gap-0.5">
                             {user.secondaryPositions.map((sp, sIdx) => (
-                              <span key={sIdx} className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-[2px] w-fit">
+                              <span key={sIdx} className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full w-fit">
                                 <Briefcase className="h-2.5 w-2.5 text-amber-600 shrink-0" />
                                 <span>Kiêm: {sp.roleTitle}</span>
                               </span>
@@ -498,7 +498,7 @@ export const UserManagementView: React.FC = () => {
                       </td>
 
                       {/* 6. Phòng ban */}
-                      <td className="px-4 py-2.5 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-slate-700 font-medium">{user.department}</div>
                         {user.secondaryPositions && user.secondaryPositions.length > 0 && (
                           <div className="mt-1 flex flex-col gap-0.5">
@@ -513,11 +513,11 @@ export const UserManagementView: React.FC = () => {
                       </td>
 
                       {/* 7. Ma trận quyền */}
-                      <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => setInspectingUser(user)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-brand-blue/40 rounded-[3px] text-slate-700 hover:text-brand-blue transition-all cursor-pointer group shadow-2xs active:scale-95"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-brand-blue/40 rounded-full text-slate-700 hover:text-brand-blue transition-all cursor-pointer group shadow-2xs active:scale-95"
                           title="Xem chi tiết các quyền đã cấp"
                         >
                           <ShieldCheck className={`h-3.5 w-3.5 ${isFullAdmin ? 'text-purple-600' : 'text-brand-blue'}`} />
@@ -525,7 +525,7 @@ export const UserManagementView: React.FC = () => {
                             {permCount}/{totalPerms}
                           </span>
                           {isFullAdmin ? (
-                            <span className="text-[9px] font-bold px-1 bg-purple-100 text-purple-700 rounded">Toàn quyền</span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 bg-purple-100 text-purple-700 rounded-full">Toàn quyền</span>
                           ) : (
                             <span className="text-[9px] text-slate-400 group-hover:text-brand-blue">Chi tiết</span>
                           )}
@@ -533,14 +533,14 @@ export const UserManagementView: React.FC = () => {
                       </td>
 
                       {/* 8. Thao tác */}
-                      <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
                           {canEditUser && (
                             <button
                               type="button"
                               onClick={() => openEditModal(user)}
                               title="Sửa thông tin & phân quyền"
-                              className="p-1.5 text-slate-600 hover:text-brand-blue hover:bg-blue-50 rounded-[3px] border border-slate-200 transition-colors cursor-pointer active:scale-90"
+                              className="p-2 text-slate-600 hover:text-brand-blue hover:bg-blue-50 rounded-xl border border-slate-200 transition-colors cursor-pointer active:scale-90 shadow-2xs"
                             >
                               <Edit3 className="h-3.5 w-3.5" />
                             </button>
@@ -551,7 +551,7 @@ export const UserManagementView: React.FC = () => {
                               type="button"
                               onClick={() => handleDelete(user.id, user.name)}
                               title="Xóa người dùng"
-                              className="p-1.5 text-slate-400 hover:text-brand-red hover:bg-red-50 rounded-[3px] border border-slate-200 transition-colors cursor-pointer active:scale-90"
+                              className="p-2 text-slate-400 hover:text-brand-red hover:bg-red-50 rounded-xl border border-slate-200 transition-colors cursor-pointer active:scale-90 shadow-2xs"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -566,7 +566,7 @@ export const UserManagementView: React.FC = () => {
           </table>
         </div>
 
-        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+        <div className="px-5 py-3 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <span>Tổng số: <strong className="text-slate-800">{sortedAndFilteredUsers.length}</strong> tài khoản (Sắp xếp A-Z)</span>
           <span className="font-medium text-slate-600">Hệ thống Trình ký & Quản lý Phân quyền</span>
         </div>
@@ -582,7 +582,7 @@ export const UserManagementView: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="fixed inset-0 z-[99999] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-hidden"
+              className="fixed inset-0 z-[99999] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden"
               onClick={(e) => {
                 if (e.target === e.currentTarget) setInspectingUser(null);
               }}
@@ -593,21 +593,23 @@ export const UserManagementView: React.FC = () => {
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.94, opacity: 0, y: 15 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                className="bg-white rounded-[4px] max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]"
+                className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[85vh]"
               >
 
                 {/* Modal Header */}
-                <div className="px-4 py-3 bg-brand-blue text-white flex items-center justify-between shrink-0 shadow-xs">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-amber-300" />
+                <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-xl">
+                      <ShieldCheck className="h-5 w-5 text-amber-300" />
+                    </div>
                     <div>
-                      <h3 className="font-bold text-xs sm:text-sm">
+                      <h3 className="font-bold text-xs sm:text-sm text-white">
                         Quyền hạn: {inspectingUser.name}
                       </h3>
-                      <p className="text-[10px] text-blue-100">
+                      <p className="text-[10px] text-blue-200/80">
                         @{inspectingUser.username} • {inspectingUser.roleTitle} ({inspectingUser.department})
                         {inspectingUser.secondaryPositions && inspectingUser.secondaryPositions.length > 0 && (
-                          <span className="text-amber-200"> • Kiêm: {inspectingUser.secondaryPositions.map(s => `${s.roleTitle} (${s.department})`).join(', ')}</span>
+                          <span className="text-amber-300"> • Kiêm: {inspectingUser.secondaryPositions.map(s => `${s.roleTitle} (${s.department})`).join(', ')}</span>
                         )}
                       </p>
                     </div>
@@ -615,17 +617,17 @@ export const UserManagementView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setInspectingUser(null)}
-                    className="text-white/80 hover:text-white p-1 transition-colors cursor-pointer"
+                    className="text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
                 {/* Modal Body */}
-                <div className="p-4 overflow-y-auto space-y-3 flex-1 text-xs">
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-slate-100 rounded-[3px] text-xs font-semibold text-slate-700">
+                <div className="p-5 overflow-y-auto space-y-3.5 flex-1 text-xs custom-scrollbar">
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100 rounded-xl text-xs font-semibold text-slate-700">
                     <span>Số quyền được cấp:</span>
-                    <span className="font-mono font-bold text-brand-blue">
+                    <span className="font-mono font-bold text-brand-blue bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
                       {(inspectingUser.permissions || []).length} / {ALL_PERMISSIONS.length} quyền
                     </span>
                   </div>
@@ -633,27 +635,27 @@ export const UserManagementView: React.FC = () => {
                   {PERMISSION_CATEGORIES.map(cat => {
                     const catPerms = ALL_PERMISSIONS.filter(p => p.category === cat.id);
                     return (
-                      <div key={cat.id} className="border border-slate-200 rounded-[3px] overflow-hidden bg-white">
-                        <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center gap-1.5 font-bold text-[11px] text-slate-800">
+                      <div key={cat.id} className="border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                        <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 font-bold text-[11px] text-slate-800">
                           {getCategoryIcon(cat.iconName)}
                           <span>{cat.name}</span>
                         </div>
-                        <div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <div className="p-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {catPerms.map(p => {
                             const isGranted = (inspectingUser.permissions || []).includes(p.id) || inspectingUser.role === 'ADMIN';
                             return (
                               <div
                                 key={p.id}
-                                className={`px-2 py-1.5 rounded-[2px] border text-[11px] flex items-center justify-between ${isGranted
+                                className={`px-2.5 py-2 rounded-xl border text-[11px] flex items-center justify-between transition-all ${isGranted
                                     ? 'bg-blue-50/60 border-brand-blue/30 text-brand-blue font-semibold'
                                     : 'bg-slate-50 border-slate-200 text-slate-400 opacity-50'
                                   }`}
                               >
                                 <span>{p.name}</span>
                                 {isGranted ? (
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                                 ) : (
-                                  <X className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                                  <X className="h-4 w-4 text-slate-300 shrink-0" />
                                 )}
                               </div>
                             );
@@ -665,11 +667,11 @@ export const UserManagementView: React.FC = () => {
                 </div>
 
                 {/* Modal Footer */}
-                <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
+                <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0 rounded-b-3xl">
                   <button
                     type="button"
                     onClick={() => setInspectingUser(null)}
-                    className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-[3px] transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
                   >
                     Đóng
                   </button>
@@ -691,7 +693,7 @@ export const UserManagementView: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="fixed inset-0 z-[99999] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-hidden"
+              className="fixed inset-0 z-[99999] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden"
               onClick={(e) => {
                 if (e.target === e.currentTarget) handleCloseModal();
               }}
@@ -703,38 +705,40 @@ export const UserManagementView: React.FC = () => {
                 exit={{ scale: 0.94, opacity: 0, y: 15 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 350 }}
                 onSubmit={handleSubmit}
-                className="bg-white rounded-[4px] max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] my-auto"
+                className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh] my-auto"
               >
 
                 {/* Modal Header */}
-                <div className="px-4 py-3 bg-brand-blue text-white flex items-center justify-between shrink-0 shadow-xs">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-amber-300" />
-                    <h3 className="font-bold text-sm">
+                <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-xl">
+                      <ShieldCheck className="h-5 w-5 text-amber-300" />
+                    </div>
+                    <h3 className="font-bold text-sm text-white">
                       {editingUser ? 'Chỉnh Sửa Quyền & Tài Khoản' : 'Thêm Người Dùng Mới'}
                     </h3>
                   </div>
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="text-white/80 hover:text-white p-1 transition-colors cursor-pointer"
+                    className="text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
                 {/* Modal Body Form */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
+                <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs custom-scrollbar">
                   {errorMsg && (
-                    <div className="p-2.5 bg-red-50 border border-brand-red/30 rounded-[3px] text-xs text-brand-red flex items-start gap-2">
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 flex items-start gap-2 shadow-xs">
                       <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                       <span>{errorMsg}</span>
                     </div>
                   )}
 
                   {/* 1. Thông Tin Cơ Bản */}
-                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-[3px] space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-4 bg-slate-50/90 border border-slate-200/80 rounded-2xl space-y-3.5 shadow-2xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
                         <label className="block font-bold text-slate-700 mb-1">
                           Họ và tên <span className="text-brand-red">*</span>
@@ -745,7 +749,7 @@ export const UserManagementView: React.FC = () => {
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           placeholder="VD: Nguyễn Văn Long"
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                          className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
                         />
                       </div>
 
@@ -759,12 +763,12 @@ export const UserManagementView: React.FC = () => {
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           placeholder="VD: long.nv"
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[2px] font-mono focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                          className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
                         <label className="block font-bold text-slate-700 mb-1">
                           Mật khẩu (Pass) <span className="text-brand-red">*</span>
@@ -775,7 +779,7 @@ export const UserManagementView: React.FC = () => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="Nhập mật khẩu..."
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[2px] font-mono focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                          className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
                         />
                       </div>
 
@@ -804,7 +808,7 @@ export const UserManagementView: React.FC = () => {
                             }
                           }}
                           placeholder="Chọn hoặc nhập chức vụ..."
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                          className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
                         />
                         <datalist id="system-job-titles-list">
                           {systemJobTitles.map(j => (
@@ -824,7 +828,7 @@ export const UserManagementView: React.FC = () => {
                           value={department}
                           onChange={(e) => setDepartment(e.target.value)}
                           placeholder="Chọn hoặc nhập phòng ban..."
-                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                          className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
                         />
                         <datalist id="system-depts-list">
                           {systemDepts.map(d => (
@@ -836,13 +840,13 @@ export const UserManagementView: React.FC = () => {
                   </div>
 
                   {/* 1.1 Vị Trí & Phòng Ban Kiêm Nhiệm */}
-                  <div className="p-3.5 bg-amber-50/60 border border-amber-200/90 rounded-[3px] space-y-2.5">
+                  <div className="p-4 bg-amber-50/60 border border-amber-200/90 rounded-2xl space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
-                        <Briefcase className="h-3.5 w-3.5 text-amber-600" />
+                      <div className="flex items-center gap-2 font-bold text-slate-800 text-xs">
+                        <Briefcase className="h-4 w-4 text-amber-600" />
                         <span>Vị Trí & Phòng Ban Kiêm Nhiệm (Tùy chọn)</span>
                         {secondaryPositions.length > 0 && (
-                          <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-1.5 py-0.2 rounded-full">
+                          <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-2 py-0.5 rounded-full">
                             {secondaryPositions.length}
                           </span>
                         )}
@@ -850,9 +854,9 @@ export const UserManagementView: React.FC = () => {
                       <button
                         type="button"
                         onClick={addSecondaryPosition}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300/80 px-2 py-0.5 rounded-[2px] cursor-pointer transition-colors"
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300/80 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-3.5 w-3.5" />
                         <span>Thêm vị trí kiêm nhiệm</span>
                       </button>
                     </div>
@@ -864,7 +868,7 @@ export const UserManagementView: React.FC = () => {
                     ) : (
                       <div className="space-y-2 pt-1">
                         {secondaryPositions.map((pos, pIdx) => (
-                          <div key={pIdx} className="p-2.5 bg-white border border-amber-200 rounded-[3px] grid grid-cols-1 sm:grid-cols-12 gap-2 items-center shadow-2xs">
+                          <div key={pIdx} className="p-3 bg-white border border-amber-200 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center shadow-2xs">
                             <div className="sm:col-span-4">
                               <label className="block text-[10.5px] font-bold text-slate-600 mb-0.5">Chức vụ kiêm nhiệm</label>
                               <input
@@ -873,7 +877,7 @@ export const UserManagementView: React.FC = () => {
                                 value={pos.roleTitle}
                                 onChange={(e) => updateSecondaryPosition(pIdx, 'roleTitle', e.target.value)}
                                 placeholder="VD: Trưởng phòng Cung ứng"
-                                className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
                               />
                             </div>
 
@@ -885,7 +889,7 @@ export const UserManagementView: React.FC = () => {
                                 value={pos.department}
                                 onChange={(e) => updateSecondaryPosition(pIdx, 'department', e.target.value)}
                                 placeholder="VD: Phòng Cung ứng & Vật tư"
-                                className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
                               />
                             </div>
 
@@ -894,7 +898,7 @@ export const UserManagementView: React.FC = () => {
                               <select
                                 value={pos.role}
                                 onChange={(e) => updateSecondaryPosition(pIdx, 'role', e.target.value as UserRole)}
-                                className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-[2px] font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                className="w-full px-2 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
                               >
                                 <option value="STAFF">Chuyên viên</option>
                                 <option value="DEPT_HEAD">Trưởng phòng</option>
@@ -909,7 +913,7 @@ export const UserManagementView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => removeSecondaryPosition(pIdx)}
-                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                 title="Xóa vị trí kiêm nhiệm này"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -922,22 +926,22 @@ export const UserManagementView: React.FC = () => {
                   </div>
 
                   {/* 2. Ma Trận Phân Quyền Chi Tiết */}
-                  <div className="space-y-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
                       <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                         <ShieldCheck className="h-4 w-4 text-brand-blue" />
                         <span>Danh Sách Quyền Hạn</span>
-                        <span className="ml-1 text-[10.5px] font-mono text-brand-blue font-bold px-1.5 py-0.2 bg-blue-50 border border-brand-blue/30 rounded">
+                        <span className="ml-1 text-[10.5px] font-mono text-brand-blue font-bold px-2 py-0.5 bg-blue-50 border border-brand-blue/30 rounded-full">
                           {selectedPermissions.length} / {ALL_PERMISSIONS.length} quyền
                         </span>
                       </div>
 
                       {/* Actions Select/Clear */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setIsQuickSavePresetOpen(prev => !prev)}
-                          className={`px-2.5 py-1 rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 border ${isQuickSavePresetOpen
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 border ${isQuickSavePresetOpen
                               ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
                               : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-200'
                             }`}
@@ -950,7 +954,7 @@ export const UserManagementView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsPresetModalOpen(true)}
-                          className="px-2.5 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded text-[11px] font-semibold cursor-pointer active:scale-95 flex items-center gap-1"
+                          className="px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-95 flex items-center gap-1"
                           title="Mở giao diện quản lý cấu hình các mẫu quyền"
                         >
                           <Sliders className="h-3.5 w-3.5 text-slate-600" />
@@ -960,14 +964,14 @@ export const UserManagementView: React.FC = () => {
                         <button
                           type="button"
                           onClick={selectAllPermissions}
-                          className="px-2 py-1 bg-blue-50 text-brand-blue hover:bg-blue-100 border border-brand-blue/30 rounded text-[11px] font-semibold cursor-pointer active:scale-95"
+                          className="px-2.5 py-1.5 bg-blue-50 text-brand-blue hover:bg-blue-100 border border-brand-blue/30 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-95"
                         >
                           Chọn tất cả
                         </button>
                         <button
                           type="button"
                           onClick={clearAllPermissions}
-                          className="px-2 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300 rounded text-[11px] font-semibold cursor-pointer active:scale-95"
+                          className="px-2.5 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300 rounded-xl text-[11px] font-semibold cursor-pointer active:scale-95"
                         >
                           Bỏ tất cả
                         </button>
@@ -976,7 +980,7 @@ export const UserManagementView: React.FC = () => {
 
                     {/* Quick Save Preset Popover */}
                     {isQuickSavePresetOpen && (
-                      <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-[3px] space-y-2 text-xs">
+                      <div className="p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl space-y-2.5 text-xs shadow-2xs">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5 font-bold text-amber-900">
                             <Sparkles className="h-4 w-4 text-amber-600" />
@@ -996,7 +1000,7 @@ export const UserManagementView: React.FC = () => {
                             value={quickPresetName}
                             onChange={(e) => setQuickPresetName(e.target.value)}
                             placeholder="Nhập tên mẫu (VD: Kế toán thanh toán, Thủ kho vật tư...)"
-                            className="flex-1 min-w-[240px] px-2.5 py-1.5 bg-white border border-amber-300 rounded-[2px] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            className="flex-1 min-w-[240px] px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/30"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
@@ -1008,14 +1012,14 @@ export const UserManagementView: React.FC = () => {
                           <button
                             type="button"
                             onClick={handleQuickSavePreset}
-                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-[2px] text-xs cursor-pointer shadow-2xs active:scale-95"
+                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-2xs active:scale-95"
                           >
                             Lưu mẫu
                           </button>
                           <button
                             type="button"
                             onClick={() => { setIsQuickSavePresetOpen(false); setQuickSaveMsg(null); }}
-                            className="px-2.5 py-1.5 bg-white text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-[2px] text-xs cursor-pointer"
+                            className="px-3 py-1.5 bg-white text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-xl text-xs cursor-pointer"
                           >
                             Hủy
                           </button>
@@ -1029,7 +1033,7 @@ export const UserManagementView: React.FC = () => {
                     )}
 
                     {/* Dynamic Role Presets Toolbar */}
-                    <div className="p-2 bg-slate-100 border border-slate-200 rounded-[3px] flex flex-wrap items-center gap-1.5">
+                    <div className="p-2.5 bg-slate-100/80 border border-slate-200 rounded-2xl flex flex-wrap items-center gap-1.5">
                       <span className="text-[11px] font-bold text-slate-600 mr-1 flex items-center gap-1">
                         <span>Mẫu nhanh:</span>
                       </span>
@@ -1044,7 +1048,7 @@ export const UserManagementView: React.FC = () => {
                             type="button"
                             onClick={() => applyPreset(preset)}
                             title={`${preset.name}: ${(preset.permissions || []).length} quyền (${preset.description || preset.role})`}
-                            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-1 ${isPresetActive
+                            className={`px-3 py-1.5 rounded-xl text-[11px] font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 ${isPresetActive
                                 ? preset.role === 'ADMIN'
                                   ? 'bg-brand-red text-white shadow-2xs font-bold ring-1 ring-red-400'
                                   : 'bg-brand-blue text-white shadow-2xs font-bold ring-1 ring-blue-400'
@@ -1067,7 +1071,7 @@ export const UserManagementView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setIsPresetModalOpen(true)}
-                        className="px-2 py-1 rounded text-[11px] font-semibold text-brand-blue hover:text-blue-800 hover:bg-blue-50 border border-dashed border-brand-blue/40 flex items-center gap-1 cursor-pointer ml-auto"
+                        className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-brand-blue hover:text-blue-800 hover:bg-blue-50 border border-dashed border-brand-blue/40 flex items-center gap-1 cursor-pointer ml-auto"
                         title="Thêm hoặc cấu hình tick chọn quyền cho từng mẫu"
                       >
                         <Plus className="h-3 w-3" />
@@ -1076,52 +1080,52 @@ export const UserManagementView: React.FC = () => {
                     </div>
 
                     {/* Modules Checklist */}
-                    <div className="space-y-2.5 pt-1">
+                    <div className="space-y-3 pt-1">
                       {PERMISSION_CATEGORIES.map((cat) => {
                         const catPerms = ALL_PERMISSIONS.filter(p => p.category === cat.id);
                         const selectedCatCount = catPerms.filter(p => selectedPermissions.includes(p.id)).length;
                         const isAllCatSelected = selectedCatCount === catPerms.length;
 
                         return (
-                          <div key={cat.id} className="border border-slate-200 rounded-[3px] overflow-hidden bg-white">
+                          <div key={cat.id} className="border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
                             {/* Group Header */}
-                            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
+                            <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
                                 {getCategoryIcon(cat.iconName)}
                                 <span className="font-bold text-xs text-slate-800">{cat.name}</span>
-                                <span className="text-[10px] font-mono font-bold text-slate-500">
-                                  ({selectedCatCount}/{catPerms.length})
+                                <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-200/70 px-2 py-0.2 rounded-full">
+                                  {selectedCatCount}/{catPerms.length}
                                 </span>
                               </div>
 
                               <button
                                 type="button"
                                 onClick={() => toggleCategoryPermissions(cat.id)}
-                                className="text-[10.5px] font-medium text-brand-blue hover:underline cursor-pointer"
+                                className="text-[10.5px] font-semibold text-brand-blue hover:underline cursor-pointer"
                               >
                                 {isAllCatSelected ? 'Bỏ chọn nhóm' : 'Chọn nhóm'}
                               </button>
                             </div>
 
                             {/* Permission Items */}
-                            <div className="p-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {catPerms.map((perm) => {
                                 const isChecked = selectedPermissions.includes(perm.id);
 
                                 return (
                                   <label
                                     key={perm.id}
-                                    className={`flex items-center justify-between p-2 rounded-[2px] border transition-all cursor-pointer select-none ${isChecked
+                                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer select-none ${isChecked
                                         ? 'bg-blue-50/70 border-brand-blue/50 text-brand-blue font-semibold'
-                                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                                        : 'bg-white border-slate-200/80 hover:bg-slate-50 text-slate-700'
                                       }`}
                                   >
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2.5">
                                       <input
                                         type="checkbox"
                                         checked={isChecked}
                                         onChange={() => togglePermission(perm.id)}
-                                        className="h-3.5 w-3.5 rounded-[2px] text-brand-blue focus:ring-brand-blue border-slate-300 cursor-pointer"
+                                        className="h-4 w-4 rounded text-brand-blue focus:ring-brand-blue border-slate-300 cursor-pointer"
                                       />
                                       <span className="text-xs">
                                         {perm.name}
@@ -1142,24 +1146,24 @@ export const UserManagementView: React.FC = () => {
                 </div>
 
                 {/* Permanent Modal Footer */}
-                <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                <div className="px-6 py-3.5 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between shrink-0 rounded-b-3xl">
                   <div className="text-[11px] text-slate-600 font-medium">
-                    Đã chọn: <span className="font-bold text-brand-blue font-mono">{selectedPermissions.length}</span> / {ALL_PERMISSIONS.length} quyền
+                    Đã chọn: <span className="font-bold text-brand-blue font-mono bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">{selectedPermissions.length}</span> / {ALL_PERMISSIONS.length} quyền
                   </div>
 
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={handleCloseModal}
-                      className="px-3 py-1.5 bg-white text-slate-600 border border-slate-300 rounded-[2px] font-semibold text-[11px] hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer active:scale-95"
+                      className="px-4 py-2 bg-white text-slate-600 border border-slate-300 rounded-xl font-semibold text-xs hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer active:scale-95"
                     >
                       Hủy
                     </button>
                     <button
                       type="submit"
-                      className="px-3.5 py-1.5 bg-brand-blue hover:bg-brand-blue-dark active:scale-[0.98] text-white font-bold text-[11px] tracking-wide rounded-[2px] shadow-xs hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                      className="px-5 py-2 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-brand-blue-dark hover:to-indigo-700 active:scale-[0.98] text-white font-bold text-xs tracking-wide rounded-xl shadow-glow-blue transition-all cursor-pointer flex items-center gap-1.5"
                     >
-                      <Check className="h-3.5 w-3.5" />
+                      <Check className="h-4 w-4" />
                       <span>{editingUser ? 'Lưu Cập Nhật' : 'Tạo Người Dùng'}</span>
                     </button>
                   </div>

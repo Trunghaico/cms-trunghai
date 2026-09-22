@@ -127,7 +127,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
       }}
     >
       <div 
-        className={`bg-slate-900 text-white rounded-[4px] shadow-2xl border border-slate-700/80 flex flex-col transition-all duration-150 overflow-hidden ${
+        className={`bg-slate-900 text-white rounded-3xl shadow-2xl border border-slate-700/80 flex flex-col transition-all duration-150 overflow-hidden ${
           isFullscreen 
             ? 'fixed inset-0 w-screen h-screen rounded-none z-[100000]' 
             : 'w-[98vw] max-w-6xl h-[96vh]'
@@ -135,11 +135,11 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
       >
         
         {/* COMPACT ALL-IN-ONE HEADER BAR (Height ~42px) */}
-        <div className="px-3 py-1.5 bg-slate-850 border-b border-slate-700 flex items-center justify-between gap-2 shrink-0 select-none min-h-[42px]">
+        <div className="px-4 py-2 bg-slate-850 border-b border-slate-700/80 flex items-center justify-between gap-2 shrink-0 select-none min-h-[44px]">
           
           {/* Left: File Info & Badge */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="h-7 w-7 rounded-[3px] bg-brand-blue flex items-center justify-center shrink-0 shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-brand-blue to-cyan-500 flex items-center justify-center shrink-0 shadow-xs">
               <FileText className="h-4 w-4 text-white" />
             </div>
             <div className="min-w-0 flex items-center gap-2">
@@ -147,12 +147,12 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                 {attachment.name}
               </h3>
               {attachment.isScan && (
-                <span className="px-1.5 py-0.2 bg-brand-red text-white text-[9px] font-bold rounded-[2px] shrink-0">
+                <span className="px-2 py-0.5 bg-brand-red text-white text-[9px] font-bold rounded-full shrink-0 shadow-xs">
                   Bản Scan
                 </span>
               )}
               {hasRealFileContent ? (
-                <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold rounded-[2px] shrink-0 hidden sm:inline">
+                <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold rounded-full shrink-0 hidden sm:inline">
                   File Gốc
                 </span>
               ) : null}
@@ -166,11 +166,11 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             {/* Page Navigation for Sample Template */}
             {!hasRealFileContent && (
-              <div className="flex items-center gap-1 bg-slate-900 border border-slate-700/80 rounded-[3px] px-1 py-0.5">
+              <div className="flex items-center gap-1 bg-slate-900 border border-slate-700/80 rounded-xl px-1.5 py-1">
                 <button
                   onClick={handlePrevPage}
                   disabled={currentPage <= 1}
-                  className="p-1 rounded-[2px] hover:bg-slate-750 disabled:opacity-30 transition-colors"
+                  className="p-1 rounded-lg hover:bg-slate-750 disabled:opacity-30 transition-colors"
                   title="Trang trước"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
@@ -181,7 +181,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                 <button
                   onClick={handleNextPage}
                   disabled={currentPage >= totalPages}
-                  className="p-1 rounded-[2px] hover:bg-slate-750 disabled:opacity-30 transition-colors"
+                  className="p-1 rounded-lg hover:bg-slate-750 disabled:opacity-30 transition-colors"
                   title="Trang sau"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -190,24 +190,24 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
             )}
 
             {/* Zoom Controls */}
-            <div className="flex items-center gap-0.5 bg-slate-900 border border-slate-700/80 rounded-[3px] p-0.5">
+            <div className="flex items-center gap-0.5 bg-slate-900 border border-slate-700/80 rounded-xl p-1">
               <button
                 onClick={handleZoomOut}
-                className="p-1 hover:bg-slate-750 rounded-[2px] text-slate-300 hover:text-white transition-colors"
+                className="p-1 hover:bg-slate-750 rounded-lg text-slate-300 hover:text-white transition-colors"
                 title="Thu nhỏ"
               >
                 <ZoomOut className="h-3.5 w-3.5" />
               </button>
               <button
                 onClick={handleResetZoom}
-                className="px-1.5 font-mono text-[11px] font-semibold text-white hover:text-brand-blue transition-colors"
+                className="px-2 font-mono text-[11px] font-semibold text-white hover:text-brand-blue transition-colors"
                 title="Đặt lại 100%"
               >
                 {zoom}%
               </button>
               <button
                 onClick={handleZoomIn}
-                className="p-1 hover:bg-slate-750 rounded-[2px] text-slate-300 hover:text-white transition-colors"
+                className="p-1 hover:bg-slate-750 rounded-lg text-slate-300 hover:text-white transition-colors"
                 title="Phóng to"
               >
                 <ZoomIn className="h-3.5 w-3.5" />
@@ -217,7 +217,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
             {/* Rotate */}
             <button
               onClick={handleRotate}
-              className="p-1.5 bg-slate-900 border border-slate-700/80 hover:bg-slate-750 rounded-[3px] text-slate-300 hover:text-white transition-colors"
+              className="p-1.5 bg-slate-900 border border-slate-700/80 hover:bg-slate-750 rounded-xl text-slate-300 hover:text-white transition-colors"
               title="Xoay 90 độ"
             >
               <RotateCw className="h-3.5 w-3.5" />
@@ -225,14 +225,14 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
           </div>
 
           {/* Right: Actions & Close Button */}
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             {hasRealFileContent && (
               <a
                 href={attachment.url}
                 target="_blank"
                 rel="noreferrer"
                 title="Mở trong tab mới"
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-[3px] transition-colors"
+                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-xl transition-colors"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
@@ -240,28 +240,28 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
             <button
               onClick={handlePrint}
               title="In tài liệu"
-              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-[3px] transition-colors"
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-xl transition-colors"
             >
               <Printer className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={handleDownload}
               title="Tải về máy tính"
-              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-[3px] transition-colors"
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-xl transition-colors"
             >
               <Download className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
               title={isFullscreen ? "Thu nhỏ cửa sổ" : "Toàn màn hình"}
-              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-[3px] transition-colors"
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-xl transition-colors"
             >
               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
             <div className="w-[1px] h-4 bg-slate-700 mx-1" />
             <button
               onClick={handleClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-brand-red rounded-[3px] transition-colors"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-brand-red rounded-xl transition-colors"
               title="Đóng (Esc)"
             >
               <X className="h-4 w-4" />
@@ -276,7 +276,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
           {/* CASE 1: Real PDF file uploaded by user (Base64 data or Blob) */}
           {hasRealFileContent && isPdf ? (
             <div 
-              className="w-full h-full min-h-[500px] bg-white rounded-[2px] shadow-2xl overflow-hidden transition-transform duration-150 origin-top flex flex-col"
+              className="w-full h-full min-h-[500px] bg-white rounded-2xl shadow-2xl overflow-hidden transition-transform duration-150 origin-top flex flex-col"
               style={{
                 transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
                 transformOrigin: 'top center',
@@ -312,13 +312,13 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
               <img
                 src={secureUrl}
                 alt={attachment.name}
-                className="max-w-full max-h-[85vh] object-contain rounded-[2px] shadow-2xl bg-white border border-slate-300"
+                className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl bg-white border border-slate-300"
               />
             </div>
           ) : (
             /* CASE 3: Enterprise Form View for Sample/Mock Files */
             <div 
-              className="bg-white text-slate-900 shadow-2xl rounded-[2px] border border-slate-300 transition-transform duration-150 origin-top p-6 sm:p-12 max-w-4xl w-full min-h-[850px] relative select-text"
+              className="bg-white text-slate-900 shadow-2xl rounded-2xl border border-slate-300 transition-transform duration-150 origin-top p-6 sm:p-12 max-w-4xl w-full min-h-[850px] relative select-text"
               style={{
                 transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
                 transformOrigin: 'top center',
@@ -363,7 +363,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
               {/* Document Content Based on Page */}
               {currentPage === 1 ? (
                 <div className="space-y-4 text-xs leading-relaxed text-slate-800">
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-[2px] text-[11px]">
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px]">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <strong>Đơn vị lập hồ sơ:</strong> {attachment.uploadedBy || 'Phòng Kỹ thuật & Dự án'}
@@ -392,7 +392,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                   <h5 className="font-bold text-xs uppercase text-slate-900 pt-1 border-b border-slate-200 pb-1">
                     II. NỘI DUNG CHI TIẾT VĂN BẢN ĐÍNH KÈM
                   </h5>
-                  <div className="p-3 bg-slate-50/80 border border-slate-200 rounded-[2px] space-y-1.5">
+                  <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-xl space-y-1.5">
                     <p className="font-semibold text-slate-900">
                       Tài liệu: {attachment.name}
                     </p>
@@ -458,7 +458,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
                       <p className="text-xs font-bold text-slate-900 mt-0.5">ĐỖ TRUNG HẢI</p>
                       <p className="text-[10px] text-slate-600 font-medium">Tổng Giám đốc</p>
-                      <div className="inline-flex items-center gap-1 mt-0.5 text-[9px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-[2px] border border-emerald-200">
+                      <div className="inline-flex items-center gap-1 mt-0.5 text-[9px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                         <CheckCircle2 className="h-3 w-3" />
                         <span>Chữ ký số hợp lệ (VNPT-CA 2026)</span>
                       </div>
@@ -479,7 +479,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         </div>
 
         {/* ULTRA-COMPACT FOOTER BAR (Height ~30px) */}
-        <div className="px-3 py-1 bg-slate-850 border-t border-slate-700/80 flex items-center justify-between text-[11px] shrink-0 min-h-[30px]">
+        <div className="px-4 py-2 bg-slate-850 border-t border-slate-700/80 flex items-center justify-between text-[11px] shrink-0 min-h-[34px]">
           <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
             <span>Chế độ xem bảo mật DMS • SSL 256-bit</span>
@@ -489,7 +489,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
             <button
               type="button"
               onClick={handleClose}
-              className="px-3 py-0.5 bg-slate-750 hover:bg-slate-700 text-white font-medium text-[11px] rounded-[2px] transition-colors"
+              className="px-3.5 py-1 bg-slate-750 hover:bg-slate-700 text-white font-medium text-[11px] rounded-xl transition-colors cursor-pointer"
             >
               Đóng
             </button>
