@@ -32,6 +32,37 @@ import { PermissionPresetModal } from '../users/PermissionPresetModal';
 import { ALL_PERMISSIONS, PERMISSION_CATEGORIES } from '../../lib/permissions';
 import { NASBackupItem, MINIO_ENDPOINT, MINIO_BUCKET, MINIO_ACCESS_KEY, uploadFileToNAS } from '../../lib/nasStorageService';
 
+// Helper chuyển đổi và định dạng giờ SLA sang ngày chính xác (1 ngày = 24 giờ)
+const formatSlaBadge = (hours: number): string => {
+  if (!hours || hours <= 0) return '0h';
+  if (hours < 24) {
+    if (hours === 12) return '12h (0.5d)';
+    return `${hours}h`;
+  }
+  const days = hours / 24;
+  return `${hours}h (${Number.isInteger(days) ? days : days.toFixed(1)}d)`;
+};
+
+const formatSlaPresetLabel = (h: number): string => {
+  if (h < 24) {
+    if (h === 12) return '12h (0.5d)';
+    return `${h}h`;
+  }
+  const days = h / 24;
+  return `${h}h (${Number.isInteger(days) ? days : days.toFixed(1)}d)`;
+};
+
+const formatSlaHelpText = (hours: number): string => {
+  if (!hours || hours <= 0) return 'Giờ';
+  if (hours < 24) {
+    if (hours === 12) return 'Giờ (= 0.5 ngày / nửa ngày)';
+    const d = (hours / 24).toFixed(1);
+    return `Giờ (${hours} tiếng ~ ${d} ngày)`;
+  }
+  const days = hours / 24;
+  return `Giờ (= ${Number.isInteger(days) ? days : days.toFixed(1)} ngày)`;
+};
+
 export const SystemSettingsView: React.FC = () => {
   const { 
     activeUser,
@@ -630,7 +661,7 @@ export const SystemSettingsView: React.FC = () => {
                         <td className="py-3.5 px-4 text-center">
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold font-mono">
                             <Clock className="w-3.5 h-3.5 text-amber-600" />
-                            <span>{dept.defaultSlaHours || 8}h ({Math.max(1, Math.round((dept.defaultSlaHours || 8) / 8))}d)</span>
+                            <span>{formatSlaBadge(dept.defaultSlaHours || 8)}</span>
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-center">
@@ -1305,7 +1336,7 @@ export const SystemSettingsView: React.FC = () => {
                       onChange={(e) => setDeptSlaHours(Math.max(1, Number(e.target.value)))}
                       className="w-32 px-3.5 py-2 text-xs font-bold font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
                     />
-                    <span className="text-xs text-slate-500 font-medium">Giờ (~ {Math.max(1, Math.round(deptSlaHours / 8))} ngày làm việc)</span>
+                    <span className="text-xs text-slate-500 font-medium">{formatSlaHelpText(deptSlaHours)}</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {[4, 8, 12, 24, 48, 72].map(h => (
@@ -1319,7 +1350,7 @@ export const SystemSettingsView: React.FC = () => {
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
                         }`}
                       >
-                        {h}h ({h >= 8 ? `${Math.round(h / 8)}d` : `${h}h`})
+                        {formatSlaPresetLabel(h)}
                       </button>
                     ))}
                   </div>
