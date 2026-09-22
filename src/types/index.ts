@@ -42,6 +42,7 @@ export type PermissionId =
   | 'doc.delete'
   | 'doc.print_export'
   // Approval
+  | 'approval.internal_check'
   | 'approval.approve'
   | 'approval.reject'
   | 'approval.request_info'

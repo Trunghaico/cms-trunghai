@@ -36,7 +36,7 @@ export const Sidebar: React.FC = () => {
   // Quyền truy cập các khối
   const canViewDashboard = hasPermission('system.dashboard');
   const canViewDocs = hasPermission('doc.view') || hasPermission('doc.view_all');
-  const canApprove = hasPermission('approval.approve') || hasPermission('approval.override');
+  const canApprove = hasPermission('approval.approve') || hasPermission('approval.override') || hasPermission('approval.internal_check');
   const canViewCategory = hasPermission('category.view') || hasPermission('category.manage') || isAdmin;
   const canManageWorkflow = hasPermission('workflow.manage') || isAdmin;
   const canManageUsers = hasPermission('user.view') || hasPermission('user.create') || hasPermission('user.edit') || isAdmin;

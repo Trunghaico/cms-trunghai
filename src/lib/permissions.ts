@@ -86,6 +86,13 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
 
   // Nhóm Phê Duyệt & Ký Số
   {
+    id: 'approval.internal_check',
+    name: 'Kiểm tra nội bộ phòng ban',
+    code: 'APP_INTERNAL_CHECK',
+    description: 'Thẩm quyền kiểm tra, rà soát hồ sơ nội bộ phòng/ban trước khi chuyển cấp quản lý phê duyệt',
+    category: 'APPROVAL',
+  },
+  {
     id: 'approval.approve',
     name: 'Ký số & Phê duyệt',
     code: 'APP_APPROVE',
@@ -228,6 +235,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'doc.create',
     'doc.edit',
     'doc.print_export',
+    'approval.internal_check',
     'workflow.view',
     'dms.view',
     'system.dashboard'
@@ -237,6 +245,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'doc.create',
     'doc.edit',
     'doc.print_export',
+    'approval.internal_check',
     'approval.approve',
     'approval.reject',
     'approval.request_info',
@@ -250,6 +259,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'doc.create',
     'doc.edit',
     'doc.print_export',
+    'approval.internal_check',
     'approval.approve',
     'approval.reject',
     'approval.request_info',
@@ -263,6 +273,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'doc.create',
     'doc.edit',
     'doc.print_export',
+    'approval.internal_check',
     'approval.approve',
     'approval.reject',
     'approval.request_info',
@@ -277,6 +288,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'doc.create',
     'doc.edit',
     'doc.print_export',
+    'approval.internal_check',
     'approval.approve',
     'approval.reject',
     'approval.request_info',
@@ -292,6 +304,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'doc.edit',
     'doc.delete',
     'doc.print_export',
+    'approval.internal_check',
     'approval.approve',
     'approval.reject',
     'approval.request_info',
@@ -311,6 +324,7 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'doc.edit',
     'doc.delete',
     'doc.print_export',
+    'approval.internal_check',
     'approval.approve',
     'approval.reject',
     'approval.request_info',
@@ -533,14 +547,14 @@ export function isUserApproverForStep(user: User | null | undefined, step: Appro
   }
 
   // NẾU LÀ BƯỚC KIỂM TRA NỘI BỘ BAN (step.isInternalCheck hoặc step.stepType === 'INTERNAL_CHECK' hoặc tiêu đề chứa 'kiểm tra nội bộ'):
-  // -> MỌI NHÂN SỰ TRONG BAN ĐỀU CÓ QUYỀN KIỂM TRA VÀ XÁC NHẬN CHUYỂN CẤP QUẢN LÝ
+  // -> Người dùng phải thuộc phòng ban và được cấp quyền kiểm tra nội bộ ('approval.internal_check') hoặc phê duyệt ('approval.approve')
   const isInternalCheckStep = Boolean(
     step.isInternalCheck || 
     step.stepType === 'INTERNAL_CHECK' || 
     (step.title && step.title.toLowerCase().includes('kiểm tra nội bộ'))
   );
   if (isInternalCheckStep) {
-    return true;
+    return hasPermission(user, 'approval.internal_check') || hasPermission(user, 'approval.approve');
   }
 
   // Thuộc phòng ban được trình tới và là bước duyệt cấp Quản lý -> Xét tiếp thẩm quyền ký duyệt
