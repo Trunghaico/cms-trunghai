@@ -377,30 +377,30 @@ export const Header: React.FC = () => {
 
           <div className="h-6 w-px bg-slate-200" />
 
-          {/* User Profile */}
-          <div className="relative" ref={profileRef}>
-            <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-2.5 p-1 text-left rounded-full hover:bg-slate-100 transition-all duration-200 group cursor-pointer"
-            >
-              <div className="relative">
-                <img
-                  src={activeUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeUser.name)}&background=3e4095&color=fff`}
-                  alt={activeUser.name}
-                  className="h-8.5 w-8.5 rounded-full object-cover ring-2 ring-indigo-500/20 group-hover:ring-indigo-500 transition-all shadow-xs"
-                />
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
-              </div>
-              <div className="hidden lg:block text-left pr-1">
-                <p className="text-xs font-bold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">
-                  {activeUser.name}
-                </p>
-                <p className="text-[10px] text-slate-500 leading-tight">
-                  {activeUser.roleTitle}
-                </p>
-              </div>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden lg:block transition-transform duration-200 group-hover:translate-y-0.5" />
-            </button>
+            {/* User Profile */}
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2.5 p-1 text-left rounded-full hover:bg-slate-100 transition-all duration-200 group cursor-pointer"
+              >
+                <div className="relative shrink-0 w-8 h-8">
+                  <img
+                    src={activeUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeUser.name)}&background=3e4095&color=fff`}
+                    alt={activeUser.name}
+                    className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500/20 group-hover:ring-indigo-500 transition-all shadow-xs"
+                  />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                </div>
+                <div className="hidden lg:block text-left pr-1">
+                  <p className="text-xs font-bold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">
+                    {activeUser.name}
+                  </p>
+                  <p className="text-[10px] text-slate-500 leading-tight">
+                    {activeUser.roleTitle}
+                  </p>
+                </div>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden lg:block transition-transform duration-200 group-hover:translate-y-0.5" />
+              </button>
 
             {/* Profile Dropdown */}
             {isProfileOpen && (

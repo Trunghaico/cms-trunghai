@@ -332,15 +332,15 @@ export const Sidebar: React.FC = () => {
           className="w-full text-left flex items-center gap-2.5 p-2 bg-slate-900/90 hover:bg-slate-850 rounded-2xl border border-slate-800 hover:border-indigo-500/40 hover:shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all group cursor-pointer"
           title="Xem hồ sơ, đổi mật khẩu & cập nhật Avatar"
         >
-          <div className="relative shrink-0">
+          <div className="relative shrink-0 w-8 h-8">
             {activeUser.avatar ? (
               <img
                 src={activeUser.avatar}
                 alt={activeUser.name}
-                className="h-8.5 w-8.5 rounded-full object-cover ring-2 ring-indigo-500/30 group-hover:ring-indigo-400 transition-all shadow-xs"
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500/30 group-hover:ring-indigo-400 transition-all shadow-xs"
               />
             ) : (
-              <div className="h-8.5 w-8.5 rounded-full bg-gradient-to-br from-indigo-500 to-brand-blue flex items-center justify-center text-white font-bold text-xs shadow-xs group-hover:brightness-110">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-brand-blue flex items-center justify-center text-white font-bold text-xs shadow-xs group-hover:brightness-110">
                 {activeUser.name.split(' ').pop()?.charAt(0) || 'U'}
               </div>
             )}

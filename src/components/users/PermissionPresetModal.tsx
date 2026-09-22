@@ -328,7 +328,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Tìm kiếm mẫu quyền..."
-                      className="w-full pl-8.5 pr-3 py-1.5 bg-slate-100/80 hover:bg-slate-200/60 focus:bg-white border border-slate-200 rounded-xl text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue"
+                      className="w-full pl-9 pr-3 py-1.5 bg-slate-100/80 hover:bg-slate-200/60 focus:bg-white border border-slate-200 rounded-xl text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue"
                     />
                   </div>
                 </div>
