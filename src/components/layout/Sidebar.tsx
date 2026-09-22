@@ -31,23 +31,33 @@ export const Sidebar: React.FC = () => {
     hasPermission
   } = useDocument();
 
-  if (!activeUser) return null;
+  const isAdmin = activeUser?.role === 'ADMIN';
 
   // Quyền truy cập các khối
   const canViewDashboard = hasPermission('system.dashboard');
   const canViewDocs = hasPermission('doc.view') || hasPermission('doc.view_all');
   const canApprove = hasPermission('approval.approve') || hasPermission('approval.override');
-  const canViewCategory = hasPermission('category.view') || hasPermission('category.manage') || activeUser.role === 'ADMIN';
-  const canManageWorkflow = hasPermission('workflow.manage') || activeUser.role === 'ADMIN';
-  const canManageUsers = hasPermission('user.view') || hasPermission('user.create') || hasPermission('user.edit') || activeUser.role === 'ADMIN';
+  const canViewCategory = hasPermission('category.view') || hasPermission('category.manage') || isAdmin;
+  const canManageWorkflow = hasPermission('workflow.manage') || isAdmin;
+  const canManageUsers = hasPermission('user.view') || hasPermission('user.create') || hasPermission('user.edit') || isAdmin;
 
   // Quyền truy cập từng mục trong Dữ liệu & Báo cáo
-  const canViewReportSLA = hasPermission('report.sla') || activeUser.role === 'ADMIN';
-  const canViewReportAnalytics = hasPermission('report.analytics') || activeUser.role === 'ADMIN';
-  const canViewAuditLog = hasPermission('system.audit_log') || activeUser.role === 'ADMIN';
+  const canViewReportSLA = hasPermission('report.sla') || isAdmin;
+  const canViewReportAnalytics = hasPermission('report.analytics') || isAdmin;
+  const canViewAuditLog = hasPermission('system.audit_log') || isAdmin;
 
   // Tính toán số lượng badge thời gian thực
   const badgeCounts = useMemo(() => {
+    if (!activeUser) {
+      return {
+        myCreated: 0,
+        received: 0,
+        archive: 0,
+        myApprovedHistory: 0,
+        overdueCount: 0,
+        allTotal: 0
+      };
+    }
     const now = Date.now();
     const myCreated = documents.filter(d => d.creatorId === activeUser.id).length;
 
@@ -185,6 +195,8 @@ export const Sidebar: React.FC = () => {
       visible: canManageUsers,
     },
   ].filter(item => item.visible);
+
+  if (!activeUser) return null;
 
   return (
     <aside className="fixed left-0 top-16 bottom-0 w-60 bg-slate-900 text-slate-300 flex flex-col shrink-0 z-20 border-r border-slate-800 shadow-xl transition-all select-none">

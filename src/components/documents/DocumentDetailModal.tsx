@@ -58,6 +58,8 @@ export const DocumentDetailModal: React.FC = () => {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [isResubmitModalOpen, setIsResubmitModalOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [returnOverdueReason, setReturnOverdueReason] = useState('');
+  const [isReturningOverdue, setIsReturningOverdue] = useState(false);
 
   if (!selectedDocument || !activeUser) return null;
 
@@ -143,9 +145,6 @@ export const DocumentDetailModal: React.FC = () => {
     selectedDocument.creatorId === activeUser.id ||
     canUserOverseeAllDocuments(activeUser)
   );
-
-  const [returnOverdueReason, setReturnOverdueReason] = useState('');
-  const [isReturningOverdue, setIsReturningOverdue] = useState(false);
 
   const handleReturnOverdueSubmit = () => {
     const reason = returnOverdueReason.trim() || `Phòng ${currentStep?.department || ''} xử lý quá hạn cam kết SLA.`;
