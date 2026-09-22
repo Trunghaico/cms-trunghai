@@ -6,7 +6,7 @@ import {
   ListObjectsV2Command,
   HeadObjectCommand
 } from '@aws-sdk/client-s3';
-import { DocumentItem, User, DepartmentItem, JobTitleItem, NotificationItem, PermissionPreset } from '../types';
+import { DocumentItem, User, DepartmentItem, JobTitleItem, NotificationItem, PermissionPreset, WorkflowTemplate } from '../types';
 
 export const MINIO_ENDPOINT = import.meta.env.VITE_MINIO_ENDPOINT || 'http://trunghaico.synology.me:9000';
 export const MINIO_BUCKET = import.meta.env.VITE_MINIO_BUCKET || 'crm.trunghaico.vn';
@@ -22,18 +22,21 @@ export interface DatabaseSnapshot {
   departments: DepartmentItem[];
   jobTitles: JobTitleItem[];
   permissionPresets?: PermissionPreset[];
+  workflowTemplates?: WorkflowTemplate[];
   notifications?: NotificationItem[];
   deletedDocumentIds?: string[];
   deletedUserIds?: string[];
   deletedDepartmentIds?: string[];
   deletedJobTitleIds?: string[];
   deletedPresetIds?: string[];
+  deletedWorkflowTemplateIds?: string[];
   meta?: {
     totalDocuments: number;
     totalUsers: number;
     systemName: string;
   };
 }
+
 
 export interface NASBackupItem {
   key: string;
@@ -278,12 +281,14 @@ export const saveDatabaseToNAS = async (
     departments: DepartmentItem[];
     jobTitles: JobTitleItem[];
     permissionPresets?: PermissionPreset[];
+    workflowTemplates?: WorkflowTemplate[];
     notifications?: NotificationItem[];
     deletedDocumentIds?: string[];
     deletedUserIds?: string[];
     deletedDepartmentIds?: string[];
     deletedJobTitleIds?: string[];
     deletedPresetIds?: string[];
+    deletedWorkflowTemplateIds?: string[];
     savedBy?: string;
   }
 ): Promise<{ success: boolean; path?: string; message?: string }> => {
@@ -323,18 +328,21 @@ export const saveDatabaseToNAS = async (
       departments: snapshotData.departments,
       jobTitles: snapshotData.jobTitles,
       permissionPresets: snapshotData.permissionPresets || [],
+      workflowTemplates: snapshotData.workflowTemplates || [],
       notifications: snapshotData.notifications || [],
       deletedDocumentIds: snapshotData.deletedDocumentIds || [],
       deletedUserIds: snapshotData.deletedUserIds || [],
       deletedDepartmentIds: snapshotData.deletedDepartmentIds || [],
       deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],
       deletedPresetIds: snapshotData.deletedPresetIds || [],
+      deletedWorkflowTemplateIds: snapshotData.deletedWorkflowTemplateIds || [],
       meta: {
         totalDocuments: snapshotData.documents.length,
         totalUsers: snapshotData.users.length,
         systemName: 'TRUNGHAI CMS DOCUMENT APPROVAL SYSTEM'
       }
     };
+
 
     const jsonString = JSON.stringify(payload, null, 2);
     const textEncoder = new TextEncoder();

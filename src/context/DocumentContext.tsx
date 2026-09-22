@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog } from '../types';
+import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog, WorkflowTemplate, WorkflowStep } from '../types';
 import { 
   loadDocuments, 
   saveDocuments, 
@@ -7,7 +7,7 @@ import {
   saveNotifications, 
   loadActiveUser, 
   saveActiveUser,
-  loadUsers,
+  loadUsers, 
   saveUsers,
   loadDepartments,
   saveDepartments,
@@ -15,6 +15,8 @@ import {
   saveJobTitles,
   loadPermissionPresets,
   savePermissionPresets,
+  loadWorkflowTemplates,
+  saveWorkflowTemplates,
   loadDeletedUserIds,
   addDeletedUserId,
   removeDeletedUserId,
@@ -27,6 +29,9 @@ import {
   loadDeletedPresetIds,
   addDeletedPresetId,
   removeDeletedPresetId,
+  loadDeletedWorkflowTemplateIds,
+  addDeletedWorkflowTemplateId,
+  removeDeletedWorkflowTemplateId,
   loadDeletedDocumentIds,
   addDeletedDocumentId,
   removeDeletedDocumentId,
@@ -34,7 +39,8 @@ import {
   deduplicateUsers,
   deduplicateDepartments,
   deduplicateJobTitles,
-  deduplicatePresets
+  deduplicatePresets,
+  deduplicateWorkflowTemplates
 } from '../lib/storage';
 import {
   saveDatabaseToNAS,
@@ -49,7 +55,7 @@ import {
   NASBackupItem,
   DatabaseSnapshot
 } from '../lib/nasStorageService';
-import { USERS } from '../lib/initialData';
+import { USERS, WORKFLOW_TEMPLATES } from '../lib/initialData';
 import { 
   hasPermission as checkHasPermission, 
   hasAnyPermission as checkHasAnyPermission,
@@ -64,6 +70,7 @@ import {
   canUserPerformManagerApproval,
   isSameDepartment
 } from '../lib/permissions';
+
 
 interface DocumentContextType {
   users: User[];
@@ -107,6 +114,13 @@ interface DocumentContextType {
   updatePermissionPreset: (id: string, presetData: Partial<PermissionPreset>) => { success: boolean; message?: string };
   deletePermissionPreset: (id: string) => { success: boolean; message?: string };
   resetPermissionPresetsToDefault: () => void;
+
+  workflowTemplates: WorkflowTemplate[];
+  createWorkflowTemplate: (templateData: { name: string; description: string; category: string; steps: WorkflowStep[] }) => { success: boolean; message?: string; template?: WorkflowTemplate };
+  updateWorkflowTemplate: (id: string, templateData: Partial<WorkflowTemplate>) => { success: boolean; message?: string };
+  deleteWorkflowTemplate: (id: string) => { success: boolean; message?: string };
+  resetWorkflowTemplatesToDefault: () => void;
+
 
   documents: DocumentItem[];
   notifications: NotificationItem[];
@@ -166,6 +180,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [departments, setDepartments] = useState<DepartmentItem[]>(() => loadDepartments());
   const [jobTitles, setJobTitles] = useState<JobTitleItem[]>(() => loadJobTitles());
   const [permissionPresets, setPermissionPresets] = useState<PermissionPreset[]>(() => loadPermissionPresets());
+  const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>(() => loadWorkflowTemplates());
   const [activeUser, setActiveUserState] = useState<User | null>(() => loadActiveUser());
   const [documents, setDocuments] = useState<DocumentItem[]>(() => loadDocuments());
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => loadNotifications());
@@ -216,6 +231,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     savePermissionPresets(permissionPresets);
   }, [permissionPresets]);
+
+  // Sync workflow templates to storage
+  useEffect(() => {
+    saveWorkflowTemplates(workflowTemplates);
+  }, [workflowTemplates]);
+
 
   // Sync documents to storage
   useEffect(() => {
@@ -402,6 +423,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const cleanDepts = deduplicateDepartments(departments);
       const cleanJobs = deduplicateJobTitles(jobTitles);
       const cleanPresets = deduplicatePresets(permissionPresets);
+      const cleanWfs = deduplicateWorkflowTemplates(workflowTemplates);
 
       const res = await saveDatabaseToNAS({
         documents,
@@ -409,11 +431,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         departments: cleanDepts,
         jobTitles: cleanJobs,
         permissionPresets: cleanPresets,
+        workflowTemplates: cleanWfs,
         notifications,
         deletedUserIds: loadDeletedUserIds(),
         deletedDepartmentIds: loadDeletedDeptIds(),
         deletedJobTitleIds: loadDeletedJobIds(),
         deletedPresetIds: loadDeletedPresetIds(),
+        deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
         savedBy: isAuto ? 'Tự động sao lưu hệ thống' : (activeUser?.name || 'Tài khoản quản trị'),
       });
       if (res.success) {
@@ -439,7 +463,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isSyncInProgress.current = false;
       return { success: false, message: e.message || 'Lỗi không xác định khi đồng bộ lên NAS' };
     }
-  }, [documents, users, departments, jobTitles, permissionPresets, notifications, activeUser, autoBackupConfig.intervalMinutes]);
+  }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, activeUser, autoBackupConfig.intervalMinutes]);
 
   // Lưu tức thời và đồng bộ vào Database (MinIO NAS + localStorage)
   const persistStateToDatabase = useCallback(async (overrides?: {
@@ -447,6 +471,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     departments?: DepartmentItem[];
     jobTitles?: JobTitleItem[];
     permissionPresets?: PermissionPreset[];
+    workflowTemplates?: WorkflowTemplate[];
     documents?: DocumentItem[];
     notifications?: NotificationItem[];
     actionDescription?: string;
@@ -455,6 +480,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const targetDepts = deduplicateDepartments(overrides?.departments || departments);
     const targetJobs = deduplicateJobTitles(overrides?.jobTitles || jobTitles);
     const targetPresets = deduplicatePresets(overrides?.permissionPresets || permissionPresets);
+    const targetWorkflowTemplates = deduplicateWorkflowTemplates(overrides?.workflowTemplates || workflowTemplates);
     const targetDocs = overrides?.documents || documents;
     const targetNotifs = overrides?.notifications || notifications;
 
@@ -463,6 +489,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (overrides?.departments) saveDepartments(targetDepts);
     if (overrides?.jobTitles) saveJobTitles(targetJobs);
     if (overrides?.permissionPresets) savePermissionPresets(targetPresets);
+    if (overrides?.workflowTemplates) saveWorkflowTemplates(targetWorkflowTemplates);
     if (overrides?.documents) saveDocuments(targetDocs);
     if (overrides?.notifications) saveNotifications(targetNotifs);
 
@@ -476,12 +503,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         departments: targetDepts,
         jobTitles: targetJobs,
         permissionPresets: targetPresets,
+        workflowTemplates: targetWorkflowTemplates,
         notifications: targetNotifs,
         deletedDocumentIds: loadDeletedDocumentIds(),
         deletedUserIds: loadDeletedUserIds(),
         deletedDepartmentIds: loadDeletedDeptIds(),
         deletedJobTitleIds: loadDeletedJobIds(),
         deletedPresetIds: loadDeletedPresetIds(),
+        deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
         savedBy: overrides?.actionDescription || (activeUser?.name ? `${activeUser.name} (${activeUser.roleTitle})` : 'Tài khoản quản trị'),
       });
       if (res.success) {
@@ -500,7 +529,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setNasSyncStatus('error');
       return { success: false, message: e.message };
     }
-  }, [users, departments, jobTitles, permissionPresets, documents, notifications, activeUser]);
+  }, [users, departments, jobTitles, permissionPresets, workflowTemplates, documents, notifications, activeUser]);
 
   // Sync state from NAS
   const syncFromNAS = useCallback(async (backupKey?: string): Promise<{ success: boolean; message: string }> => {
@@ -529,6 +558,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (Array.isArray(snapshot.deletedPresetIds)) {
         snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
       }
+      if (Array.isArray(snapshot.deletedWorkflowTemplateIds)) {
+        snapshot.deletedWorkflowTemplateIds.forEach(id => addDeletedWorkflowTemplateId(id));
+      }
 
       if (Array.isArray(snapshot.documents)) {
         const cleanDocs = deduplicateDocuments(snapshot.documents);
@@ -554,6 +586,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const cleanPresets = deduplicatePresets(snapshot.permissionPresets);
         setPermissionPresets(cleanPresets);
         savePermissionPresets(cleanPresets);
+      }
+      if (Array.isArray(snapshot.workflowTemplates) && snapshot.workflowTemplates.length > 0) {
+        const cleanWfs = deduplicateWorkflowTemplates(snapshot.workflowTemplates);
+        setWorkflowTemplates(cleanWfs);
+        saveWorkflowTemplates(cleanWfs);
       }
       if (Array.isArray(snapshot.notifications)) {
         setNotifications(snapshot.notifications);
@@ -608,6 +645,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (Array.isArray(snapshot.deletedPresetIds)) {
               snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
             }
+            if (Array.isArray(snapshot.deletedWorkflowTemplateIds)) {
+              snapshot.deletedWorkflowTemplateIds.forEach(id => addDeletedWorkflowTemplateId(id));
+            }
 
             // MERGE & DEDUPLICATE USERS:
             const localUsers = loadUsers();
@@ -628,6 +668,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const localPresets = loadPermissionPresets();
             const snapPresets = Array.isArray(snapshot.permissionPresets) ? snapshot.permissionPresets : [];
             const mergedPresets = deduplicatePresets([...localPresets, ...snapPresets]);
+
+            // MERGE & DEDUPLICATE WORKFLOW TEMPLATES:
+            const localWfs = loadWorkflowTemplates();
+            const snapWfs = Array.isArray(snapshot.workflowTemplates) ? snapshot.workflowTemplates : [];
+            const mergedWfs = deduplicateWorkflowTemplates([...localWfs, ...snapWfs]);
 
             // MERGE DOCUMENTS:
             const localDocs = loadDocuments();
@@ -654,12 +699,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setDepartments(mergedDepts);
             setJobTitles(mergedJobs);
             setPermissionPresets(mergedPresets);
+            setWorkflowTemplates(mergedWfs);
             setDocuments(mergedDocs);
 
             saveUsers(mergedUsers);
             saveDepartments(mergedDepts);
             saveJobTitles(mergedJobs);
             savePermissionPresets(mergedPresets);
+            saveWorkflowTemplates(mergedWfs);
             saveDocuments(mergedDocs);
 
             const nowStr = new Date().toISOString();
@@ -672,6 +719,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 mergedDepts.length > snapDepts.length || 
                 mergedJobs.length > snapJobs.length ||
                 mergedPresets.length > snapPresets.length ||
+                mergedWfs.length > snapWfs.length ||
                 mergedDocs.length > snapDocs.length) {
               saveDatabaseToNAS({
                 documents: mergedDocs,
@@ -679,12 +727,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 departments: mergedDepts,
                 jobTitles: mergedJobs,
                 permissionPresets: mergedPresets,
+                workflowTemplates: mergedWfs,
                 notifications,
                 deletedDocumentIds: loadDeletedDocumentIds(),
                 deletedUserIds: loadDeletedUserIds(),
                 deletedDepartmentIds: loadDeletedDeptIds(),
                 deletedJobTitleIds: loadDeletedJobIds(),
                 deletedPresetIds: loadDeletedPresetIds(),
+                deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
                 savedBy: 'Đồng bộ gộp dữ liệu khởi động'
               }).catch(e => console.warn('Lưu snapshot gộp lên NAS:', e));
             }
@@ -696,12 +746,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               departments,
               jobTitles,
               permissionPresets,
+              workflowTemplates,
               notifications,
               deletedDocumentIds: loadDeletedDocumentIds(),
               deletedUserIds: loadDeletedUserIds(),
               deletedDepartmentIds: loadDeletedDeptIds(),
               deletedJobTitleIds: loadDeletedJobIds(),
               deletedPresetIds: loadDeletedPresetIds(),
+              deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
               savedBy: 'Khởi tạo hệ thống ban đầu'
             }).catch(e => console.warn('Khởi tạo baseline NAS:', e));
           }
@@ -712,6 +764,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isInitialLoadDone.current = true;
       }
     };
+
     initNASAndDB();
     return () => {
       isMounted = false;
@@ -1338,6 +1391,104 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       actionDescription: 'Khôi phục mẫu phân quyền hệ thống về mặc định'
     });
   };
+
+  // Workflow Template Management (BPM Workflow Engine)
+  const createWorkflowTemplate = (templateData: { name: string; description: string; category: string; steps: WorkflowStep[] }): { success: boolean; message?: string; template?: WorkflowTemplate } => {
+    const trimmedName = templateData.name.trim();
+    const trimmedCat = templateData.category.trim();
+    if (!trimmedName || !trimmedCat) {
+      return { success: false, message: 'Vui lòng nhập tên quy trình và loại hồ sơ áp dụng.' };
+    }
+    if (!Array.isArray(templateData.steps) || templateData.steps.length === 0) {
+      return { success: false, message: 'Quy trình phải có ít nhất 01 bước phê duyệt.' };
+    }
+    if (workflowTemplates.some(w => w.name.toLowerCase() === trimmedName.toLowerCase())) {
+      return { success: false, message: 'Tên mẫu quy trình này đã tồn tại.' };
+    }
+
+    const newTemplate: WorkflowTemplate = {
+      id: `wf-${Date.now()}`,
+      name: trimmedName,
+      description: templateData.description.trim(),
+      category: trimmedCat,
+      steps: templateData.steps.map((s, idx) => ({ ...s, order: idx + 1 })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    removeDeletedWorkflowTemplateId(newTemplate.id);
+    const updated = [...workflowTemplates, newTemplate];
+    setWorkflowTemplates(updated);
+    saveWorkflowTemplates(updated);
+    persistStateToDatabase({
+      workflowTemplates: updated,
+      actionDescription: `Tạo quy trình ký mới: ${newTemplate.name}`
+    });
+    return { success: true, template: newTemplate };
+  };
+
+  const updateWorkflowTemplate = (id: string, templateData: Partial<WorkflowTemplate>): { success: boolean; message?: string } => {
+    const target = workflowTemplates.find(w => w.id === id);
+    if (!target) return { success: false, message: 'Không tìm thấy mẫu quy trình ký.' };
+
+    if (templateData.name) {
+      const trimmedName = templateData.name.trim();
+      if (workflowTemplates.some(w => w.id !== id && w.name.toLowerCase() === trimmedName.toLowerCase())) {
+        return { success: false, message: 'Tên mẫu quy trình này đã được sử dụng.' };
+      }
+    }
+
+    const updated = workflowTemplates.map(w => {
+      if (w.id !== id) return w;
+      const steps = templateData.steps ? templateData.steps.map((s, idx) => ({ ...s, order: idx + 1 })) : w.steps;
+      return {
+        ...w,
+        ...templateData,
+        name: templateData.name ? templateData.name.trim() : w.name,
+        category: templateData.category ? templateData.category.trim() : w.category,
+        description: templateData.description !== undefined ? templateData.description.trim() : w.description,
+        steps,
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    setWorkflowTemplates(updated);
+    saveWorkflowTemplates(updated);
+    persistStateToDatabase({
+      workflowTemplates: updated,
+      actionDescription: `Cập nhật quy trình ký: ${templateData.name || target.name}`
+    });
+    return { success: true };
+  };
+
+  const deleteWorkflowTemplate = (id: string): { success: boolean; message?: string } => {
+    const target = workflowTemplates.find(w => w.id === id);
+    if (!target) return { success: false, message: 'Không tìm thấy mẫu quy trình ký.' };
+
+    addDeletedWorkflowTemplateId(id);
+    const updated = workflowTemplates.filter(w => w.id !== id);
+    setWorkflowTemplates(updated);
+    saveWorkflowTemplates(updated);
+    persistStateToDatabase({
+      workflowTemplates: updated,
+      actionDescription: `Xóa quy trình ký: ${target.name}`
+    });
+    return { success: true };
+  };
+
+  const resetWorkflowTemplatesToDefault = () => {
+    const defaults = WORKFLOW_TEMPLATES.map(w => ({ ...w }));
+    defaults.forEach(w => removeDeletedWorkflowTemplateId(w.id));
+    const nonDefault = workflowTemplates.filter(w => !WORKFLOW_TEMPLATES.some(dw => dw.id === w.id));
+    const merged = deduplicateWorkflowTemplates([...defaults, ...nonDefault]);
+    setWorkflowTemplates(merged);
+    saveWorkflowTemplates(merged);
+    persistStateToDatabase({
+      workflowTemplates: merged,
+      actionDescription: 'Khôi phục quy trình ký hệ thống về mặc định'
+    });
+  };
+
 
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -2100,7 +2251,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updatePermissionPreset,
         deletePermissionPreset,
         resetPermissionPresetsToDefault,
+        workflowTemplates,
+        createWorkflowTemplate,
+        updateWorkflowTemplate,
+        deleteWorkflowTemplate,
+        resetWorkflowTemplatesToDefault,
         documents: accessibleDocuments,
+
         notifications: userNotifications,
         unreadNotificationCount,
         markNotificationAsRead,

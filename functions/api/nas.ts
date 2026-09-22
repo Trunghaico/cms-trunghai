@@ -355,12 +355,14 @@ export async function onRequest(context: any): Promise<Response> {
         departments: snapshotData.departments || [],
         jobTitles: snapshotData.jobTitles || [],
         permissionPresets: snapshotData.permissionPresets || [],
+        workflowTemplates: snapshotData.workflowTemplates || [],
         notifications: snapshotData.notifications || [],
         deletedDocumentIds: snapshotData.deletedDocumentIds || [],
         deletedUserIds: snapshotData.deletedUserIds || [],
         deletedDepartmentIds: snapshotData.deletedDepartmentIds || [],
         deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],
         deletedPresetIds: snapshotData.deletedPresetIds || [],
+        deletedWorkflowTemplateIds: snapshotData.deletedWorkflowTemplateIds || [],
         meta: {
           totalDocuments: (snapshotData.documents || []).length,
           totalUsers: (snapshotData.users || []).length,
@@ -414,8 +416,10 @@ export async function onRequest(context: any): Promise<Response> {
         saveEntity('users', snapshotData.users || []),
         saveEntity('departments', snapshotData.departments || []),
         saveEntity('job_titles', snapshotData.jobTitles || []),
-        saveEntity('permission_presets', snapshotData.permissionPresets || [])
+        saveEntity('permission_presets', snapshotData.permissionPresets || []),
+        saveEntity('workflow_templates', snapshotData.workflowTemplates || [])
       ]);
+
 
       return new Response(JSON.stringify({
         success: true,

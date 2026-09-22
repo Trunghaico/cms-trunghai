@@ -19,17 +19,19 @@ import {
   Plus,
   ShieldCheck,
   User as UserIcon,
-  Clock
+  Clock,
+  GitFork,
+  CheckCircle2
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { ApprovalStep, DocumentStatus, Attachment, User, UserRole, OverdueAction } from '../../types';
+import { ApprovalStep, DocumentStatus, Attachment, User, UserRole, OverdueAction, WorkflowTemplate } from '../../types';
 import { QuillEditor } from '../common/QuillEditor';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { uploadFileToNAS } from '../../lib/nasStorageService';
 
 export type ApproverItem = 
   | { type: 'USER'; user: User; title?: string; slaHours?: number; overdueAction?: OverdueAction }
-  | { type: 'DEPARTMENT'; departmentName: string; departmentCode: string; title?: string; slaHours?: number; overdueAction?: OverdueAction; isInternalCheck?: boolean };
+  | { type: 'DEPARTMENT'; departmentName: string; departmentCode: string; title?: string; slaHours?: number; overdueAction?: OverdueAction; isInternalCheck?: boolean; requiresInternalCheck?: boolean };
 
 export const CreateDocumentModal: React.FC = () => {
   const { 
@@ -38,11 +40,13 @@ export const CreateDocumentModal: React.FC = () => {
     createDocument, 
     activeUser, 
     users, 
-    departments: systemDepts 
+    departments: systemDepts,
+    workflowTemplates = []
   } = useDocument();
 
-  // 1. Loại hồ sơ
+  // 1. Loại hồ sơ & Mẫu quy trình BPM
   const [category, setCategory] = useState('Hợp đồng kinh tế');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [code, setCode] = useState(`HĐ-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -109,6 +113,66 @@ export const CreateDocumentModal: React.FC = () => {
     return fromUsers.map((name, idx) => ({ id: `dept-${idx}`, name, code: `PB${idx+1}`, defaultSlaHours: 8 }));
   }, [systemDepts, users]);
 
+  // Danh sách các loại hồ sơ khả dụng (Bao gồm các mẫu mới được thêm vào)
+  const availableCategories = useMemo(() => {
+    const defaultList = [
+      'Hợp đồng kinh tế',
+      'Tờ trình phê duyệt',
+      'Đề xuất thanh toán',
+      'Biên bản nghiệm thu',
+      'Văn bản nội bộ'
+    ];
+    const fromWf = workflowTemplates.map(w => w.category).filter(Boolean);
+    return Array.from(new Set([...defaultList, ...fromWf]));
+  }, [workflowTemplates]);
+
+  // Áp dụng Mẫu quy trình BPM
+  const handleApplyTemplate = useCallback((templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const tpl = workflowTemplates.find(w => w.id === templateId);
+    if (!tpl) return;
+
+    // Cập nhật loại hồ sơ theo mẫu
+    setCategory(tpl.category);
+    const prefix = tpl.category.includes('Hợp đồng') ? 'HĐ' :
+                   tpl.category.includes('Tờ trình') ? 'TTr' :
+                   tpl.category.includes('thanh toán') ? 'BB' : 'VB';
+    setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
+
+    // Tự động điền chuỗi duyệt từ mẫu
+    const mappedSteps: ApproverItem[] = tpl.steps.map(s => {
+      const deptObj = systemDepts?.find(d => d.name.toLowerCase() === s.department.toLowerCase());
+      const dName = s.department;
+      const isBoard = dName.toLowerCase().startsWith('ban ') || 
+                      dName.toLowerCase().includes('ban qlda') || 
+                      dName.toLowerCase().includes('ban kiểm soát') ||
+                      dName.toLowerCase().includes('ban điều hành');
+      return {
+        type: 'DEPARTMENT',
+        departmentName: dName,
+        departmentCode: deptObj?.code || 'PB',
+        title: s.title || (isBoard ? `Ban ${dName}` : `Phòng ${dName}`),
+        slaHours: s.slaHours || deptObj?.defaultSlaHours || getDeptDefaultSla(dName),
+        overdueAction: docOverdueAction,
+        isInternalCheck: !!s.isInternalCheck,
+        requiresInternalCheck: !!s.isInternalCheck
+      };
+    });
+
+    setSelectedApprovers(mappedSteps);
+  }, [workflowTemplates, systemDepts, docOverdueAction, getDeptDefaultSla]);
+
+  // Tự động áp dụng mẫu quy trình đầu tiên khi mở modal nếu chưa có cấp duyệt
+  useEffect(() => {
+    if (isCreateModalOpen && selectedApprovers.length === 0 && workflowTemplates.length > 0) {
+      const defaultTpl = workflowTemplates.find(w => w.category.toLowerCase() === category.toLowerCase()) || workflowTemplates[0];
+      if (defaultTpl) {
+        handleApplyTemplate(defaultTpl.id);
+      }
+    }
+  }, [isCreateModalOpen, workflowTemplates, category, selectedApprovers.length, handleApplyTemplate]);
+
   // Handle outside clicks for search dropdowns
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -140,7 +204,16 @@ export const CreateDocumentModal: React.FC = () => {
                    newCat.includes('Tờ trình') ? 'TTr' :
                    newCat.includes('thanh toán') ? 'BB' : 'VB';
     setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
+
+    // Tự động tìm quy trình phù hợp với loại hồ sơ này
+    const matchingTpl = workflowTemplates.find(w => w.category.toLowerCase() === newCat.toLowerCase());
+    if (matchingTpl) {
+      handleApplyTemplate(matchingTpl.id);
+    } else {
+      setSelectedTemplateId('');
+    }
   };
+
 
   // Thêm người duyệt là CÁ NHÂN
   const handleAddUserApprover = (user: User) => {
@@ -513,6 +586,55 @@ export const CreateDocumentModal: React.FC = () => {
             </div>
           )}
 
+          {/* QUICK BPM WORKFLOW TEMPLATE SELECTOR (CHỌN NHANH QUY TRÌNH KÝ THEO LOẠI HỒ SƠ) */}
+          <div className="bg-gradient-to-r from-slate-900 via-brand-navy to-blue-950 p-4 rounded-[4px] border border-blue-800 text-white shadow-sm space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-white/10 rounded-[3px] text-amber-400">
+                  <GitFork className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-xs flex items-center gap-2">
+                    <span className="text-white">Mẫu Quy Trình Ký Chuẩn (BPM Engine)</span>
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-amber-400 text-slate-950 rounded">
+                      Tự Động Điền Form
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Chọn mẫu quy trình tương ứng với Loại hồ sơ để nạp sẵn chuỗi phòng ban duyệt & SLA chuẩn
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 min-w-[260px]">
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => handleApplyTemplate(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900/90 border border-blue-400/50 hover:border-amber-400 rounded text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer shadow-inner"
+                >
+                  <option value="">-- Chọn Mẫu Quy Trình Ký Nhanh --</option>
+                  {workflowTemplates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>
+                      ⚡ [{tpl.category}] {tpl.name} ({tpl.steps.length} bước)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {selectedTemplateId && (
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-emerald-300 font-semibold">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  Đang áp dụng mẫu: <strong>{workflowTemplates.find(w => w.id === selectedTemplateId)?.name}</strong>
+                </span>
+                <span className="text-slate-300">
+                  {selectedApprovers.length} cấp phê duyệt • Tổng SLA: {selectedApprovers.reduce((sum, s) => sum + (s.slaHours || 0), 0)}h
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* SECTION 1: THÔNG TIN HỒ SƠ */}
           <div className="bg-slate-50/80 p-4 rounded-[4px] border border-slate-200 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -525,13 +647,12 @@ export const CreateDocumentModal: React.FC = () => {
                   onChange={(e) => handleCategoryChange(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-[3px] font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-blue cursor-pointer"
                 >
-                  <option value="Hợp đồng kinh tế">Hợp đồng kinh tế (Mua bán, Dịch vụ, Thi công)</option>
-                  <option value="Tờ trình phê duyệt">Tờ trình phê duyệt (Kế hoạch, Chủ trương đầu tư)</option>
-                  <option value="Đề xuất thanh toán">Đề xuất thanh toán / Tạm ứng hợp đồng</option>
-                  <option value="Biên bản nghiệm thu">Biên bản nghiệm thu & Bàn giao dự án</option>
-                  <option value="Văn bản nội bộ">Văn bản nội bộ / Đề xuất hành chính</option>
+                  {availableCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
+
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">

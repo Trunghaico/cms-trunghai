@@ -216,21 +216,26 @@ export interface NotificationItem {
   overdueHours?: number;      // Số giờ quá hạn (nếu có)
 }
 
+export interface WorkflowStep {
+  order: number;
+  title: string;
+  role: UserRole;
+  roleTitle: string;
+  department: string;
+  slaHours: number;
+  isInternalCheck?: boolean;
+}
+
 export interface WorkflowTemplate {
   id: string;
   name: string;
   description: string;
   category: string;
-  steps: {
-    order: number;
-    title: string;
-    role: UserRole;
-    roleTitle: string;
-    department: string;
-    slaHours: number;
-    isInternalCheck?: boolean;
-  }[];
+  steps: WorkflowStep[];
+  createdAt?: string;
+  updatedAt?: string;
 }
+
 
 export interface DepartmentItem {
   id: string;

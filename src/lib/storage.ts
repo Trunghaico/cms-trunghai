@@ -1,5 +1,5 @@
-import { DocumentItem, NotificationItem, User, DepartmentItem, JobTitleItem, PermissionPreset } from '../types';
-import { INITIAL_DOCUMENTS, INITIAL_NOTIFICATIONS, USERS, INITIAL_DEPARTMENTS, INITIAL_JOB_TITLES } from './initialData';
+import { DocumentItem, NotificationItem, User, DepartmentItem, JobTitleItem, PermissionPreset, WorkflowTemplate } from '../types';
+import { INITIAL_DOCUMENTS, INITIAL_NOTIFICATIONS, USERS, INITIAL_DEPARTMENTS, INITIAL_JOB_TITLES, WORKFLOW_TEMPLATES } from './initialData';
 import { ROLE_PRESET_PERMISSIONS, DEFAULT_PERMISSION_PRESETS } from './permissions';
 
 const STORAGE_KEY_DOCS = 'trunghai_documents_v1';
@@ -9,11 +9,14 @@ const STORAGE_KEY_USERS_DB = 'trunghai_users_db_v1';
 const STORAGE_KEY_DEPTS = 'trunghai_departments_v1';
 const STORAGE_KEY_JOB_TITLES = 'trunghai_job_titles_v1';
 const STORAGE_KEY_PRESETS = 'trunghai_permission_presets_v1';
+const STORAGE_KEY_WF_TEMPLATES = 'trunghai_workflow_templates_v1';
 const STORAGE_KEY_DELETED_USERS = 'trunghai_deleted_users_v1';
 const STORAGE_KEY_DELETED_DEPTS = 'trunghai_deleted_depts_v1';
 const STORAGE_KEY_DELETED_JOBS = 'trunghai_deleted_jobs_v1';
 const STORAGE_KEY_DELETED_PRESETS = 'trunghai_deleted_presets_v1';
 const STORAGE_KEY_DELETED_DOCS = 'trunghai_deleted_documents_v1';
+const STORAGE_KEY_DELETED_WF_TEMPLATES = 'trunghai_deleted_wf_templates_v1';
+
 
 export const loadDeletedDocumentIds = (): string[] => {
   try {
@@ -169,6 +172,38 @@ export const removeDeletedPresetId = (id: string) => {
     console.error('Failed to remove deleted preset id', e);
   }
 };
+
+export const loadDeletedWorkflowTemplateIds = (): string[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_DELETED_WF_TEMPLATES);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const addDeletedWorkflowTemplateId = (id: string) => {
+  try {
+    if (!id) return;
+    const current = new Set(loadDeletedWorkflowTemplateIds().map(s => s.toLowerCase()));
+    current.add(id.toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DELETED_WF_TEMPLATES, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.error('Failed to save deleted workflow template id', e);
+  }
+};
+
+export const removeDeletedWorkflowTemplateId = (id: string) => {
+  try {
+    if (!id) return;
+    const current = new Set(loadDeletedWorkflowTemplateIds().map(s => s.toLowerCase()));
+    current.delete(id.toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DELETED_WF_TEMPLATES, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.error('Failed to remove deleted workflow template id', e);
+  }
+};
+
 
 /**
  * Chuẩn hóa và loại bỏ hoàn toàn trùng lặp trong danh sách người dùng.
@@ -428,6 +463,66 @@ export const savePermissionPresets = (presets: PermissionPreset[]) => {
     console.error('Failed to save permission presets', e);
   }
 };
+
+/**
+ * Chuẩn hóa và loại bỏ trùng lặp trong danh sách mẫu quy trình ký (Workflow Templates).
+ * Lọc bỏ các quy trình đã bị người dùng xóa.
+ */
+export const deduplicateWorkflowTemplates = (templatesList: WorkflowTemplate[]): WorkflowTemplate[] => {
+  if (!Array.isArray(templatesList)) return [];
+  const deletedSet = new Set(loadDeletedWorkflowTemplateIds().map(s => s.toLowerCase()));
+  const map = new Map<string, WorkflowTemplate>();
+
+  for (const t of templatesList) {
+    if (!t || !t.id || !t.name) continue;
+    const idLower = t.id.toLowerCase();
+    if (deletedSet.has(idLower)) continue;
+    map.set(idLower, t);
+  }
+  return Array.from(map.values());
+};
+
+export const loadWorkflowTemplates = (): WorkflowTemplate[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_WF_TEMPLATES);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const deletedSet = new Set(loadDeletedWorkflowTemplateIds().map(s => s.toLowerCase()));
+        const map = new Map<string, WorkflowTemplate>();
+
+        // 1. Nạp baseline các mẫu mặc định ban đầu
+        for (const def of WORKFLOW_TEMPLATES) {
+          if (!deletedSet.has(def.id.toLowerCase())) {
+            map.set(def.id.toLowerCase(), def);
+          }
+        }
+        // 2. Ghi đè các cập nhật hoặc mẫu tùy chọn mới do người dùng lưu
+        for (const t of parsed) {
+          if (t && t.id && !deletedSet.has(t.id.toLowerCase())) {
+            map.set(t.id.toLowerCase(), t);
+          }
+        }
+        return Array.from(map.values());
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load workflow templates', e);
+  }
+  const initial = deduplicateWorkflowTemplates(WORKFLOW_TEMPLATES);
+  saveWorkflowTemplates(initial);
+  return initial;
+};
+
+export const saveWorkflowTemplates = (templates: WorkflowTemplate[]) => {
+  try {
+    const clean = deduplicateWorkflowTemplates(templates);
+    localStorage.setItem(STORAGE_KEY_WF_TEMPLATES, JSON.stringify(clean));
+  } catch (e) {
+    console.error('Failed to save workflow templates', e);
+  }
+};
+
 
 export const deduplicateDocuments = (docsList: DocumentItem[]): DocumentItem[] => {
   if (!Array.isArray(docsList)) return [];
