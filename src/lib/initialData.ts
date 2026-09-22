@@ -102,10 +102,10 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Hợp đồng kinh tế',
     description: 'Áp dụng cho mọi hợp đồng mua sắm vật tư, thiết bị, gói thầu có giá trị trên 100.000.000 VNĐ',
     steps: [
-      { order: 1, title: 'Kiểm tra kỹ thuật & phạm vi', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 8 },
-      { order: 2, title: 'Thẩm định điều khoản pháp lý & Rủi ro', role: 'LEGAL_DEPT', roleTitle: 'Pháp chế', department: 'Ban Pháp chế & Kiểm soát', slaHours: 12 },
-      { order: 3, title: 'Kiểm soát ngân sách & Điều khoản thanh toán', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 8 },
-      { order: 4, title: 'Phê duyệt & Ký số Hợp đồng', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 24 },
+      { order: 1, title: 'Kiểm tra kỹ thuật & phạm vi', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
+      { order: 2, title: 'Thẩm định điều khoản pháp lý & Rủi ro', role: 'LEGAL_DEPT', roleTitle: 'Pháp chế', department: 'Ban Pháp chế & Kiểm soát', slaHours: 12, overdueAction: 'WARN_AND_RETURN' },
+      { order: 3, title: 'Kiểm soát ngân sách & Điều khoản thanh toán', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
+      { order: 4, title: 'Phê duyệt & Ký số Hợp đồng', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 24, overdueAction: 'WARN_AND_RETURN' },
     ]
   },
   {
@@ -114,9 +114,9 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Tờ trình phê duyệt',
     description: 'Dành cho tờ trình mua sắm nội bộ, chi phí công tác, nâng cấp hạ tầng',
     steps: [
-      { order: 1, title: 'Xác nhận sự cần thiết & Kế hoạch', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Bộ phận', department: 'Phòng ban đề xuất', slaHours: 8 },
-      { order: 2, title: 'Thẩm định định mức chi & Nguồn vốn', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 8 },
-      { order: 3, title: 'Phê duyệt hạn mức thực hiện', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 16 },
+      { order: 1, title: 'Xác nhận sự cần thiết & Kế hoạch', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Bộ phận', department: 'Phòng ban đề xuất', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
+      { order: 2, title: 'Thẩm định định mức chi & Nguồn vốn', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
+      { order: 3, title: 'Phê duyệt hạn mức thực hiện', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 16, overdueAction: 'WARN_AND_RETURN' },
     ]
   },
   {
@@ -125,9 +125,9 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Hồ sơ thanh toán',
     description: 'Thanh toán tiền hàng nhà cung cấp, tạm ứng hợp đồng, hoàn ứng công tác',
     steps: [
-      { order: 1, title: 'Đối soát khối lượng nghiệm thu', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 4 },
-      { order: 2, title: 'Kiểm tra hóa đơn chứng từ hợp lệ', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 4 },
-      { order: 3, title: 'Duyệt chi chuyển khoản / Tiền mặt', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 8 },
+      { order: 1, title: 'Đối soát khối lượng nghiệm thu', role: 'DEPT_HEAD', roleTitle: 'Trưởng phòng Dự án', department: 'Phòng Kỹ thuật & Dự án', slaHours: 4, overdueAction: 'WARN_AND_RETURN' },
+      { order: 2, title: 'Kiểm tra hóa đơn chứng từ hợp lệ', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'Phòng Tài chính Kế toán', slaHours: 4, overdueAction: 'WARN_AND_RETURN' },
+      { order: 3, title: 'Duyệt chi chuyển khoản / Tiền mặt', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'Ban Giám đốc', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
     ]
   }
 ];
@@ -770,6 +770,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     code: 'KTDA',
     description: 'Chịu trách nhiệm quản lý dự án, giải pháp kỹ thuật, giám sát thi công và nghiệm thu công trình.',
     defaultSlaHours: 8,
+    defaultOverdueAction: 'WARN_AND_RETURN',
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -778,6 +779,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     code: 'TCKT',
     description: 'Quản lý dòng tiền, quyết toán thuế, thẩm tra hồ sơ thanh toán và kiểm soát ngân sách chi tiêu.',
     defaultSlaHours: 8,
+    defaultOverdueAction: 'WARN_AND_RETURN',
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -786,6 +788,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     code: 'BQLDA',
     description: 'Chỉ đạo, điều hành toàn diện công tác quản lý dự án, giám sát chất lượng và tiến độ thi công.',
     defaultSlaHours: 12,
+    defaultOverdueAction: 'WARN_AND_RETURN',
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -794,6 +797,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     code: 'PCKS',
     description: 'Thẩm định tính pháp lý hợp đồng kinh tế, quản trị rủi ro và kiểm soát tuân thủ nội bộ.',
     defaultSlaHours: 12,
+    defaultOverdueAction: 'WARN_AND_RETURN',
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -802,6 +806,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     code: 'BGD',
     description: 'Ban điều hành cao nhất công ty, phê duyệt chủ trương, hợp đồng lớn và chiến lược kinh doanh.',
     defaultSlaHours: 24,
+    defaultOverdueAction: 'WARN_AND_RETURN',
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -810,6 +815,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     code: 'CNTT',
     description: 'Quản trị hệ thống máy chủ, an ninh mạng, phần mềm nghiệp vụ và chuyển đổi số.',
     defaultSlaHours: 8,
+    defaultOverdueAction: 'WARN_AND_RETURN',
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -818,6 +824,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     code: 'CUVT',
     description: 'Tìm kiếm nhà cung cấp, đấu thầu mua sắm thiết bị máy móc và quản trị kho vận.',
     defaultSlaHours: 8,
+    defaultOverdueAction: 'WARN_AND_RETURN',
     createdAt: '2026-01-01T08:00:00+07:00'
   },
   {
@@ -826,6 +833,7 @@ export const INITIAL_DEPARTMENTS: DepartmentItem[] = [
     code: 'HCNS',
     description: 'Quản trị nhân lực, tuyển dụng, đào tạo, chế độ chính sách và công tác hành chính văn phòng.',
     defaultSlaHours: 8,
+    defaultOverdueAction: 'WARN_AND_RETURN',
     createdAt: '2026-01-01T08:00:00+07:00'
   }
 ];

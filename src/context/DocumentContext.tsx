@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog, WorkflowTemplate, WorkflowStep } from '../types';
+import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog, WorkflowTemplate, WorkflowStep, OverdueAction } from '../types';
 import { 
   loadDocuments, 
   saveDocuments, 
@@ -102,9 +102,10 @@ interface DocumentContextType {
   // Settings: Departments, Job Titles & Permission Presets
   departments: DepartmentItem[];
   jobTitles: JobTitleItem[];
-  createDepartment: (deptData: { name: string; code: string; description?: string; defaultSlaHours?: number }) => { success: boolean; message?: string };
+  createDepartment: (deptData: { name: string; code: string; description?: string; defaultSlaHours?: number; defaultOverdueAction?: OverdueAction }) => { success: boolean; message?: string };
   updateDepartment: (id: string, deptData: Partial<DepartmentItem>) => { success: boolean; message?: string };
   deleteDepartment: (id: string) => { success: boolean; message?: string };
+
   createJobTitle: (titleData: { name: string; code: string; department: string; defaultRole?: UserRole; description?: string }) => { success: boolean; message?: string };
   updateJobTitle: (id: string, titleData: Partial<JobTitleItem>) => { success: boolean; message?: string };
   deleteJobTitle: (id: string) => { success: boolean; message?: string };
@@ -1068,7 +1069,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   // Department Management
-  const createDepartment = (deptData: { name: string; code: string; description?: string; defaultSlaHours?: number }): { success: boolean; message?: string } => {
+  const createDepartment = (deptData: { name: string; code: string; description?: string; defaultSlaHours?: number; defaultOverdueAction?: OverdueAction }): { success: boolean; message?: string } => {
     const trimmedName = deptData.name.trim();
     const trimmedCode = deptData.code.trim().toUpperCase();
     if (!trimmedName || !trimmedCode) {
@@ -1086,8 +1087,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       code: trimmedCode,
       description: deptData.description?.trim() || '',
       defaultSlaHours: deptData.defaultSlaHours || 8,
+      defaultOverdueAction: deptData.defaultOverdueAction || 'WARN_AND_RETURN',
       createdAt: new Date().toISOString()
     };
+
     const updatedDepts = [...departments, newDept];
     setDepartments(updatedDepts);
     saveDepartments(updatedDepts);

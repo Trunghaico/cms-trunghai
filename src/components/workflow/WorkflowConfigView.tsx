@@ -26,7 +26,7 @@ import {
   Info
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { WorkflowTemplate, WorkflowStep, UserRole } from '../../types';
+import { WorkflowTemplate, WorkflowStep, UserRole, OverdueAction } from '../../types';
 
 export const WorkflowConfigView: React.FC = () => {
   const { 
@@ -117,6 +117,8 @@ export const WorkflowConfigView: React.FC = () => {
   // Open Add Modal
   const handleOpenAdd = () => {
     setEditingTemplate(null);
+    const firstDept = departments[0]?.name || 'Phòng Kỹ thuật & Dự án';
+    const firstDeptObj = departments.find(d => d.name === firstDept);
     setFormData({
       name: '',
       category: 'Hợp đồng kinh tế',
@@ -128,8 +130,9 @@ export const WorkflowConfigView: React.FC = () => {
           title: 'Kiểm tra & Rà soát nội dung',
           role: 'DEPT_HEAD',
           roleTitle: 'Trưởng phòng Bộ phận',
-          department: departments[0]?.name || 'Phòng Kỹ thuật & Dự án',
-          slaHours: 8,
+          department: firstDept,
+          slaHours: firstDeptObj?.defaultSlaHours || 8,
+          overdueAction: firstDeptObj?.defaultOverdueAction || 'WARN_AND_RETURN',
           isInternalCheck: false
         },
         {
@@ -139,6 +142,7 @@ export const WorkflowConfigView: React.FC = () => {
           roleTitle: 'Tổng Giám đốc',
           department: 'Ban Giám đốc',
           slaHours: 24,
+          overdueAction: 'WARN_AND_RETURN',
           isInternalCheck: false
         }
       ]
@@ -200,6 +204,7 @@ export const WorkflowConfigView: React.FC = () => {
   const handleAddStep = () => {
     const nextOrder = formData.steps.length + 1;
     const defaultDept = departments[0]?.name || 'Phòng Kỹ thuật & Dự án';
+    const deptObj = departments.find(d => d.name === defaultDept);
     setFormData(prev => ({
       ...prev,
       steps: [
@@ -210,7 +215,8 @@ export const WorkflowConfigView: React.FC = () => {
           role: 'DEPT_HEAD',
           roleTitle: 'Trưởng bộ phận',
           department: defaultDept,
-          slaHours: 8,
+          slaHours: deptObj?.defaultSlaHours || 8,
+          overdueAction: deptObj?.defaultOverdueAction || 'WARN_AND_RETURN',
           isInternalCheck: false
         }
       ]
@@ -635,10 +641,17 @@ export const WorkflowConfigView: React.FC = () => {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
                               <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-[3px] text-[11px] font-bold flex items-center gap-1 shadow-2xs">
                                 <Clock className="h-3.5 w-3.5 text-amber-600" />
                                 SLA: {step.slaHours} giờ
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-[3px] text-[10px] font-bold flex items-center gap-1 border shadow-2xs ${
+                                step.overdueAction === 'AUTO_APPROVE'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : 'bg-orange-50 text-orange-700 border-orange-200'
+                              }`}>
+                                {step.overdueAction === 'AUTO_APPROVE' ? '⚡ Quá hạn: Tự động duyệt' : '⚠️ Quá hạn: Cảnh báo & Trả'}
                               </span>
                             </div>
                           </div>
@@ -838,8 +851,8 @@ export const WorkflowConfigView: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Row 2: Department, Role / Position, SLA Hours */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1.5 border-t border-slate-100 text-[11px]">
+                        {/* Row 2: Department, Role / Position, SLA Hours, Overdue Action */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1.5 border-t border-slate-100 text-[11px]">
                           
                           {/* Department */}
                           <div>
@@ -853,7 +866,8 @@ export const WorkflowConfigView: React.FC = () => {
                                 const foundDept = departments.find(d => d.name === deptName);
                                 handleUpdateStep(idx, { 
                                   department: deptName,
-                                  slaHours: step.slaHours || foundDept?.defaultSlaHours || 8
+                                  slaHours: step.slaHours || foundDept?.defaultSlaHours || 8,
+                                  overdueAction: step.overdueAction || foundDept?.defaultOverdueAction || 'WARN_AND_RETURN'
                                 });
                               }}
                               className="w-full px-2 py-1 bg-white border border-slate-300 rounded font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-blue cursor-pointer"
@@ -876,7 +890,7 @@ export const WorkflowConfigView: React.FC = () => {
                               type="text"
                               value={step.roleTitle}
                               onChange={(e) => handleUpdateStep(idx, { roleTitle: e.target.value })}
-                              placeholder="VD: Trưởng phòng, Kế toán trưởng, Tổng Giám đốc..."
+                              placeholder="VD: Trưởng phòng, Kế toán trưởng..."
                               className="w-full px-2 py-1 bg-white border border-slate-300 rounded font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-blue"
                             />
                           </div>
@@ -893,16 +907,16 @@ export const WorkflowConfigView: React.FC = () => {
                                 max="360"
                                 value={step.slaHours || 8}
                                 onChange={(e) => handleUpdateStep(idx, { slaHours: Math.max(1, parseInt(e.target.value) || 8) })}
-                                className="w-14 px-1.5 py-1 bg-amber-50 border border-amber-300 rounded font-bold text-amber-900 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                className="w-12 px-1 py-1 bg-amber-50 border border-amber-300 rounded font-bold text-amber-900 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                               />
                               <span className="text-slate-500 font-medium">giờ</span>
-                              <div className="flex items-center gap-1">
-                                {[4, 8, 12, 24, 48].map(h => (
+                              <div className="flex items-center gap-0.5">
+                                {[4, 8, 12, 24].map(h => (
                                   <button
                                     key={h}
                                     type="button"
                                     onClick={() => handleUpdateStep(idx, { slaHours: h })}
-                                    className={`px-1 py-0.5 text-[9.5px] font-bold rounded border ${
+                                    className={`px-1 py-0.5 text-[9px] font-bold rounded border ${
                                       step.slaHours === h 
                                         ? 'bg-amber-600 text-white border-amber-600' 
                                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50'
@@ -913,6 +927,25 @@ export const WorkflowConfigView: React.FC = () => {
                                 ))}
                               </div>
                             </div>
+                          </div>
+
+                          {/* Overdue Action */}
+                          <div>
+                            <label className="block font-semibold text-slate-600 mb-0.5">
+                              Xử lý khi quá hạn SLA:
+                            </label>
+                            <select
+                              value={step.overdueAction || 'WARN_AND_RETURN'}
+                              onChange={(e) => handleUpdateStep(idx, { overdueAction: e.target.value as OverdueAction })}
+                              className={`w-full px-2 py-1 bg-white border rounded font-semibold text-[11px] focus:outline-none focus:ring-1 cursor-pointer ${
+                                step.overdueAction === 'AUTO_APPROVE'
+                                  ? 'border-purple-300 text-purple-700 focus:ring-purple-400 bg-purple-50/40'
+                                  : 'border-slate-300 text-slate-800 focus:ring-brand-blue'
+                              }`}
+                            >
+                              <option value="WARN_AND_RETURN">⚠️ Cảnh báo & Trả</option>
+                              <option value="AUTO_APPROVE">⚡ Tự động duyệt</option>
+                            </select>
                           </div>
 
                         </div>

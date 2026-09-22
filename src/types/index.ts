@@ -224,6 +224,7 @@ export interface WorkflowStep {
   department: string;
   slaHours: number;
   isInternalCheck?: boolean;
+  overdueAction?: OverdueAction;
 }
 
 export interface WorkflowTemplate {
@@ -243,8 +244,10 @@ export interface DepartmentItem {
   code: string;
   description?: string;
   defaultSlaHours?: number; // SLA duyệt mặc định theo giờ của phòng ban
+  defaultOverdueAction?: OverdueAction; // Chính sách xử lý khi quá hạn mặc định của ban/phòng
   createdAt: string;
 }
+
 
 export interface JobTitleItem {
   id: string;

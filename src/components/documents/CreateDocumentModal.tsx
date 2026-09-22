@@ -69,10 +69,18 @@ export const CreateDocumentModal: React.FC = () => {
   const [isApproverDropdownOpen, setIsApproverDropdownOpen] = useState(false);
   const approverSearchRef = useRef<HTMLDivElement>(null);
 
+  const isAdmin = activeUser?.role === 'ADMIN';
+
   // Helper lấy SLA mặc định của phòng ban
   const getDeptDefaultSla = useCallback((deptName: string): number => {
     const found = systemDepts?.find(d => d.name.toLowerCase() === deptName.toLowerCase());
     return found?.defaultSlaHours || 8;
+  }, [systemDepts]);
+
+  // Helper lấy chính sách quá hạn mặc định của phòng ban
+  const getDeptDefaultOverdueAction = useCallback((deptName: string): OverdueAction => {
+    const found = systemDepts?.find(d => d.name.toLowerCase() === deptName.toLowerCase());
+    return found?.defaultOverdueAction || 'WARN_AND_RETURN';
   }, [systemDepts]);
 
   // 6. Người theo dõi (Cc)
@@ -110,7 +118,7 @@ export const CreateDocumentModal: React.FC = () => {
   const allDepartments = useMemo(() => {
     if (systemDepts && systemDepts.length > 0) return systemDepts;
     const fromUsers = Array.from(new Set(users.map(u => u.department)));
-    return fromUsers.map((name, idx) => ({ id: `dept-${idx}`, name, code: `PB${idx+1}`, defaultSlaHours: 8 }));
+    return fromUsers.map((name, idx) => ({ id: `dept-${idx}`, name, code: `PB${idx+1}`, defaultSlaHours: 8, defaultOverdueAction: 'WARN_AND_RETURN' as OverdueAction }));
   }, [systemDepts, users]);
 
   // Danh sách các loại hồ sơ khả dụng (Bao gồm các mẫu mới được thêm vào)
@@ -154,14 +162,14 @@ export const CreateDocumentModal: React.FC = () => {
         departmentCode: deptObj?.code || 'PB',
         title: s.title || (isBoard ? `Ban ${dName}` : `Phòng ${dName}`),
         slaHours: s.slaHours || deptObj?.defaultSlaHours || getDeptDefaultSla(dName),
-        overdueAction: docOverdueAction,
+        overdueAction: s.overdueAction || deptObj?.defaultOverdueAction || getDeptDefaultOverdueAction(dName),
         isInternalCheck: !!s.isInternalCheck,
         requiresInternalCheck: !!s.isInternalCheck
       };
     });
 
     setSelectedApprovers(mappedSteps);
-  }, [workflowTemplates, systemDepts, docOverdueAction, getDeptDefaultSla]);
+  }, [workflowTemplates, systemDepts, getDeptDefaultSla, getDeptDefaultOverdueAction]);
 
   // Tự động áp dụng mẫu quy trình đầu tiên khi mở modal nếu chưa có cấp duyệt
   useEffect(() => {
@@ -230,18 +238,20 @@ export const CreateDocumentModal: React.FC = () => {
     }
 
     const sla = getDeptDefaultSla(user.department);
+    const overdueAct = getDeptDefaultOverdueAction(user.department);
     setSelectedApprovers(prev => [
       ...prev,
-      { type: 'USER', user, title: user.name, slaHours: sla, overdueAction: docOverdueAction }
+      { type: 'USER', user, title: user.name, slaHours: sla, overdueAction: overdueAct }
     ]);
     setApproverSearchQuery('');
     setIsApproverDropdownOpen(false);
   };
 
   // Thêm người duyệt là PHÒNG BAN (Gộp chung 1 bước: Kiểm tra nội bộ + Phê duyệt quản lý)
-  const handleAddDeptApprover = (dept: { id: string; name: string; code: string; defaultSlaHours?: number }) => {
+  const handleAddDeptApprover = (dept: { id: string; name: string; code: string; defaultSlaHours?: number; defaultOverdueAction?: OverdueAction }) => {
     setErrorMsg('');
     const sla = dept.defaultSlaHours || getDeptDefaultSla(dept.name);
+    const overdueAct = dept.defaultOverdueAction || getDeptDefaultOverdueAction(dept.name);
     const dName = dept.name;
     const isBoard = dName.toLowerCase().startsWith('ban ') || 
                     dName.toLowerCase().includes('ban qlda') || 
@@ -255,7 +265,7 @@ export const CreateDocumentModal: React.FC = () => {
         departmentCode: dept.code, 
         title: isBoard ? `Ban ${dName}` : `Phòng ${dName}`, 
         slaHours: sla, 
-        overdueAction: docOverdueAction,
+        overdueAction: overdueAct,
         requiresInternalCheck: true
       }
     ]);
@@ -263,13 +273,15 @@ export const CreateDocumentModal: React.FC = () => {
     setIsApproverDropdownOpen(false);
   };
 
-  // Cập nhật SLA số giờ cho từng bước
+  // Cập nhật SLA số giờ cho từng bước (Chỉ Admin)
   const handleUpdateStepSla = (idx: number, hours: number) => {
+    if (!isAdmin) return;
     setSelectedApprovers(prev => prev.map((item, i) => i === idx ? { ...item, slaHours: Math.max(1, hours) } : item));
   };
 
-  // Cập nhật hành vi quá hạn cho từng bước
+  // Cập nhật hành vi quá hạn cho từng bước (Chỉ Admin)
   const handleUpdateStepOverdueAction = (idx: number, action: OverdueAction) => {
+    if (!isAdmin) return;
     setSelectedApprovers(prev => prev.map((item, i) => i === idx ? { ...item, overdueAction: action } : item));
   };
 
@@ -309,25 +321,29 @@ export const CreateDocumentModal: React.FC = () => {
       const foundUser = users.find(u => u.id === uId);
       if (foundUser) {
         const sla = getDeptDefaultSla(foundUser.department);
+        const overdueAct = getDeptDefaultOverdueAction(foundUser.department);
         setSelectedApprovers(prev => prev.map((item, i) => i === idx ? { 
           ...item, 
           type: 'USER', 
           user: foundUser, 
           title: foundUser.name,
-          slaHours: item.slaHours || sla
+          slaHours: isAdmin ? (item.slaHours || sla) : sla,
+          overdueAction: isAdmin ? (item.overdueAction || overdueAct) : overdueAct
         } : item));
       }
     } else if (value.startsWith('DEPT:')) {
       const deptName = value.replace('DEPT:', '');
       const deptObj = allDepartments.find(d => d.name === deptName);
       const sla = (deptObj as any)?.defaultSlaHours || getDeptDefaultSla(deptName);
+      const overdueAct = (deptObj as any)?.defaultOverdueAction || getDeptDefaultOverdueAction(deptName);
       setSelectedApprovers(prev => prev.map((item, i) => i === idx ? { 
         ...item,
         type: 'DEPARTMENT', 
         departmentName: deptName, 
-        departmentCode: deptObj?.code || 'PB',
+        departmentCode: (deptObj as any)?.code || 'PB',
         title: `Phòng ${deptName}`,
-        slaHours: item.slaHours || sla
+        slaHours: isAdmin ? (item.slaHours || sla) : sla,
+        overdueAction: isAdmin ? (item.overdueAction || overdueAct) : overdueAct
       } : item));
     }
   };
@@ -735,22 +751,29 @@ export const CreateDocumentModal: React.FC = () => {
                   {selectedApprovers.length} cấp duyệt
                 </span>
               </div>
-              {/* Cài đặt chính sách quá hạn mặc định */}
-              <div className="flex items-center gap-1.5 text-[11px] bg-white px-2 py-1 rounded border border-blue-200 shadow-2xs">
-                <span className="text-slate-600 font-semibold">Khi quá hạn:</span>
-                <select
-                  value={docOverdueAction}
-                  onChange={(e) => {
-                    const act = e.target.value as OverdueAction;
-                    setDocOverdueAction(act);
-                    setSelectedApprovers(prev => prev.map(p => ({ ...p, overdueAction: act })));
-                  }}
-                  className="font-bold text-slate-800 text-[11px] bg-transparent focus:outline-none cursor-pointer"
-                >
-                  <option value="WARN_AND_RETURN">⚠️ Cảnh báo & Trả hồ sơ</option>
-                  <option value="AUTO_APPROVE">⚡ Tự động phê duyệt bởi hệ thống</option>
-                </select>
-              </div>
+              {/* Cài đặt chính sách quá hạn */}
+              {isAdmin ? (
+                <div className="flex items-center gap-1.5 text-[11px] bg-white px-2 py-1 rounded border border-blue-200 shadow-2xs">
+                  <span className="text-slate-600 font-semibold">Khi quá hạn:</span>
+                  <select
+                    value={docOverdueAction}
+                    onChange={(e) => {
+                      const act = e.target.value as OverdueAction;
+                      setDocOverdueAction(act);
+                      setSelectedApprovers(prev => prev.map(p => ({ ...p, overdueAction: act })));
+                    }}
+                    className="font-bold text-slate-800 text-[11px] bg-transparent focus:outline-none cursor-pointer"
+                  >
+                    <option value="WARN_AND_RETURN">⚠️ Cảnh báo & Trả hồ sơ</option>
+                    <option value="AUTO_APPROVE">⚡ Tự động phê duyệt bởi hệ thống</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[11px] bg-white/80 px-2.5 py-1 rounded border border-blue-200/80 shadow-2xs">
+                  <span className="text-slate-500 font-medium">Chính sách xử lý quá hạn:</span>
+                  <span className="font-bold text-brand-navy">Theo cấu hình của Ban Quản Trị</span>
+                </div>
+              )}
             </div>
 
             {/* Danh sách các bước duyệt với cấu hình SLA */}
@@ -844,54 +867,76 @@ export const CreateDocumentModal: React.FC = () => {
 
                       {/* Dòng 2: Cài đặt thời gian SLA và Hành vi quá hạn cho bước này */}
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px]">
-                        {/* SLA Picker */}
+                        {/* SLA Picker (Chỉ Admin mới chỉnh được SLA, người tạo chỉ xem cố định) */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                           <span className="font-semibold text-slate-600">SLA cam kết:</span>
-                          <input
-                            type="number"
-                            min="1"
-                            max="168"
-                            value={item.slaHours || 8}
-                            onChange={(e) => handleUpdateStepSla(idx, parseInt(e.target.value) || 8)}
-                            className="w-12 px-1 py-0.5 bg-amber-50/60 border border-amber-300 rounded font-bold text-amber-900 text-center text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          />
-                          <span className="text-slate-500 font-medium">giờ</span>
+                          {isAdmin ? (
+                            <>
+                              <input
+                                type="number"
+                                min="1"
+                                max="168"
+                                value={item.slaHours || 8}
+                                onChange={(e) => handleUpdateStepSla(idx, parseInt(e.target.value) || 8)}
+                                className="w-12 px-1 py-0.5 bg-amber-50/60 border border-amber-300 rounded font-bold text-amber-900 text-center text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                              />
+                              <span className="text-slate-500 font-medium">giờ</span>
 
-                          {/* Quick buttons */}
-                          <div className="flex items-center gap-1 ml-1">
-                            {[4, 8, 12, 24, 48].map((h) => (
-                              <button
-                                key={h}
-                                type="button"
-                                onClick={() => handleUpdateStepSla(idx, h)}
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
-                                  (item.slaHours || 8) === h
-                                    ? 'bg-amber-600 text-white border-amber-600'
-                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700'
-                                }`}
-                              >
-                                {h}h
-                              </button>
-                            ))}
-                          </div>
+                              {/* Quick buttons */}
+                              <div className="flex items-center gap-1 ml-1">
+                                {[4, 8, 12, 24, 48].map((h) => (
+                                  <button
+                                    key={h}
+                                    type="button"
+                                    onClick={() => handleUpdateStepSla(idx, h)}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                                      (item.slaHours || 8) === h
+                                        ? 'bg-amber-600 text-white border-amber-600'
+                                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700'
+                                    }`}
+                                  >
+                                    {h}h
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded font-bold text-[11px] flex items-center gap-1 shadow-2xs">
+                              {item.slaHours || 8} giờ <span className="text-[9.5px] font-normal text-amber-700">(Cố định theo quy định)</span>
+                            </span>
+                          )}
                         </div>
 
-                        {/* Overdue Action per step */}
+                        {/* Overdue Action per step (Chỉ Admin mới chỉnh được, người tạo hiển thị theo ban) */}
                         <div className="flex items-center gap-1.5 ml-auto">
-                          <span className="text-slate-500 font-medium">Quá hạn:</span>
-                          <select
-                            value={item.overdueAction || docOverdueAction}
-                            onChange={(e) => handleUpdateStepOverdueAction(idx, e.target.value as OverdueAction)}
-                            className={`px-2 py-0.5 border rounded font-semibold text-[10px] cursor-pointer focus:outline-none ${
+                          {isAdmin ? (
+                            <>
+                              <span className="text-slate-500 font-medium">Quá hạn:</span>
+                              <select
+                                value={item.overdueAction || docOverdueAction}
+                                onChange={(e) => handleUpdateStepOverdueAction(idx, e.target.value as OverdueAction)}
+                                className={`px-2 py-0.5 border rounded font-semibold text-[10px] cursor-pointer focus:outline-none ${
+                                  (item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : 'bg-orange-50 text-orange-700 border-orange-200'
+                                }`}
+                              >
+                                <option value="WARN_AND_RETURN">⚠️ Cảnh báo & Trả hồ sơ</option>
+                                <option value="AUTO_APPROVE">⚡ Tự động phê duyệt</option>
+                              </select>
+                            </>
+                          ) : (
+                            <span className={`px-2 py-0.5 border rounded font-semibold text-[10px] shadow-2xs ${
                               (item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
                                 ? 'bg-purple-50 text-purple-700 border-purple-200'
                                 : 'bg-orange-50 text-orange-700 border-orange-200'
-                            }`}
-                          >
-                            <option value="WARN_AND_RETURN">⚠️ Cảnh báo & Trả hồ sơ</option>
-                            <option value="AUTO_APPROVE">⚡ Tự động phê duyệt</option>
-                          </select>
+                            }`}>
+                              {(item.overdueAction || docOverdueAction) === 'AUTO_APPROVE' 
+                                ? '⚡ Quá hạn: Tự động duyệt' 
+                                : '⚠️ Quá hạn: Cảnh báo & Trả'}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

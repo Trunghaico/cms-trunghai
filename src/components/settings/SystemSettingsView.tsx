@@ -27,10 +27,11 @@ import {
   Activity
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { DepartmentItem, JobTitleItem, PermissionPreset } from '../../types';
+import { DepartmentItem, JobTitleItem, PermissionPreset, OverdueAction } from '../../types';
 import { PermissionPresetModal } from '../users/PermissionPresetModal';
 import { ALL_PERMISSIONS, PERMISSION_CATEGORIES } from '../../lib/permissions';
 import { NASBackupItem, MINIO_ENDPOINT, MINIO_BUCKET, MINIO_ACCESS_KEY, uploadFileToNAS } from '../../lib/nasStorageService';
+
 
 // Helper chuyển đổi và định dạng giờ SLA sang ngày chính xác (1 ngày = 24 giờ)
 const formatSlaBadge = (hours: number): string => {
@@ -168,12 +169,15 @@ export const SystemSettingsView: React.FC = () => {
     );
   }, [permissionPresets, searchTerm]);
 
+  const [deptOverdueAction, setDeptOverdueAction] = useState<OverdueAction>('WARN_AND_RETURN');
+
   // Department Modal Handlers
   const handleOpenCreateDept = () => {
     setEditingDept(null);
     setDeptName('');
     setDeptCode('');
     setDeptSlaHours(8);
+    setDeptOverdueAction('WARN_AND_RETURN');
     setIsDeptModalOpen(true);
   };
 
@@ -182,6 +186,7 @@ export const SystemSettingsView: React.FC = () => {
     setDeptName(dept.name);
     setDeptCode(dept.code);
     setDeptSlaHours(dept.defaultSlaHours || 8);
+    setDeptOverdueAction(dept.defaultOverdueAction || 'WARN_AND_RETURN');
     setIsDeptModalOpen(true);
   };
 
@@ -197,6 +202,7 @@ export const SystemSettingsView: React.FC = () => {
         name: deptName.trim(),
         code: deptCode.trim().toUpperCase(),
         defaultSlaHours: Number(deptSlaHours) || 8,
+        defaultOverdueAction: deptOverdueAction,
       });
       if (res.success) {
         showNotification('success', `Đã cập nhật phòng ban "${deptName.trim()}" thành công!`);
@@ -209,6 +215,7 @@ export const SystemSettingsView: React.FC = () => {
         name: deptName.trim(),
         code: deptCode.trim().toUpperCase(),
         defaultSlaHours: Number(deptSlaHours) || 8,
+        defaultOverdueAction: deptOverdueAction,
       });
       if (res.success) {
         showNotification('success', `Đã tạo mới phòng ban "${deptName.trim()}" thành công!`);
@@ -218,6 +225,7 @@ export const SystemSettingsView: React.FC = () => {
       }
     }
   };
+
 
   const handleDeleteDept = (dept: DepartmentItem) => {
     const userCount = users.filter(u => u.department.toLowerCase() === dept.name.toLowerCase()).length;
@@ -637,14 +645,15 @@ export const SystemSettingsView: React.FC = () => {
                   <th className="py-3 px-4 w-36">Mã Phòng</th>
                   <th className="py-3 px-4">Tên Phòng Ban</th>
                   <th className="py-3 px-4 text-center w-36">SLA Cam Kết</th>
-                  <th className="py-3 px-4 text-center w-36">Nhân sự</th>
+                  <th className="py-3 px-4 text-center w-44">Xử Lý Quá Hạn</th>
+                  <th className="py-3 px-4 text-center w-32">Nhân sự</th>
                   <th className="py-3 px-4 text-right w-28">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 font-normal">
                 {filteredDepartments.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-400">
+                    <td colSpan={7} className="py-12 text-center text-slate-400">
                       <Building2 className="w-10 h-10 mx-auto mb-2 text-slate-300 stroke-1" />
                       <p className="text-sm font-medium">Không tìm thấy phòng ban nào phù hợp</p>
                       <p className="text-xs text-slate-400 mt-0.5">Vui lòng thử tìm với từ khóa khác hoặc thêm mới</p>
@@ -653,6 +662,7 @@ export const SystemSettingsView: React.FC = () => {
                 ) : (
                   filteredDepartments.map((dept, idx) => {
                     const deptUsers = users.filter(u => u.department.toLowerCase() === dept.name.toLowerCase());
+                    const isAutoApprove = dept.defaultOverdueAction === 'AUTO_APPROVE';
                     return (
                       <tr key={dept.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3.5 px-4 font-mono text-slate-400 text-center">{idx + 1}</td>
@@ -672,6 +682,15 @@ export const SystemSettingsView: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                            isAutoApprove
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            <span>{isAutoApprove ? '⚡ Tự động duyệt' : '⚠️ Cảnh báo & Trả'}</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
                             deptUsers.length > 0 
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
@@ -681,6 +700,7 @@ export const SystemSettingsView: React.FC = () => {
                             {deptUsers.length} nhân sự
                           </span>
                         </td>
+
                         <td className="py-3.5 px-4 text-right">
                           {canManageCategory ? (
                             <div className="flex items-center justify-end gap-1.5">
@@ -1372,6 +1392,23 @@ export const SystemSettingsView: React.FC = () => {
                   <p className="text-[11px] text-slate-400 mt-1">Hạn SLA mặc định sẽ tự động điền khi người lập trình hồ sơ tới phòng ban này</p>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Chính sách xử lý khi phòng ban vi phạm quá hạn SLA <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={deptOverdueAction}
+                    onChange={(e) => setDeptOverdueAction(e.target.value as OverdueAction)}
+                    className="w-full px-3.5 py-2 text-xs font-bold border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue cursor-pointer bg-slate-50"
+                  >
+                    <option value="WARN_AND_RETURN">⚠️ Cảnh báo vi phạm SLA & Cho phép Trả hồ sơ</option>
+                    <option value="AUTO_APPROVE">⚡ Tự động phê duyệt bởi Robot hệ thống (SLA Engine)</option>
+                  </select>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Chỉ Quản trị viên (Admin) mới có quyền chỉ định chính sách quá hạn cho phòng ban này
+                  </p>
+                </div>
+
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                   <button
                     type="button"
@@ -1388,6 +1425,7 @@ export const SystemSettingsView: React.FC = () => {
                   </button>
                 </div>
               </form>
+
             </motion.div>
           </div>
         )}
