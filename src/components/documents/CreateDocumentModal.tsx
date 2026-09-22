@@ -565,15 +565,15 @@ export const CreateDocumentModal: React.FC = () => {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2 sm:p-4 overflow-hidden">
       <div 
-        className={`bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl my-auto overflow-hidden transition-all duration-200 transform ${
+        className={`bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden transition-all duration-200 transform ${
           isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100 animate-slide-down'
         }`}
       >
         
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex items-center justify-between border-b border-indigo-900/60 shadow-xs">
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex items-center justify-between border-b border-indigo-900/60 shadow-xs shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-xl shadow-xs">
               <FileText className="h-5 w-5 text-cyan-300" />
@@ -595,40 +595,40 @@ export const CreateDocumentModal: React.FC = () => {
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-xs text-slate-800 max-h-[85vh] overflow-y-auto">
+        <form id="create-document-form" onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-xs text-slate-800 flex-1 overflow-y-auto">
           
           {errorMsg && (
-            <div className="p-3.5 bg-red-50 border-l-4 border-brand-red text-red-700 flex items-center gap-2 rounded-r-xl text-xs">
+            <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 flex items-center gap-2 rounded-xl text-xs">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span className="font-semibold">{errorMsg}</span>
             </div>
           )}
 
           {/* QUICK BPM WORKFLOW TEMPLATE SELECTOR (CHỌN NHANH QUY TRÌNH KÝ THEO LOẠI HỒ SƠ) */}
-          <div className="bg-gradient-to-r from-slate-900 via-brand-navy to-indigo-950 p-4.5 rounded-2xl border border-indigo-500/30 text-white shadow-sm space-y-2.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-white/10 rounded-[3px] text-amber-400">
+          <div className="bg-gradient-to-r from-slate-900 via-brand-navy to-indigo-950 p-5 rounded-2xl border border-indigo-500/30 text-white shadow-ai-card space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="p-2 bg-white/10 rounded-xl text-amber-400 shrink-0">
                   <GitFork className="h-4 w-4" />
                 </div>
-                <div>
-                  <div className="font-bold text-xs flex items-center gap-2">
+                <div className="min-w-0">
+                  <div className="font-bold text-xs flex items-center gap-2 flex-wrap">
                     <span className="text-white">Mẫu Quy Trình Ký Chuẩn (BPM Engine)</span>
-                    <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-amber-400 text-slate-950 rounded">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 bg-amber-400 text-slate-950 rounded-full shadow-xs">
                       Tự Động Điền Form
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
+                  <p className="text-[11px] text-slate-300 mt-0.5 truncate">
                     Chọn mẫu quy trình tương ứng với Loại hồ sơ để nạp sẵn chuỗi phòng ban duyệt & SLA chuẩn
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 min-w-[260px]">
+              <div className="flex items-center gap-2 w-full md:w-auto md:min-w-[280px] shrink-0">
                 <select
                   value={selectedTemplateId}
                   onChange={(e) => handleApplyTemplate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900/90 border border-blue-400/50 hover:border-amber-400 rounded text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer shadow-inner"
+                  className="w-full px-3 py-2 bg-slate-900/95 border border-blue-400/50 hover:border-amber-400 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer shadow-inner"
                 >
                   <option value="">-- Chọn Mẫu Quy Trình Ký Nhanh --</option>
                   {workflowTemplates.map((tpl) => (
@@ -641,12 +641,12 @@ export const CreateDocumentModal: React.FC = () => {
             </div>
 
             {selectedTemplateId && (
-              <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-emerald-300 font-semibold">
-                <span className="flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                  Đang áp dụng mẫu: <strong>{workflowTemplates.find(w => w.id === selectedTemplateId)?.name}</strong>
+              <div className="pt-2.5 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-emerald-300 font-semibold">
+                <span className="flex items-center gap-1.5 truncate">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>Đang áp dụng: <strong>{workflowTemplates.find(w => w.id === selectedTemplateId)?.name}</strong></span>
                 </span>
-                <span className="text-slate-300">
+                <span className="text-slate-300 bg-white/10 px-2.5 py-0.5 rounded-full shrink-0 text-center font-mono">
                   {selectedApprovers.length} cấp phê duyệt • Tổng SLA: {selectedApprovers.reduce((sum, s) => sum + (s.slaHours || 0), 0)}h
                 </span>
               </div>
@@ -654,7 +654,7 @@ export const CreateDocumentModal: React.FC = () => {
           </div>
 
           {/* SECTION 1: THÔNG TIN HỒ SƠ */}
-          <div className="bg-slate-50/80 p-4 rounded-[4px] border border-slate-200 space-y-3">
+          <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-3 shadow-2xs">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
@@ -663,14 +663,13 @@ export const CreateDocumentModal: React.FC = () => {
                 <select
                   value={category}
                   onChange={(e) => handleCategoryChange(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-[3px] font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-blue cursor-pointer"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue cursor-pointer transition-all"
                 >
                   {availableCategories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
-
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
@@ -683,7 +682,7 @@ export const CreateDocumentModal: React.FC = () => {
                     value={project}
                     onChange={(e) => setProject(e.target.value)}
                     placeholder="VD: Dự án Xi măng Nghi Sơn..."
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-[3px] font-medium focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
                   />
                 </div>
               </div>
@@ -699,12 +698,12 @@ export const CreateDocumentModal: React.FC = () => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="VD: Tờ trình phê duyệt phương án thi công gói thầu số 02..."
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-[3px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {/* Phòng ban khởi tạo dạng THẺ SELECT */}
+              {/* Phòng ban khởi tạo */}
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   Phòng ban khởi tạo <span className="text-brand-red">*</span>
@@ -714,7 +713,7 @@ export const CreateDocumentModal: React.FC = () => {
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-[3px] font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-blue cursor-pointer"
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue cursor-pointer transition-all"
                   >
                     {allDepartments.map(d => (
                       <option key={d.id} value={d.name}>{d.name} ({d.code})</option>
@@ -734,7 +733,7 @@ export const CreateDocumentModal: React.FC = () => {
                     required
                     value={desiredDeadline}
                     onChange={(e) => setDesiredDeadline(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-[3px] font-medium focus:outline-none focus:ring-1 focus:ring-brand-blue"
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
                   />
                 </div>
               </div>
@@ -748,9 +747,9 @@ export const CreateDocumentModal: React.FC = () => {
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <label 
-                  className={`flex items-center justify-center gap-2 p-2 rounded-[3px] border cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
                     priority === 'NORMAL' 
-                      ? 'bg-slate-100 border-slate-400 text-slate-900 font-bold shadow-2xs ring-1 ring-slate-400' 
+                      ? 'bg-slate-100 border-slate-400 text-slate-900 font-bold shadow-2xs ring-2 ring-slate-400/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -767,9 +766,9 @@ export const CreateDocumentModal: React.FC = () => {
                 </label>
 
                 <label 
-                  className={`flex items-center justify-center gap-2 p-2 rounded-[3px] border cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
                     priority === 'URGENT' 
-                      ? 'bg-amber-50 border-amber-400 text-amber-900 font-bold shadow-2xs ring-1 ring-amber-400' 
+                      ? 'bg-amber-50 border-amber-400 text-amber-900 font-bold shadow-2xs ring-2 ring-amber-400/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-amber-50/50'
                   }`}
                 >
@@ -786,9 +785,9 @@ export const CreateDocumentModal: React.FC = () => {
                 </label>
 
                 <label 
-                  className={`flex items-center justify-center gap-2 p-2 rounded-[3px] border cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
                     priority === 'VERY_URGENT' 
-                      ? 'bg-red-50 border-brand-red text-brand-red font-bold shadow-2xs ring-1 ring-brand-red' 
+                      ? 'bg-red-50 border-brand-red text-brand-red font-bold shadow-2xs ring-2 ring-brand-red/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-red-50/50'
                   }`}
                 >
@@ -808,20 +807,20 @@ export const CreateDocumentModal: React.FC = () => {
           </div>
 
           {/* SECTION 2: NGƯỜI / PHÒNG BAN XÉT DUYỆT & SLA */}
-          <div className="p-4 bg-blue-50/40 border border-brand-blue/30 rounded-[4px] space-y-3">
+          <div className="p-5 bg-blue-50/40 border border-brand-blue/30 rounded-2xl space-y-3 shadow-2xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-brand-blue" />
                 <span className="font-bold text-brand-blue text-xs uppercase tracking-wider">
                   Người / Phòng ban xét duyệt & Thời gian SLA
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue text-white rounded-[3px]">
+                <span className="text-[10px] font-bold px-2.5 py-0.5 bg-brand-blue text-white rounded-full">
                   {selectedApprovers.length} cấp duyệt
                 </span>
               </div>
               {/* Cài đặt chính sách quá hạn */}
               {isAdmin ? (
-                <div className="flex items-center gap-1.5 text-[11px] bg-white px-2 py-1 rounded border border-blue-200 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-[11px] bg-white px-2.5 py-1 rounded-xl border border-blue-200 shadow-2xs">
                   <span className="text-slate-600 font-semibold">Khi quá hạn:</span>
                   <select
                     value={docOverdueAction}
@@ -837,7 +836,7 @@ export const CreateDocumentModal: React.FC = () => {
                   </select>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 text-[11px] bg-white/80 px-2.5 py-1 rounded border border-blue-200/80 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-[11px] bg-white/80 px-2.5 py-1 rounded-xl border border-blue-200/80 shadow-2xs">
                   <span className="text-slate-500 font-medium">Chính sách xử lý quá hạn:</span>
                   <span className="font-bold text-brand-navy">Theo cấu hình của Ban Quản Trị</span>
                 </div>
@@ -845,9 +844,9 @@ export const CreateDocumentModal: React.FC = () => {
             </div>
 
             {/* Danh sách các bước duyệt với cấu hình SLA */}
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {selectedApprovers.length === 0 ? (
-                <div className="p-4 border-2 border-dashed border-blue-200 bg-white/70 rounded-[3px] text-center text-slate-400 text-xs">
+                <div className="p-5 border-2 border-dashed border-blue-200 bg-white/70 rounded-2xl text-center text-slate-400 text-xs">
                   Chưa có cấp duyệt nào. Vui lòng tìm kiếm hoặc chọn ở ô bên dưới để thêm vào chuỗi duyệt.
                 </div>
               ) : (
@@ -859,11 +858,11 @@ export const CreateDocumentModal: React.FC = () => {
                   return (
                     <div 
                       key={idx}
-                      className="p-2.5 bg-white border border-slate-200 hover:border-brand-blue/50 rounded-[4px] shadow-2xs transition-all space-y-2"
+                      className="p-3 bg-white border border-slate-200/90 hover:border-brand-blue/50 rounded-2xl shadow-xs transition-all space-y-2.5"
                     >
                       {/* Dòng 1: STT, Dropdown Người/Phòng ban duyệt, Nút di chuyển/xóa */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center font-bold text-[11px] text-white shrink-0 ${
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] text-white shrink-0 shadow-xs ${
                           isFirst ? 'bg-emerald-600' : isLast ? 'bg-brand-red' : 'bg-brand-blue'
                         }`}>
                           {idx + 1}
@@ -872,7 +871,7 @@ export const CreateDocumentModal: React.FC = () => {
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
                             {item.type === 'DEPARTMENT' && (
-                              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold shrink-0 bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold shrink-0 bg-indigo-50 text-indigo-700 border border-indigo-200">
                                 🏢 Duyệt cấp Ban/Phòng (Gồm khâu Kiểm tra nội bộ + Quản lý duyệt)
                               </span>
                             )}
@@ -880,7 +879,7 @@ export const CreateDocumentModal: React.FC = () => {
                           <select
                             value={currentValue}
                             onChange={(e) => handleChangeStepTarget(idx, e.target.value)}
-                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-[2px] font-bold text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue cursor-pointer truncate"
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer truncate"
                           >
                             <optgroup label="🏢 --- PHÒNG BAN XÉT DUYỆT ---">
                               {allDepartments.map(d => (
@@ -905,7 +904,7 @@ export const CreateDocumentModal: React.FC = () => {
                             disabled={isFirst}
                             onClick={() => handleMoveApproverUp(idx)}
                             title="Đẩy lên trước"
-                            className={`p-1 rounded-[2px] border ${
+                            className={`p-1.5 rounded-lg border ${
                               isFirst ? 'text-slate-200 border-slate-100 cursor-not-allowed' : 'text-slate-500 hover:text-brand-blue hover:bg-blue-50 border-slate-200 cursor-pointer'
                             }`}
                           >
@@ -916,7 +915,7 @@ export const CreateDocumentModal: React.FC = () => {
                             disabled={isLast}
                             onClick={() => handleMoveApproverDown(idx)}
                             title="Đẩy xuống sau"
-                            className={`p-1 rounded-[2px] border ${
+                            className={`p-1.5 rounded-lg border ${
                               isLast ? 'text-slate-200 border-slate-100 cursor-not-allowed' : 'text-slate-500 hover:text-brand-blue hover:bg-blue-50 border-slate-200 cursor-pointer'
                             }`}
                           >
@@ -926,7 +925,7 @@ export const CreateDocumentModal: React.FC = () => {
                             type="button"
                             onClick={() => handleRemoveApprover(idx)}
                             title="Xóa bước này"
-                            className="p-1 text-slate-400 hover:text-brand-red hover:bg-red-50 border border-slate-200 rounded-[2px] transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-brand-red hover:bg-red-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -934,8 +933,8 @@ export const CreateDocumentModal: React.FC = () => {
                       </div>
 
                       {/* Dòng 2: Cài đặt thời gian SLA và Hành vi quá hạn cho bước này */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px]">
-                        {/* SLA Picker (Chỉ Admin mới chỉnh được SLA, người tạo chỉ xem cố định) */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px]">
+                        {/* SLA Picker */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                           <span className="font-semibold text-slate-600">SLA cam kết:</span>
@@ -947,7 +946,7 @@ export const CreateDocumentModal: React.FC = () => {
                                 max="168"
                                 value={item.slaHours || 8}
                                 onChange={(e) => handleUpdateStepSla(idx, parseInt(e.target.value) || 8)}
-                                className="w-12 px-1 py-0.5 bg-amber-50/60 border border-amber-300 rounded font-bold text-amber-900 text-center text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                className="w-12 px-1 py-0.5 bg-amber-50/60 border border-amber-300 rounded-lg font-bold text-amber-900 text-center text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                               />
                               <span className="text-slate-500 font-medium">giờ</span>
 
@@ -958,7 +957,7 @@ export const CreateDocumentModal: React.FC = () => {
                                     key={h}
                                     type="button"
                                     onClick={() => handleUpdateStepSla(idx, h)}
-                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
                                       (item.slaHours || 8) === h
                                         ? 'bg-amber-600 text-white border-amber-600'
                                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700'
@@ -970,13 +969,13 @@ export const CreateDocumentModal: React.FC = () => {
                               </div>
                             </>
                           ) : (
-                            <span className="px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded font-bold text-[11px] flex items-center gap-1 shadow-2xs">
+                            <span className="px-2.5 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-full font-bold text-[11px] flex items-center gap-1 shadow-2xs">
                               {item.slaHours || 8} giờ <span className="text-[9.5px] font-normal text-amber-700">(Cố định theo quy định)</span>
                             </span>
                           )}
                         </div>
 
-                        {/* Overdue Action per step (Chỉ Admin mới chỉnh được, người tạo hiển thị theo ban) */}
+                        {/* Overdue Action per step */}
                         <div className="flex items-center gap-1.5 ml-auto">
                           {isAdmin ? (
                             <>
@@ -984,7 +983,7 @@ export const CreateDocumentModal: React.FC = () => {
                               <select
                                 value={item.overdueAction || docOverdueAction}
                                 onChange={(e) => handleUpdateStepOverdueAction(idx, e.target.value as OverdueAction)}
-                                className={`px-2 py-0.5 border rounded font-semibold text-[10px] cursor-pointer focus:outline-none ${
+                                className={`px-2 py-0.5 border rounded-lg font-semibold text-[10px] cursor-pointer focus:outline-none ${
                                   (item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
                                     ? 'bg-purple-50 text-purple-700 border-purple-200'
                                     : 'bg-orange-50 text-orange-700 border-orange-200'
@@ -995,7 +994,7 @@ export const CreateDocumentModal: React.FC = () => {
                               </select>
                             </>
                           ) : (
-                            <span className={`px-2 py-0.5 border rounded font-semibold text-[10px] shadow-2xs ${
+                            <span className={`px-2.5 py-0.5 border rounded-full font-semibold text-[10px] shadow-2xs ${
                               (item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
                                 ? 'bg-purple-50 text-purple-700 border-purple-200'
                                 : 'bg-orange-50 text-orange-700 border-orange-200'
@@ -1013,7 +1012,7 @@ export const CreateDocumentModal: React.FC = () => {
               )}
             </div>
 
-            {/* Ô tìm kiếm THÊM NHANH (Phòng ban hoặc Cá nhân) */}
+            {/* Ô tìm kiếm THÊM NHANH */}
             <div className="relative pt-1" ref={approverSearchRef}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
@@ -1026,16 +1025,15 @@ export const CreateDocumentModal: React.FC = () => {
                     setIsApproverDropdownOpen(true);
                   }}
                   placeholder="+ Thêm người hoặc phòng ban duyệt tiếp theo..."
-                  className="w-full pl-8 pr-8 py-1.5 text-xs bg-white border border-blue-200 rounded-[3px] focus:outline-none focus:ring-1 focus:ring-brand-blue font-medium"
+                  className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue font-medium transition-all"
                 />
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
               </div>
 
               {isApproverDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-[3px] shadow-xl z-50 divide-y divide-slate-100 animate-slide-down">
-                  {/* Danh sách phòng ban gợi ý */}
+                <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 divide-y divide-slate-100 animate-slide-down">
                   {matchedDepartments.length > 0 && (
-                    <div className="p-1.5 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                    <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
                       🏢 Chọn theo Phòng Ban:
                     </div>
                   )}
@@ -1043,7 +1041,7 @@ export const CreateDocumentModal: React.FC = () => {
                     <div
                       key={`search-dept-${dept.id}`}
                       onClick={() => handleAddDeptApprover(dept)}
-                      className="p-2 hover:bg-blue-50 flex items-center justify-between cursor-pointer transition-colors"
+                      className="p-2.5 hover:bg-blue-50 flex items-center justify-between cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <Building2 className="w-3.5 h-3.5 text-brand-blue shrink-0" />
@@ -1053,9 +1051,8 @@ export const CreateDocumentModal: React.FC = () => {
                     </div>
                   ))}
 
-                  {/* Danh sách cá nhân gợi ý */}
                   {matchedUsers.length > 0 && (
-                    <div className="p-1.5 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
+                    <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
                       👤 Chọn theo Cá Nhân:
                     </div>
                   )}
@@ -1063,7 +1060,7 @@ export const CreateDocumentModal: React.FC = () => {
                     <div
                       key={`search-user-${u.id}`}
                       onClick={() => handleAddUserApprover(u)}
-                      className="p-2 hover:bg-blue-50 flex items-center justify-between cursor-pointer transition-colors"
+                      className="p-2.5 hover:bg-blue-50 flex items-center justify-between cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <UserIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -1081,12 +1078,12 @@ export const CreateDocumentModal: React.FC = () => {
           </div>
 
           {/* SECTION 3: NGƯỜI THEO DÕI (CC) */}
-          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-[4px] space-y-2.5">
+          <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <label className="block font-bold text-slate-700 text-xs">
                 Người theo dõi (Cc)
               </label>
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-700 rounded-[3px]">
+              <span className="text-[10px] font-bold px-2.5 py-0.5 bg-slate-200 text-slate-700 rounded-full">
                 {selectedCcUsers.length} người
               </span>
             </div>
@@ -1103,13 +1100,13 @@ export const CreateDocumentModal: React.FC = () => {
                     setIsCcDropdownOpen(true);
                   }}
                   placeholder="Gõ tìm nhanh người nhận thông báo tiến độ..."
-                  className="w-full pl-8 pr-8 py-1.5 text-xs bg-white border border-slate-300 rounded-[3px] focus:outline-none focus:ring-1 focus:ring-brand-blue font-medium"
+                  className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue font-medium transition-all"
                 />
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
               </div>
 
               {isCcDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-[3px] shadow-xl z-50 divide-y divide-slate-100 animate-slide-down">
+                <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 divide-y divide-slate-100 animate-slide-down">
                   {filteredCcCandidates.length === 0 ? (
                     <div className="p-3 text-center text-slate-400 text-xs">
                       Không tìm thấy người dùng phù hợp
@@ -1132,7 +1129,7 @@ export const CreateDocumentModal: React.FC = () => {
                               handleAddCcUser(u);
                             }
                           }}
-                          className={`p-2 flex items-center justify-between transition-colors ${
+                          className={`p-2.5 flex items-center justify-between transition-colors ${
                             isDisabled 
                               ? 'bg-slate-50 opacity-40 cursor-not-allowed select-none' 
                               : 'hover:bg-blue-50 cursor-pointer'
@@ -1148,11 +1145,11 @@ export const CreateDocumentModal: React.FC = () => {
                           </div>
 
                           {isAlreadyApprover ? (
-                            <span className="text-[10px] text-blue-700 font-bold px-1.5 py-0.5 bg-blue-100 rounded-[2px]">
+                            <span className="text-[10px] text-blue-700 font-bold px-2 py-0.5 bg-blue-100 rounded-full">
                               Đang là Người duyệt
                             </span>
                           ) : isAlreadyCc ? (
-                            <span className="text-[10px] text-slate-500 font-bold px-1.5 py-0.5 bg-slate-200 rounded-[2px]">
+                            <span className="text-[10px] text-slate-500 font-bold px-2 py-0.5 bg-slate-200 rounded-full">
                               Đã chọn Cc
                             </span>
                           ) : (
@@ -1173,7 +1170,7 @@ export const CreateDocumentModal: React.FC = () => {
                 {selectedCcUsers.map(u => (
                   <span
                     key={u.id}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-white border border-slate-300 rounded-[2px] text-[11px] font-semibold text-slate-800"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-300 rounded-full text-[11px] font-semibold text-slate-800 shadow-2xs"
                   >
                     <span>{u.name}</span>
                     <button
@@ -1190,26 +1187,28 @@ export const CreateDocumentModal: React.FC = () => {
           </div>
 
           {/* SECTION 4: NỘI DUNG TỜ TRÌNH */}
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="block font-bold text-slate-700 text-xs">
               Nội dung chi tiết (Rich Text)
             </label>
-            <QuillEditor
-              value={contentHtml}
-              onChange={setContentHtml}
-              placeholder="Nhập nội dung tờ trình, căn cứ, điều khoản..."
-              minHeight="120px"
-            />
+            <div className="rounded-2xl overflow-hidden border border-slate-200/80">
+              <QuillEditor
+                value={contentHtml}
+                onChange={setContentHtml}
+                placeholder="Nhập nội dung tờ trình, căn cứ, điều khoản..."
+                minHeight="120px"
+              />
+            </div>
           </div>
 
           {/* SECTION 5: TỆP ĐÍNH KÈM & SCAN */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <label className="font-bold text-slate-700 text-xs">
                 Tệp đính kèm & File scan (DMS)
               </label>
-              <label className={`cursor-pointer px-3 py-1 text-white font-bold text-xs rounded-[3px] flex items-center gap-1.5 transition-colors shadow-xs ${
-                isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-brand-blue hover:bg-brand-blue-dark'
+              <label className={`cursor-pointer px-3.5 py-1.5 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs active:scale-98 ${
+                isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-brand-blue hover:bg-brand-blue-dark shadow-glow-blue'
               }`}>
                 {isUploading ? (
                   <>
@@ -1233,7 +1232,7 @@ export const CreateDocumentModal: React.FC = () => {
             </div>
 
             {attachments.length === 0 ? (
-              <div className="p-3 border-2 border-dashed border-slate-200 rounded-[3px] text-center bg-slate-50">
+              <div className="p-4 border-2 border-dashed border-slate-200 rounded-2xl text-center bg-slate-50/80">
                 <p className="text-slate-500 text-[11px]">Chưa có tệp tải lên (Hệ thống sẽ đính kèm bản dự thảo mẫu)</p>
               </div>
             ) : (
@@ -1241,13 +1240,13 @@ export const CreateDocumentModal: React.FC = () => {
                 {attachments.map((att) => (
                   <div
                     key={att.id}
-                    className="p-1.5 bg-slate-50 border border-slate-200 rounded-[2px] flex items-center justify-between text-xs"
+                    className="p-2 bg-slate-50 border border-slate-200/90 rounded-xl flex items-center justify-between text-xs"
                   >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <FileText className="h-3.5 w-3.5 text-brand-blue shrink-0" />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-4 w-4 text-brand-blue shrink-0" />
                       <span className="font-semibold text-slate-800 truncate">{att.name}</span>
                       {att.url && att.url.startsWith('http') && (
-                        <span className="px-1 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-bold rounded-[2px] flex items-center gap-0.5">
+                        <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-bold rounded-full flex items-center gap-0.5">
                           <Cloud className="h-2.5 w-2.5" />
                           <span>Cloud</span>
                         </span>
@@ -1257,7 +1256,7 @@ export const CreateDocumentModal: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setPreviewAttachment(att)}
-                        className="text-slate-400 hover:text-brand-blue p-0.5"
+                        className="text-slate-400 hover:text-brand-blue p-1 rounded-lg"
                         title="Xem tài liệu"
                       >
                         <Eye className="h-3.5 w-3.5" />
@@ -1265,7 +1264,7 @@ export const CreateDocumentModal: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => removeAttachment(att.id)}
-                        className="text-slate-400 hover:text-brand-red p-0.5"
+                        className="text-slate-400 hover:text-brand-red p-1 rounded-lg"
                         title="Xóa tệp"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1277,25 +1276,26 @@ export const CreateDocumentModal: React.FC = () => {
             )}
           </div>
 
-          {/* Form Actions */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-1.5 bg-white text-slate-700 border border-slate-300 rounded-[3px] font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-1.5 bg-brand-red hover:bg-brand-red-dark text-white font-bold uppercase tracking-wider rounded-[3px] shadow-sm transition-all cursor-pointer"
-            >
-              Gửi Trình Ký
-            </button>
-          </div>
-
         </form>
+
+        {/* Fixed Form Actions Footer (Always visible) */}
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-end gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-xl font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            form="create-document-form"
+            disabled={isSubmitting}
+            className="px-6 py-2 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white font-bold uppercase tracking-wider rounded-xl shadow-glow-red transition-all cursor-pointer active:scale-98"
+          >
+            Gửi Trình Ký
+          </button>
+        </div>
 
         {/* PDF Viewer Modal */}
         {previewAttachment && (

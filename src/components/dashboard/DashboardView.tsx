@@ -44,21 +44,21 @@ export const DashboardView: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       
       {/* Top Banner with Welcome & Quick Action */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue-dark text-white p-7 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5 border border-indigo-500/30">
+      <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue-dark text-white p-6 sm:p-7 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5 border border-indigo-500/30">
         
         {/* Background ambient AI glow */}
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute left-1/3 -top-10 w-48 h-48 bg-cyan-500/15 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="relative z-10 min-w-0 flex-1 pr-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="px-3 py-1 bg-white/10 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider rounded-full border border-white/15 shadow-xs flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-cyan-300 animate-pulse" />
               <span>TRUNG HAI AI APPROVAL</span>
             </span>
             <span className="text-xs text-indigo-200">Hệ thống Trình ký Điện tử Thế hệ mới</span>
           </div>
-          <h1 className="text-xl md:text-2xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">
+          <h1 className="text-xl md:text-2xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent truncate">
             Xin chào, {activeUser.name}
           </h1>
           <p className="text-xs text-slate-300/90 mt-1.5 max-w-xl leading-relaxed">
@@ -68,11 +68,11 @@ export const DashboardView: React.FC = () => {
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-3">
+        <div className="relative z-10 flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
           {pendingForMe.length > 0 && (
             <button
               onClick={() => setActiveTab('pending-approvals')}
-              className="px-4.5 py-2.5 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-[0_0_20px_rgba(237,50,55,0.4)] hover:shadow-[0_0_25px_rgba(237,50,55,0.6)] transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 cursor-pointer"
+              className="px-4 py-2.5 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-[0_0_20px_rgba(237,50,55,0.4)] hover:shadow-[0_0_25px_rgba(237,50,55,0.6)] transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 cursor-pointer shrink-0"
             >
               <FileSignature className="h-4 w-4" />
               <span>Duyệt Ngay ({pendingForMe.length})</span>
@@ -81,7 +81,7 @@ export const DashboardView: React.FC = () => {
 
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-4.5 py-2.5 bg-white hover:bg-slate-100 text-brand-blue hover:text-indigo-900 text-xs font-bold uppercase tracking-wider rounded-xl shadow-md hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-2"
+            className="px-4 py-2.5 bg-white hover:bg-slate-100 text-brand-blue hover:text-indigo-900 text-xs font-bold uppercase tracking-wider rounded-xl shadow-md hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer flex items-center gap-2 shrink-0"
           >
             <Plus className="h-4 w-4" />
             <span>Tạo Trình Ký Mới</span>

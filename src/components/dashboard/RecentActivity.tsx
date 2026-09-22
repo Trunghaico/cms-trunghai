@@ -48,7 +48,7 @@ export const RecentActivity: React.FC = () => {
   };
 
   return (
-    <div className="bg-white/90 backdrop-blur-md p-5.5 rounded-2xl border border-slate-200/90 shadow-card">
+    <div className="bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-slate-200/90 shadow-card">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-bold text-slate-800">Nhật Ký Luân Chuyển Trình Ký (Audit Trail)</h3>

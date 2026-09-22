@@ -317,11 +317,11 @@ export const UserProfileModal: React.FC = () => {
   const passStrength = getPasswordStrength(newPass);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden animate-slide-down my-auto transition-all">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-hidden">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slide-down transition-all">
         
         {/* Header Bar */}
-        <div className="px-6 py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between border-b border-indigo-900/40 relative overflow-hidden">
+        <div className="px-6 py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between border-b border-indigo-900/40 shrink-0 relative overflow-hidden">
           <div className="absolute top-0 right-1/4 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center gap-3.5 relative z-10">
             <div className="p-2.5 bg-gradient-to-tr from-amber-500 to-amber-300 rounded-2xl text-slate-950 shadow-glow-amber">
@@ -349,7 +349,7 @@ export const UserProfileModal: React.FC = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200/80 bg-slate-50/90 px-6 pt-3 gap-2 text-xs">
+        <div className="flex border-b border-slate-200/80 bg-slate-50/90 px-6 pt-3 gap-2 text-xs shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -403,7 +403,7 @@ export const UserProfileModal: React.FC = () => {
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs text-slate-800 custom-scrollbar">
+        <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs text-slate-800 custom-scrollbar">
           
           {/* Notifications */}
           {errorMessage && (

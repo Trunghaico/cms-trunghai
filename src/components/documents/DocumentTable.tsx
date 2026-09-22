@@ -245,7 +245,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
 
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="self-start sm:self-auto px-4.5 py-2.5 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-[0_0_15px_rgba(237,50,55,0.3)] hover:shadow-[0_0_20px_rgba(237,50,55,0.5)] transition-all duration-150 transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 cursor-pointer"
+          className="self-start sm:self-auto px-4 py-2.5 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-[0_0_15px_rgba(237,50,55,0.3)] hover:shadow-[0_0_20px_rgba(237,50,55,0.5)] transition-all duration-150 transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 cursor-pointer shrink-0"
         >
           <Plus className="h-4 w-4" />
           <span>Tạo Trình Ký Mới</span>

@@ -623,7 +623,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
 
                       <button
                         type="submit"
-                        className="px-4.5 py-2 bg-gradient-to-r from-brand-blue to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-glow-blue active:scale-98 flex items-center gap-1.5"
+                        className="px-4 py-2 bg-gradient-to-r from-brand-blue to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-glow-blue active:scale-98 flex items-center gap-1.5"
                       >
                         <ShieldCheck className="h-4 w-4 text-amber-300" />
                         <span>{isCreatingNew ? '💾 Lưu mẫu mới' : '💾 Lưu cấu hình mẫu'}</span>

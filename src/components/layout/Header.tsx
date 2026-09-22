@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Search, 
-  Bell, 
-  ChevronDown, 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  Search,
+  Bell,
+  ChevronDown,
+  CheckCircle2,
+  AlertCircle,
   AlertTriangle,
-  Clock, 
-  Building2, 
+  Clock,
+  Building2,
   LogOut,
   ExternalLink,
   X,
@@ -25,14 +25,14 @@ import { useDocument } from '../../context/DocumentContext';
 import { formatDate } from '../../lib/storage';
 
 export const Header: React.FC = () => {
-  const { 
-    activeUser, 
+  const {
+    activeUser,
     logout,
-    notifications, 
-    unreadNotificationCount, 
-    markNotificationAsRead, 
+    notifications,
+    unreadNotificationCount,
+    markNotificationAsRead,
     markAllNotificationsAsRead,
-    searchQuery, 
+    searchQuery,
     setSearchQuery,
     setSelectedDocument,
     documents,
@@ -108,7 +108,7 @@ export const Header: React.FC = () => {
   return (
     <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 shadow-xs transition-all select-none">
       <div className="flex items-center justify-between px-4 lg:px-7 h-16">
-        
+
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 group cursor-pointer">
@@ -123,7 +123,7 @@ export const Header: React.FC = () => {
                 </span>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full border border-indigo-200/60 shadow-xs flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                  E-APPROVAL AI
+                  CMS
                 </span>
               </div>
               <p className="text-[11px] font-medium text-slate-500 leading-none mt-0.5">
@@ -154,7 +154,7 @@ export const Header: React.FC = () => {
             {/* Right Action: Clear Button OR Shortcut Badge */}
             <div className="absolute right-2.5 flex items-center">
               {searchQuery ? (
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     setSearchQuery('');
@@ -183,13 +183,12 @@ export const Header: React.FC = () => {
             <div className="relative" ref={nasMenuRef}>
               <button
                 onClick={() => setIsNASMenuOpen(!isNASMenuOpen)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer select-none ${
-                  isNASSyncing 
-                    ? 'bg-blue-50 border-blue-300 text-brand-blue animate-pulse' 
-                    : nasSyncStatus === 'error'
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer select-none ${isNASSyncing
+                  ? 'bg-blue-50 border-blue-300 text-brand-blue animate-pulse'
+                  : nasSyncStatus === 'error'
                     ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
                     : 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-200 text-emerald-800 shadow-2xs'
-                }`}
+                  }`}
                 title="Trạng thái tự động đồng bộ & sao lưu lên MinIO NAS"
               >
                 <div className="relative flex items-center justify-center">
@@ -203,7 +202,7 @@ export const Header: React.FC = () => {
                   )}
                 </div>
                 <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium">
-                  <span className="font-bold">NAS MinIO</span>
+                  <span className="font-bold">NAS</span>
                   {isNASSyncing ? (
                     <span className="text-brand-blue font-semibold">Đang sao lưu...</span>
                   ) : autoBackupConfig.enabled ? (
@@ -332,9 +331,8 @@ export const Header: React.FC = () => {
                       <div
                         key={n.id}
                         onClick={() => handleNotificationClick(n.documentId, n.id)}
-                        className={`p-3.5 hover:bg-slate-50/80 transition-colors duration-150 cursor-pointer flex gap-3 items-start ${
-                          n.type === 'SLA_VIOLATION' ? 'bg-red-50/70 border-l-3 border-red-500' : !n.read ? 'bg-indigo-50/40' : ''
-                        }`}
+                        className={`p-3.5 hover:bg-slate-50/80 transition-colors duration-150 cursor-pointer flex gap-3 items-start ${n.type === 'SLA_VIOLATION' ? 'bg-red-50/70 border-l-3 border-red-500' : !n.read ? 'bg-indigo-50/40' : ''
+                          }`}
                       >
                         <div className="mt-0.5 shrink-0">
                           {n.type === 'SLA_VIOLATION' ? (
@@ -377,30 +375,30 @@ export const Header: React.FC = () => {
 
           <div className="h-6 w-px bg-slate-200" />
 
-            {/* User Profile */}
-            <div className="relative" ref={profileRef}>
-              <button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2.5 p-1 text-left rounded-full hover:bg-slate-100 transition-all duration-200 group cursor-pointer"
-              >
-                <div className="relative shrink-0 w-8 h-8">
-                  <img
-                    src={activeUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeUser.name)}&background=3e4095&color=fff`}
-                    alt={activeUser.name}
-                    className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500/20 group-hover:ring-indigo-500 transition-all shadow-xs"
-                  />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
-                </div>
-                <div className="hidden lg:block text-left pr-1">
-                  <p className="text-xs font-bold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">
-                    {activeUser.name}
-                  </p>
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    {activeUser.roleTitle}
-                  </p>
-                </div>
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden lg:block transition-transform duration-200 group-hover:translate-y-0.5" />
-              </button>
+          {/* User Profile */}
+          <div className="relative" ref={profileRef}>
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="flex items-center gap-2.5 p-1 text-left rounded-full hover:bg-slate-100 transition-all duration-200 group cursor-pointer"
+            >
+              <div className="relative shrink-0 w-8 h-8">
+                <img
+                  src={activeUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeUser.name)}&background=3e4095&color=fff`}
+                  alt={activeUser.name}
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500/20 group-hover:ring-indigo-500 transition-all shadow-xs"
+                />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+              </div>
+              <div className="hidden lg:block text-left pr-1">
+                <p className="text-xs font-bold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">
+                  {activeUser.name}
+                </p>
+                <p className="text-[10px] text-slate-500 leading-tight">
+                  {activeUser.roleTitle}
+                </p>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden lg:block transition-transform duration-200 group-hover:translate-y-0.5" />
+            </button>
 
             {/* Profile Dropdown */}
             {isProfileOpen && (

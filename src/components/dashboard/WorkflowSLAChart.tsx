@@ -193,7 +193,7 @@ export const WorkflowSLAChart: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         
         {/* Tiến độ xử lý luồng phê duyệt (BPM Status Distribution) */}
-        <div className="bg-white/90 backdrop-blur-md p-5.5 rounded-2xl border border-slate-200/90 shadow-card">
+        <div className="bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-slate-200/90 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Tỷ lệ Luân chuyển Hồ sơ (BPM)</h3>
@@ -205,7 +205,7 @@ export const WorkflowSLAChart: React.FC = () => {
           </div>
 
           {/* Multi-segmented Progress Bar */}
-          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex mb-4.5 p-0.5">
+          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex mb-4 p-0.5">
             <div style={{ width: `${approvedPct}%` }} className="bg-emerald-500 h-full rounded-full transition-all" title={`Đã duyệt: ${approvedPct}%`} />
             <div style={{ width: `${inProgressPct}%` }} className="bg-indigo-600 h-full transition-all" title={`Đang xử lý: ${inProgressPct}%`} />
             <div style={{ width: `${pendingPct}%` }} className="bg-amber-500 h-full transition-all" title={`Chờ duyệt: ${pendingPct}%`} />
@@ -249,7 +249,7 @@ export const WorkflowSLAChart: React.FC = () => {
         </div>
 
         {/* Bảng Giám Sát SLA Theo Từng Phòng Ban */}
-        <div className="bg-white/90 backdrop-blur-md p-5.5 rounded-2xl border border-slate-200/90 shadow-card">
+        <div className="bg-white/90 backdrop-blur-md p-5 rounded-2xl border border-slate-200/90 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Giám Sát SLA Theo Phòng Ban</h3>
