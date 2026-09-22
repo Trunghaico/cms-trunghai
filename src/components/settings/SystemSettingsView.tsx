@@ -86,8 +86,11 @@ export const SystemSettingsView: React.FC = () => {
     nasSyncStatus,
     autoBackupConfig,
     autoBackupCountdown,
-    updateAutoBackupConfig
+    updateAutoBackupConfig,
+    hasPermission
   } = useDocument();
+
+  const canManageCategory = hasPermission('category.manage') || activeUser?.role === 'ADMIN';
 
   const [activeSubTab, setActiveSubTab] = useState<'departments' | 'job-titles' | 'permission-presets' | 'nas-storage'>('departments');
   const [searchTerm, setSearchTerm] = useState('');
@@ -483,21 +486,25 @@ export const SystemSettingsView: React.FC = () => {
             </div>
 
             {activeSubTab === 'departments' ? (
-              <button
-                onClick={handleOpenCreateDept}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-blue hover:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Thêm Phòng Ban</span>
-              </button>
+              canManageCategory && (
+                <button
+                  onClick={handleOpenCreateDept}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-blue hover:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Thêm Phòng Ban</span>
+                </button>
+              )
             ) : activeSubTab === 'job-titles' ? (
-              <button
-                onClick={handleOpenCreateJob}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-blue hover:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Thêm Chức Vụ</span>
-              </button>
+              canManageCategory && (
+                <button
+                  onClick={handleOpenCreateJob}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-brand-blue hover:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Thêm Chức Vụ</span>
+                </button>
+              )
             ) : activeSubTab === 'permission-presets' ? (
               <button
                 onClick={() => { setSelectedPresetIdForModal(''); setIsPresetModalOpen(true); }}
@@ -675,22 +682,26 @@ export const SystemSettingsView: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleOpenEditDept(dept)}
-                              className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                              title="Chỉnh sửa phòng ban"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteDept(dept)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                              title="Xóa phòng ban"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          {canManageCategory ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenEditDept(dept)}
+                                className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                title="Chỉnh sửa phòng ban"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteDept(dept)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                title="Xóa phòng ban"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">Chỉ xem</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -756,22 +767,26 @@ export const SystemSettingsView: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleOpenEditJob(job)}
-                              className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                              title="Chỉnh sửa chức vụ"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteJob(job)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                              title="Xóa chức vụ"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          {canManageCategory ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenEditJob(job)}
+                                className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                title="Chỉnh sửa chức vụ"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteJob(job)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                title="Xóa chức vụ"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">Chỉ xem</span>
+                          )}
                         </td>
                       </tr>
                     );

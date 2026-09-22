@@ -57,6 +57,9 @@ export type PermissionId =
   | 'user.create'
   | 'user.edit'
   | 'user.delete'
+  // Categories & Settings
+  | 'category.view'
+  | 'category.manage'
   // System & Analytics
   | 'system.dashboard'
   | 'system.audit_log';

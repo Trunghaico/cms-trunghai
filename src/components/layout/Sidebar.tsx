@@ -38,15 +38,17 @@ export const Sidebar: React.FC = () => {
   const canViewDashboard = hasPermission('system.dashboard');
   const canViewDocs = hasPermission('doc.view') || hasPermission('doc.view_all');
   const canApprove = hasPermission('approval.approve') || hasPermission('approval.override');
-  const isManagerOrAdmin =
+  const canViewCategory = hasPermission('category.view') || hasPermission('category.manage') || activeUser.role === 'ADMIN';
+  const canManageWorkflow = hasPermission('workflow.manage') || activeUser.role === 'ADMIN';
+  const canManageUsers = hasPermission('user.view') || hasPermission('user.create') || hasPermission('user.edit') || activeUser.role === 'ADMIN';
+
+  const canViewLeadershipReports =
     activeUser.role === 'ADMIN' ||
     activeUser.role === 'DIRECTOR' ||
     activeUser.role === 'BOARD_HEAD' ||
     activeUser.role === 'DEPT_HEAD' ||
     activeUser.role === 'CHIEF_ACCOUNTANT' ||
     activeUser.role === 'LEGAL_DEPT' ||
-    hasPermission('user.view') ||
-    hasPermission('workflow.manage') ||
     canUserOverseeAllDocuments(activeUser);
 
   // Tính toán số lượng badge thời gian thực
@@ -167,12 +169,14 @@ export const Sidebar: React.FC = () => {
       label: 'Danh mục chung',
       icon: ListTree,
       badge: null,
+      visible: canViewCategory,
     },
     {
       id: 'workflow-config',
       label: 'Cấu hình Quy trình (SLA)',
       icon: GitFork,
       badge: null,
+      visible: canManageWorkflow,
     },
     {
       id: 'user-management',
@@ -180,8 +184,9 @@ export const Sidebar: React.FC = () => {
       icon: Users,
       badge: `${users.length}`,
       badgeColor: 'bg-brand-blue text-white',
+      visible: canManageUsers,
     },
-  ];
+  ].filter(item => item.visible);
 
   return (
     <aside className="fixed left-0 top-16 bottom-0 w-60 bg-slate-900 text-slate-300 flex flex-col shrink-0 z-20 border-r border-slate-800 shadow-xl transition-all select-none">
@@ -269,8 +274,8 @@ export const Sidebar: React.FC = () => {
           })}
         </div>
 
-        {/* KHỐI 3: THIẾT LẬP HỆ THỐNG & DANH MỤC (Chỉ hiển thị cho Manager/Admin) */}
-        {isManagerOrAdmin && (
+        {/* KHỐI 3: THIẾT LẬP HỆ THỐNG & DANH MỤC (Chỉ hiển thị cho người có quyền) */}
+        {block3Items.length > 0 && (
           <div className="space-y-1 pt-1 border-t border-slate-800/80">
             <div className="px-2.5 pb-1 pt-2 text-[10px] font-black uppercase tracking-wider text-amber-400/90 flex items-center justify-between">
               <div className="flex items-center gap-1.5">

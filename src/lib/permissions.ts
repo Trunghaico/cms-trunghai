@@ -185,6 +185,20 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
     category: 'SYSTEM',
   },
   {
+    id: 'category.view',
+    name: 'Hiển thị danh mục',
+    code: 'CAT_VIEW',
+    description: 'Cho phép hiển thị và truy cập menu Danh mục chung (phòng ban, chức danh)',
+    category: 'SYSTEM',
+  },
+  {
+    id: 'category.manage',
+    name: 'Quản lý danh mục',
+    code: 'CAT_MANAGE',
+    description: 'Thêm mới, cập nhật và xóa các danh mục phòng ban, chức vụ hệ thống',
+    category: 'SYSTEM',
+  },
+  {
     id: 'system.audit_log',
     name: 'Xem nhật ký hệ thống',
     code: 'SYS_AUDIT',
@@ -254,7 +268,6 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'approval.reject',
     'approval.request_info',
     'workflow.view',
-    'workflow.manage',
     'dms.view',
     'dms.export',
     'system.dashboard',
@@ -272,10 +285,8 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'approval.request_info',
     'approval.override',
     'workflow.view',
-    'workflow.manage',
     'dms.view',
     'dms.export',
-    'user.view',
     'system.dashboard',
     'system.audit_log'
   ],
@@ -298,6 +309,8 @@ export const ROLE_PRESET_PERMISSIONS: Record<UserRole, PermissionId[]> = {
     'user.create',
     'user.edit',
     'user.delete',
+    'category.view',
+    'category.manage',
     'system.dashboard',
     'system.audit_log'
   ]

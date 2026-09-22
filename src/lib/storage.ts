@@ -166,11 +166,22 @@ export const deduplicateUsers = (usersList: User[]): User[] => {
     if (uId) seenIds.add(uId);
     if (uName) seenUsernames.add(uName);
 
+    // Đồng bộ lại quyền chuẩn theo vai trò cho các tài khoản mặc định
+    const defaultPerms = ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF;
+    let finalPermissions = defaultPerms;
+    if (u.role === 'ADMIN') {
+      finalPermissions = Array.isArray(u.permissions) && u.permissions.length > 0 ? u.permissions : defaultPerms;
+    } else if (Array.isArray(u.permissions) && u.permissions.length > 0) {
+      if (uId.startsWith('user-')) {
+        finalPermissions = defaultPerms;
+      } else {
+        finalPermissions = u.permissions;
+      }
+    }
+
     result.push({
       ...u,
-      permissions: Array.isArray(u.permissions) && u.permissions.length > 0
-        ? u.permissions 
-        : (ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF),
+      permissions: finalPermissions,
       secondaryPositions: Array.isArray(u.secondaryPositions) ? u.secondaryPositions : []
     });
   }

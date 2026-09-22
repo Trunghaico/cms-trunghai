@@ -16,7 +16,7 @@ import { AuditLogView } from './components/audit/AuditLogView';
 import { LoginPage } from './components/auth/LoginPage';
 
 const AppContent: React.FC = () => {
-  const { activeTab, isAuthenticated } = useDocument();
+  const { activeTab, isAuthenticated, hasPermission, activeUser } = useDocument();
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -56,7 +56,7 @@ const AppContent: React.FC = () => {
         return (
           <DocumentTable
             filterType="ARCHIVE"
-            title="Kho Lưu Trữ Hồ Sơ (DMS)"
+            title="Kho Lưu Trữ Hồ Sơ Số (DMS)"
             subtitle="Các hồ sơ, văn bản, hợp đồng đã hoàn tất phê duyệt và lưu trữ lịch sử"
           />
         );
@@ -85,15 +85,24 @@ const AppContent: React.FC = () => {
       case 'audit-logs':
         return <AuditLogView />;
 
-      // KHỐI 3: THIẾT LẬP HỆ THỐNG & DANH MỤC
+      // KHỐI 3: THIẾT LẬP HỆ THỐNG & DANH MỤC (Bảo vệ phân quyền)
       case 'settings-categories':
       case 'settings':
+        if (!hasPermission('category.view') && !hasPermission('category.manage') && activeUser?.role !== 'ADMIN') {
+          return <DashboardView />;
+        }
         return <SystemSettingsView />;
       case 'workflow-config':
       case 'workflow-templates':
+        if (!hasPermission('workflow.manage') && activeUser?.role !== 'ADMIN') {
+          return <DashboardView />;
+        }
         return <WorkflowConfigView />;
       case 'user-management':
       case 'users':
+        if (!hasPermission('user.view') && !hasPermission('user.create') && !hasPermission('user.edit') && activeUser?.role !== 'ADMIN') {
+          return <DashboardView />;
+        }
         return <UserManagementView />;
       case 'dms-repository':
         return <DMSStorageView />;
