@@ -27,6 +27,10 @@ import {
   loadDeletedPresetIds,
   addDeletedPresetId,
   removeDeletedPresetId,
+  loadDeletedDocumentIds,
+  addDeletedDocumentId,
+  removeDeletedDocumentId,
+  deduplicateDocuments,
   deduplicateUsers,
   deduplicateDepartments,
   deduplicateJobTitles,
@@ -473,6 +477,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         jobTitles: targetJobs,
         permissionPresets: targetPresets,
         notifications: targetNotifs,
+        deletedDocumentIds: loadDeletedDocumentIds(),
         deletedUserIds: loadDeletedUserIds(),
         deletedDepartmentIds: loadDeletedDeptIds(),
         deletedJobTitleIds: loadDeletedJobIds(),
@@ -509,25 +514,46 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: false, message: 'Không tìm thấy dữ liệu trên MinIO NAS hoặc không thể đọc file.' };
       }
 
-      if (Array.isArray(snapshot.documents) && snapshot.documents.length > 0) {
-        setDocuments(snapshot.documents);
-        saveDocuments(snapshot.documents);
+      if (Array.isArray(snapshot.deletedDocumentIds)) {
+        snapshot.deletedDocumentIds.forEach(id => addDeletedDocumentId(id));
+      }
+      if (Array.isArray(snapshot.deletedUserIds)) {
+        snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
+      }
+      if (Array.isArray(snapshot.deletedDepartmentIds)) {
+        snapshot.deletedDepartmentIds.forEach(id => addDeletedDeptId(id));
+      }
+      if (Array.isArray(snapshot.deletedJobTitleIds)) {
+        snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
+      }
+      if (Array.isArray(snapshot.deletedPresetIds)) {
+        snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
+      }
+
+      if (Array.isArray(snapshot.documents)) {
+        const cleanDocs = deduplicateDocuments(snapshot.documents);
+        setDocuments(cleanDocs);
+        saveDocuments(cleanDocs);
       }
       if (Array.isArray(snapshot.users) && snapshot.users.length > 0) {
-        setUsers(snapshot.users);
-        saveUsers(snapshot.users);
+        const cleanUsers = deduplicateUsers(snapshot.users);
+        setUsers(cleanUsers);
+        saveUsers(cleanUsers);
       }
       if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) {
-        setDepartments(snapshot.departments);
-        saveDepartments(snapshot.departments);
+        const cleanDepts = deduplicateDepartments(snapshot.departments);
+        setDepartments(cleanDepts);
+        saveDepartments(cleanDepts);
       }
       if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) {
-        setJobTitles(snapshot.jobTitles);
-        saveJobTitles(snapshot.jobTitles);
+        const cleanJobs = deduplicateJobTitles(snapshot.jobTitles);
+        setJobTitles(cleanJobs);
+        saveJobTitles(cleanJobs);
       }
       if (Array.isArray(snapshot.permissionPresets) && snapshot.permissionPresets.length > 0) {
-        setPermissionPresets(snapshot.permissionPresets);
-        savePermissionPresets(snapshot.permissionPresets);
+        const cleanPresets = deduplicatePresets(snapshot.permissionPresets);
+        setPermissionPresets(cleanPresets);
+        savePermissionPresets(cleanPresets);
       }
       if (Array.isArray(snapshot.notifications)) {
         setNotifications(snapshot.notifications);
@@ -558,7 +584,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return await listNASBackups();
   }, []);
 
-  // 1. Initial Sync from MinIO NAS on startup (Gộp thông minh để không ghi đè mất user/phòng ban đã tạo)
+  // 1. Initial Sync from MinIO NAS on startup (Gộp thông minh để không ghi đè mất user/phòng ban/hồ sơ đã tạo)
   useEffect(() => {
     let isMounted = true;
     const initNASAndDB = async () => {
@@ -567,6 +593,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const snapshot = await fetchDatabaseFromNAS();
           if (!isMounted) return;
           if (snapshot) {
+            if (Array.isArray(snapshot.deletedDocumentIds)) {
+              snapshot.deletedDocumentIds.forEach(id => addDeletedDocumentId(id));
+            }
             if (Array.isArray(snapshot.deletedUserIds)) {
               snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
             }
@@ -579,10 +608,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (Array.isArray(snapshot.deletedPresetIds)) {
               snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
             }
-
-            const deletedUsersSet = new Set(loadDeletedUserIds().map(s => s.toLowerCase()));
-            const deletedDeptsSet = new Set(loadDeletedDeptIds().map(s => s.toLowerCase()));
-            const deletedJobsSet = new Set(loadDeletedJobIds().map(s => s.toLowerCase()));
 
             // MERGE & DEDUPLICATE USERS:
             const localUsers = loadUsers();
@@ -609,19 +634,21 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const snapDocs = Array.isArray(snapshot.documents) ? snapshot.documents : [];
             const docMap = new Map<string, DocumentItem>();
             snapDocs.forEach(d => {
-              if (d && d.id) docMap.set(d.id, d);
+              if (d && d.id) docMap.set(d.id.toLowerCase(), d);
             });
             localDocs.forEach(d => {
-              if (!docMap.has(d.id)) {
-                docMap.set(d.id, d);
+              if (!d || !d.id) return;
+              const key = d.id.toLowerCase();
+              if (!docMap.has(key)) {
+                docMap.set(key, d);
               } else {
-                const existing = docMap.get(d.id)!;
+                const existing = docMap.get(key)!;
                 if (new Date(d.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
-                  docMap.set(d.id, d);
+                  docMap.set(key, d);
                 }
               }
             });
-            const mergedDocs = Array.from(docMap.values());
+            const mergedDocs = deduplicateDocuments(Array.from(docMap.values()));
 
             setUsers(mergedUsers);
             setDepartments(mergedDepts);
@@ -653,6 +680,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 jobTitles: mergedJobs,
                 permissionPresets: mergedPresets,
                 notifications,
+                deletedDocumentIds: loadDeletedDocumentIds(),
                 deletedUserIds: loadDeletedUserIds(),
                 deletedDepartmentIds: loadDeletedDeptIds(),
                 deletedJobTitleIds: loadDeletedJobIds(),
@@ -669,6 +697,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               jobTitles,
               permissionPresets,
               notifications,
+              deletedDocumentIds: loadDeletedDocumentIds(),
               deletedUserIds: loadDeletedUserIds(),
               deletedDepartmentIds: loadDeletedDeptIds(),
               deletedJobTitleIds: loadDeletedJobIds(),
@@ -742,6 +771,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (remoteTime - localTime > 10000 && !isSyncInProgress.current) {
             const snapshot = await fetchDatabaseFromNAS();
             if (snapshot) {
+              if (Array.isArray(snapshot.deletedDocumentIds)) {
+                snapshot.deletedDocumentIds.forEach(id => addDeletedDocumentId(id));
+              }
               if (Array.isArray(snapshot.deletedUserIds)) {
                 snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
               }
@@ -750,6 +782,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               }
               if (Array.isArray(snapshot.deletedJobTitleIds)) {
                 snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
+              }
+              if (Array.isArray(snapshot.deletedPresetIds)) {
+                snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
               }
 
               const currentUsers = loadUsers();
@@ -768,19 +803,21 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               const snapDocs = Array.isArray(snapshot.documents) ? snapshot.documents : [];
               const docMap = new Map<string, DocumentItem>();
               snapDocs.forEach(d => {
-                if (d && d.id) docMap.set(d.id, d);
+                if (d && d.id) docMap.set(d.id.toLowerCase(), d);
               });
               currentDocs.forEach(d => {
-                if (!docMap.has(d.id)) {
-                  docMap.set(d.id, d);
+                if (!d || !d.id) return;
+                const key = d.id.toLowerCase();
+                if (!docMap.has(key)) {
+                  docMap.set(key, d);
                 } else {
-                  const existing = docMap.get(d.id)!;
+                  const existing = docMap.get(key)!;
                   if (new Date(d.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
-                    docMap.set(d.id, d);
+                    docMap.set(key, d);
                   }
                 }
               });
-              const mergedDocs = Array.from(docMap.values());
+              const mergedDocs = deduplicateDocuments(Array.from(docMap.values()));
 
               setUsers(mergedUsers);
               setDepartments(mergedDepts);
@@ -798,12 +835,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
       } catch (err) {
-        // Quiet fail for remote poll
+        console.warn('Check remote NAS error:', err);
       }
     };
 
-    const pollInterval = setInterval(checkRemoteNAS, 45000); // Poll every 45s
-    return () => clearInterval(pollInterval);
+    const interval = setInterval(checkRemoteNAS, 30000); // Poll every 30s
+    return () => clearInterval(interval);
   }, [autoBackupConfig.enabled, lastNASSyncTime]);
 
   const login = (username: string, pass: string): { success: boolean; message?: string } => {
@@ -1914,10 +1951,37 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteDocument = (documentId: string) => {
-    setDocuments(prev => prev.filter(d => d.id !== documentId));
+    const docToDelete = documents.find(d => d.id === documentId);
+    addDeletedDocumentId(documentId);
+    if (docToDelete?.code) {
+      addDeletedDocumentId(docToDelete.code);
+    }
+    const updatedDocs = deduplicateDocuments(documents.filter(d => d.id !== documentId));
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
+
+    const updatedNotifs = notifications.filter(n => n.documentId !== documentId);
+    setNotifications(updatedNotifs);
+    saveNotifications(updatedNotifs);
+
     if (selectedDocument?.id === documentId) {
       setSelectedDocument(null);
     }
+
+    saveDatabaseToNAS({
+      documents: updatedDocs,
+      users,
+      departments,
+      jobTitles,
+      permissionPresets,
+      notifications: updatedNotifs,
+      deletedDocumentIds: loadDeletedDocumentIds(),
+      deletedUserIds: loadDeletedUserIds(),
+      deletedDepartmentIds: loadDeletedDeptIds(),
+      deletedJobTitleIds: loadDeletedJobIds(),
+      deletedPresetIds: loadDeletedPresetIds(),
+      savedBy: activeUser ? `${activeUser.name} (Xóa hồ sơ ${docToDelete?.code || documentId})` : 'Xóa hồ sơ'
+    }).catch(e => console.warn('Lỗi đồng bộ xóa hồ sơ lên NAS:', e));
   };
 
   const resetToSampleData = () => {
@@ -1925,6 +1989,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.removeItem('trunghai_notifications_v1');
     localStorage.removeItem('trunghai_users_db_v1');
     localStorage.removeItem('trunghai_active_user_v1');
+    localStorage.removeItem('trunghai_deleted_documents_v1');
     window.location.reload();
   };
 

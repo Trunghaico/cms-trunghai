@@ -356,6 +356,7 @@ export async function onRequest(context: any): Promise<Response> {
         jobTitles: snapshotData.jobTitles || [],
         permissionPresets: snapshotData.permissionPresets || [],
         notifications: snapshotData.notifications || [],
+        deletedDocumentIds: snapshotData.deletedDocumentIds || [],
         deletedUserIds: snapshotData.deletedUserIds || [],
         deletedDepartmentIds: snapshotData.deletedDepartmentIds || [],
         deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],

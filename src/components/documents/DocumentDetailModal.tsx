@@ -26,7 +26,8 @@ import {
   Edit3,
   Undo2,
   Zap,
-  UserCheck
+  UserCheck,
+  Trash2
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { ApprovalTimeline } from './ApprovalTimeline';
@@ -76,9 +77,9 @@ export const DocumentDetailModal: React.FC = () => {
   const currentStep = selectedDocument.steps[selectedDocument.currentStepIndex];
   
   const canPrint = hasPermission('doc.print_export');
-
   const isCreator = selectedDocument ? selectedDocument.creatorId === activeUser.id : false;
   const canUserResubmit = selectedDocument?.status === 'ADDITIONAL_REQ' && (isCreator || activeUser.role === 'ADMIN');
+  const canDelete = hasPermission('doc.delete') && (isCreator || activeUser.role === 'ADMIN' || hasPermission('approval.override'));
 
   const latestRequestInfoLog = selectedDocument 
     ? [...selectedDocument.auditLogs].reverse().find(l => l.action === 'REQUEST_INFO') 
@@ -894,6 +895,20 @@ export const DocumentDetailModal: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Xác nhận xóa vĩnh viễn hồ sơ ${selectedDocument.code}? Hồ sơ sau khi xóa sẽ mất hoàn toàn và không khôi phục lại khi tải lại trang/build dữ liệu.`)) {
+                    deleteDocument(selectedDocument.id);
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:text-red-800 rounded-[3px] transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Xóa Hồ Sơ</span>
+              </button>
+            )}
             {canUserResubmit && (
               <button
                 type="button"

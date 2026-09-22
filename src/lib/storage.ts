@@ -13,6 +13,38 @@ const STORAGE_KEY_DELETED_USERS = 'trunghai_deleted_users_v1';
 const STORAGE_KEY_DELETED_DEPTS = 'trunghai_deleted_depts_v1';
 const STORAGE_KEY_DELETED_JOBS = 'trunghai_deleted_jobs_v1';
 const STORAGE_KEY_DELETED_PRESETS = 'trunghai_deleted_presets_v1';
+const STORAGE_KEY_DELETED_DOCS = 'trunghai_deleted_documents_v1';
+
+export const loadDeletedDocumentIds = (): string[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_DELETED_DOCS);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const addDeletedDocumentId = (idOrCode: string) => {
+  try {
+    if (!idOrCode) return;
+    const current = new Set(loadDeletedDocumentIds().map(s => s.toLowerCase()));
+    current.add(idOrCode.toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DELETED_DOCS, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.error('Failed to save deleted document id', e);
+  }
+};
+
+export const removeDeletedDocumentId = (idOrCode: string) => {
+  try {
+    if (!idOrCode) return;
+    const current = new Set(loadDeletedDocumentIds().map(s => s.toLowerCase()));
+    current.delete(idOrCode.toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DELETED_DOCS, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.error('Failed to remove deleted document id', e);
+  }
+};
 
 export const loadDeletedUserIds = (): string[] => {
   try {
@@ -397,21 +429,58 @@ export const savePermissionPresets = (presets: PermissionPreset[]) => {
   }
 };
 
+export const deduplicateDocuments = (docsList: DocumentItem[]): DocumentItem[] => {
+  if (!Array.isArray(docsList)) return [];
+  const seenIds = new Set<string>();
+  const seenCodes = new Set<string>();
+  const deletedSet = new Set(loadDeletedDocumentIds().map(s => s.toLowerCase()));
+  const result: DocumentItem[] = [];
+
+  for (const d of docsList) {
+    if (!d) continue;
+    const dId = (d.id || '').trim().toLowerCase();
+    const dCode = (d.code || '').trim().toLowerCase();
+
+    // Loại trừ vĩnh viễn nếu nằm trong danh sách hồ sơ đã bị xóa
+    if ((dId && deletedSet.has(dId)) || (dCode && deletedSet.has(dCode))) {
+      continue;
+    }
+
+    // Chống nhân bản trùng lặp ID hoặc Code
+    if (dId && seenIds.has(dId)) continue;
+    if (dCode && seenCodes.has(dCode)) continue;
+
+    if (dId) seenIds.add(dId);
+    if (dCode) seenCodes.add(dCode);
+
+    result.push(d);
+  }
+
+  return result;
+};
+
 export const loadDocuments = (): DocumentItem[] => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY_DOCS);
-    if (saved) {
-      return JSON.parse(saved);
+    if (saved !== null) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return deduplicateDocuments(parsed);
+      }
     }
   } catch (e) {
     console.error('Failed to load documents from localStorage', e);
   }
-  return INITIAL_DOCUMENTS;
+  // Nếu chưa có dữ liệu lưu trong storage, nạp danh sách mẫu đã lọc bỏ các hồ sơ đã xóa
+  const initial = deduplicateDocuments(INITIAL_DOCUMENTS);
+  saveDocuments(initial);
+  return initial;
 };
 
 export const saveDocuments = (docs: DocumentItem[]) => {
   try {
-    localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify(docs));
+    const clean = deduplicateDocuments(docs);
+    localStorage.setItem(STORAGE_KEY_DOCS, JSON.stringify(clean));
   } catch (e) {
     console.error('Failed to save documents to localStorage', e);
   }
