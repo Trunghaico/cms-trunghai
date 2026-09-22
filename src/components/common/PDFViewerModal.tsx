@@ -130,7 +130,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         className={`bg-slate-900 text-white rounded-3xl shadow-2xl border border-slate-700/80 flex flex-col transition-all duration-150 overflow-hidden ${
           isFullscreen 
             ? 'fixed inset-0 w-screen h-screen rounded-none z-[100000]' 
-            : 'w-[98vw] max-w-6xl h-[96vh]'
+            : 'w-[98vw] max-w-7xl h-[96vh]'
         } ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`}
       >
         
@@ -190,51 +190,56 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
             )}
 
             {/* Zoom Controls */}
-            <div className="flex items-center gap-0.5 bg-slate-900 border border-slate-700/80 rounded-xl p-1">
-              <button
-                onClick={handleZoomOut}
-                className="p-1 hover:bg-slate-750 rounded-lg text-slate-300 hover:text-white transition-colors"
-                title="Thu nhỏ"
-              >
-                <ZoomOut className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={handleResetZoom}
-                className="px-2 font-mono text-[11px] font-semibold text-white hover:text-brand-blue transition-colors"
-                title="Đặt lại 100%"
-              >
-                {zoom}%
-              </button>
-              <button
-                onClick={handleZoomIn}
-                className="p-1 hover:bg-slate-750 rounded-lg text-slate-300 hover:text-white transition-colors"
-                title="Phóng to"
-              >
-                <ZoomIn className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            {(!hasRealFileContent || isImage) && (
+              <div className="flex items-center gap-0.5 bg-slate-900 border border-slate-700/80 rounded-xl p-1">
+                <button
+                  onClick={handleZoomOut}
+                  className="p-1 hover:bg-slate-750 rounded-lg text-slate-300 hover:text-white transition-colors"
+                  title="Thu nhỏ"
+                >
+                  <ZoomOut className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={handleResetZoom}
+                  className="px-2 font-mono text-[11px] font-semibold text-white hover:text-brand-blue transition-colors"
+                  title="Đặt lại 100%"
+                >
+                  {zoom}%
+                </button>
+                <button
+                  onClick={handleZoomIn}
+                  className="p-1 hover:bg-slate-750 rounded-lg text-slate-300 hover:text-white transition-colors"
+                  title="Phóng to"
+                >
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
 
-            {/* Rotate */}
-            <button
-              onClick={handleRotate}
-              className="p-1.5 bg-slate-900 border border-slate-700/80 hover:bg-slate-750 rounded-xl text-slate-300 hover:text-white transition-colors"
-              title="Xoay 90 độ"
-            >
-              <RotateCw className="h-3.5 w-3.5" />
-            </button>
+            {/* Rotate for mock & image */}
+            {(!hasRealFileContent || isImage) && (
+              <button
+                onClick={handleRotate}
+                className="p-1.5 bg-slate-900 border border-slate-700/80 hover:bg-slate-750 rounded-xl text-slate-300 hover:text-white transition-colors"
+                title="Xoay 90 độ"
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Right: Actions & Close Button */}
           <div className="flex items-center gap-1.5 shrink-0">
             {hasRealFileContent && (
               <a
-                href={attachment.url}
+                href={secureUrl}
                 target="_blank"
                 rel="noreferrer"
-                title="Mở trong tab mới"
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-750 rounded-xl transition-colors"
+                title="Mở toàn màn hình trong tab mới"
+                className="px-2 py-1 text-slate-300 hover:text-white hover:bg-slate-750 rounded-xl transition-colors flex items-center gap-1 text-xs"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
+                <ExternalLink className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="hidden sm:inline text-[11px] font-medium">Mở tab mới</span>
               </a>
             )}
             <button
@@ -261,7 +266,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
             <div className="w-[1px] h-4 bg-slate-700 mx-1" />
             <button
               onClick={handleClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-brand-red rounded-xl transition-colors"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-brand-red rounded-xl transition-colors cursor-pointer"
               title="Đóng (Esc)"
             >
               <X className="h-4 w-4" />
@@ -271,34 +276,20 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         </div>
 
         {/* EXPANDED PDF VIEWER BODY */}
-        <div className="flex-1 bg-slate-950/95 overflow-auto p-2 sm:p-4 flex items-start justify-center relative">
+        <div className={`flex-1 min-h-0 min-w-0 bg-slate-950/95 relative flex ${
+          hasRealFileContent && isPdf 
+            ? 'p-1 sm:p-2 overflow-hidden flex-col' 
+            : 'overflow-auto p-2 sm:p-4 items-start justify-center'
+        }`}>
           
-          {/* CASE 1: Real PDF file uploaded by user (Base64 data or Blob) */}
+          {/* CASE 1: Real PDF file uploaded by user (Base64 data or Blob or URL) */}
           {hasRealFileContent && isPdf ? (
-            <div 
-              className="w-full h-full min-h-[500px] bg-white rounded-2xl shadow-2xl overflow-hidden transition-transform duration-150 origin-top flex flex-col"
-              style={{
-                transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                transformOrigin: 'top center',
-              }}
-            >
-              <object
-                data={secureUrl}
-                type="application/pdf"
-                className="w-full h-full min-h-[750px] flex-1 border-0"
-              >
-                <iframe
-                  src={secureUrl}
-                  className="w-full h-full min-h-[750px] flex-1 border-0"
-                  title={attachment.name}
-                >
-                  <embed
-                    src={secureUrl}
-                    type="application/pdf"
-                    className="w-full h-full min-h-[750px] flex-1"
-                  />
-                </iframe>
-              </object>
+            <div className="w-full h-full flex-1 min-h-0 min-w-0 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/60 relative">
+              <iframe
+                src={`${secureUrl}#toolbar=1&navpanes=0&view=FitH`}
+                className="w-full h-full flex-1 min-h-0 min-w-0 border-0 rounded-2xl bg-white"
+                title={attachment.name}
+              />
             </div>
           ) : hasRealFileContent && isImage ? (
             /* CASE 2: Image file uploaded by user */
