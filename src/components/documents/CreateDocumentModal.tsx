@@ -22,7 +22,8 @@ import {
   Clock,
   GitFork,
   CheckCircle2,
-  Flame
+  Flame,
+  Check
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { ApprovalStep, DocumentStatus, Attachment, User, UserRole, OverdueAction, WorkflowTemplate, DocumentPriority } from '../../types';
@@ -136,6 +137,29 @@ export const CreateDocumentModal: React.FC = () => {
     return Array.from(new Set([...defaultList, ...fromWf]));
   }, [workflowTemplates]);
 
+  // Helper kiểm tra xem phòng ban đã được chọn trong chuỗi duyệt chưa (loại trừ bước hiện tại nếu đang sửa)
+  const isDepartmentAlreadyChosen = useCallback((deptName: string, excludeIdx: number = -1): boolean => {
+    return selectedApprovers.some((a, i) => 
+      i !== excludeIdx && 
+      a.type === 'DEPARTMENT' && 
+      a.departmentName.trim().toLowerCase() === deptName.trim().toLowerCase()
+    );
+  }, [selectedApprovers]);
+
+  // Helper kiểm tra xem cá nhân đã được chọn trong chuỗi duyệt chưa (loại trừ bước hiện tại nếu đang sửa)
+  const isUserAlreadyChosen = useCallback((userId: string, excludeIdx: number = -1): boolean => {
+    return selectedApprovers.some((a, i) => 
+      i !== excludeIdx && 
+      a.type === 'USER' && 
+      a.user.id === userId
+    );
+  }, [selectedApprovers]);
+
+  // Helper kiểm tra cá nhân đã nằm trong danh sách CC chưa
+  const isUserInCc = useCallback((userId: string): boolean => {
+    return selectedCcUsers.some(u => u.id === userId);
+  }, [selectedCcUsers]);
+
   // Áp dụng Mẫu quy trình BPM
   const handleApplyTemplate = useCallback((templateId: string) => {
     setSelectedTemplateId(templateId);
@@ -150,15 +174,22 @@ export const CreateDocumentModal: React.FC = () => {
                    tpl.category.includes('thanh toán') ? 'BB' : 'VB';
     setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
 
-    // Tự động điền chuỗi duyệt từ mẫu
-    const mappedSteps: ApproverItem[] = tpl.steps.map(s => {
-      const deptObj = systemDepts?.find(d => d.name.toLowerCase() === s.department.toLowerCase());
+    // Tự động điền chuỗi duyệt từ mẫu (Tự động lọc bỏ các phòng ban bị trùng lặp trong cấu hình mẫu)
+    const seenDepts = new Set<string>();
+    const mappedSteps: ApproverItem[] = [];
+
+    for (const s of tpl.steps) {
       const dName = s.department;
+      const dKey = dName.trim().toLowerCase();
+      if (seenDepts.has(dKey)) continue;
+      seenDepts.add(dKey);
+
+      const deptObj = systemDepts?.find(d => d.name.toLowerCase() === dName.toLowerCase());
       const isBoard = dName.toLowerCase().startsWith('ban ') || 
                       dName.toLowerCase().includes('ban qlda') || 
                       dName.toLowerCase().includes('ban kiểm soát') ||
                       dName.toLowerCase().includes('ban điều hành');
-      return {
+      mappedSteps.push({
         type: 'DEPARTMENT',
         departmentName: dName,
         departmentCode: deptObj?.code || 'PB',
@@ -167,8 +198,8 @@ export const CreateDocumentModal: React.FC = () => {
         overdueAction: s.overdueAction || deptObj?.defaultOverdueAction || getDeptDefaultOverdueAction(dName),
         isInternalCheck: !!s.isInternalCheck,
         requiresInternalCheck: !!s.isInternalCheck
-      };
-    });
+      });
+    }
 
     setSelectedApprovers(mappedSteps);
   }, [workflowTemplates, systemDepts, getDeptDefaultSla, getDeptDefaultOverdueAction]);
@@ -225,17 +256,16 @@ export const CreateDocumentModal: React.FC = () => {
   };
 
 
-  // Thêm người duyệt là CÁ NHÂN
+  // Thêm người duyệt là CÁ NHÂN (Kiểm tra tránh chọn trùng người đã có trong chuỗi duyệt hoặc Cc)
   const handleAddUserApprover = (user: User) => {
     setErrorMsg('');
-    if (selectedCcUsers.some(u => u.id === user.id)) {
-      setErrorMsg(`"${user.name}" đang nằm trong danh sách Người theo dõi (Cc).`);
+    if (isUserInCc(user.id)) {
+      setErrorMsg(`"${user.name}" đang nằm trong danh sách Người theo dõi (Cc). Không thể chọn làm người phê duyệt.`);
       return;
     }
 
-    if (selectedApprovers.some(a => a.type === 'USER' && a.user.id === user.id)) {
-      setApproverSearchQuery('');
-      setIsApproverDropdownOpen(false);
+    if (isUserAlreadyChosen(user.id)) {
+      setErrorMsg(`Người phê duyệt "${user.name}" đã có trong chuỗi phê duyệt. Không được chọn trùng lần nữa để tránh sai quy trình.`);
       return;
     }
 
@@ -249,9 +279,14 @@ export const CreateDocumentModal: React.FC = () => {
     setIsApproverDropdownOpen(false);
   };
 
-  // Thêm người duyệt là PHÒNG BAN (Gộp chung 1 bước: Kiểm tra nội bộ + Phê duyệt quản lý)
+  // Thêm người duyệt là PHÒNG BAN (Kiểm tra tránh chọn trùng phòng ban đã có trong chuỗi duyệt)
   const handleAddDeptApprover = (dept: { id: string; name: string; code: string; defaultSlaHours?: number; defaultOverdueAction?: OverdueAction }) => {
     setErrorMsg('');
+    if (isDepartmentAlreadyChosen(dept.name)) {
+      setErrorMsg(`Phòng ban "${dept.name}" đã có trong chuỗi phê duyệt. Không được chọn trùng lần nữa để tránh sai quy trình.`);
+      return;
+    }
+
     const sla = dept.defaultSlaHours || getDeptDefaultSla(dept.name);
     const overdueAct = dept.defaultOverdueAction || getDeptDefaultOverdueAction(dept.name);
     const dName = dept.name;
@@ -316,10 +351,21 @@ export const CreateDocumentModal: React.FC = () => {
     });
   };
 
-  // Đổi lựa chọn trong bước (từ select box của từng bước)
+  // Đổi lựa chọn trong bước (Kiểm tra tránh chọn trùng với các bước khác)
   const handleChangeStepTarget = (idx: number, value: string) => {
+    setErrorMsg('');
     if (value.startsWith('USER:')) {
       const uId = value.replace('USER:', '');
+      if (isUserAlreadyChosen(uId, idx)) {
+        const found = users.find(u => u.id === uId);
+        setErrorMsg(`Người phê duyệt "${found?.name || uId}" đã được chọn ở bước khác. Mỗi người chỉ tham gia duyệt 1 lần.`);
+        return;
+      }
+      if (isUserInCc(uId)) {
+        const found = users.find(u => u.id === uId);
+        setErrorMsg(`"${found?.name || uId}" đang nằm trong danh sách Người theo dõi (Cc). Không thể chọn làm người phê duyệt.`);
+        return;
+      }
       const foundUser = users.find(u => u.id === uId);
       if (foundUser) {
         const sla = getDeptDefaultSla(foundUser.department);
@@ -335,6 +381,10 @@ export const CreateDocumentModal: React.FC = () => {
       }
     } else if (value.startsWith('DEPT:')) {
       const deptName = value.replace('DEPT:', '');
+      if (isDepartmentAlreadyChosen(deptName, idx)) {
+        setErrorMsg(`Phòng ban "${deptName}" đã được chọn ở bước khác. Mỗi phòng ban chỉ tham gia duyệt 1 lần.`);
+        return;
+      }
       const deptObj = allDepartments.find(d => d.name === deptName);
       const sla = (deptObj as any)?.defaultSlaHours || getDeptDefaultSla(deptName);
       const overdueAct = (deptObj as any)?.defaultOverdueAction || getDeptDefaultOverdueAction(deptName);
@@ -353,12 +403,13 @@ export const CreateDocumentModal: React.FC = () => {
   // Thêm người theo dõi (Cc)
   const handleAddCcUser = (user: User) => {
     setErrorMsg('');
-    if (selectedApprovers.some(a => a.type === 'USER' && a.user.id === user.id)) {
-      setErrorMsg(`"${user.name}" đang là Người xét duyệt.`);
+    if (isUserAlreadyChosen(user.id)) {
+      setErrorMsg(`"${user.name}" đang là Người xét duyệt trong chuỗi phê duyệt.`);
       return;
     }
 
     if (selectedCcUsers.some(u => u.id === user.id)) {
+      setErrorMsg(`"${user.name}" đã có trong danh sách Người theo dõi (Cc).`);
       setCcSearchQuery('');
       setIsCcDropdownOpen(false);
       return;
@@ -423,6 +474,26 @@ export const CreateDocumentModal: React.FC = () => {
     if (selectedApprovers.length === 0) {
       setErrorMsg('Vui lòng chọn ít nhất 01 người hoặc phòng ban xét duyệt.');
       return;
+    }
+
+    // Kiểm tra tính toàn vẹn: Không cho phép chọn trùng phòng ban hoặc người duyệt
+    const deptSet = new Set<string>();
+    const userSet = new Set<string>();
+    for (const item of selectedApprovers) {
+      if (item.type === 'DEPARTMENT') {
+        const d = item.departmentName.trim().toLowerCase();
+        if (deptSet.has(d)) {
+          setErrorMsg(`Phòng ban "${item.departmentName}" bị trùng lặp trong quy trình phê duyệt. Mỗi phòng ban chỉ tham gia duyệt 1 lần.`);
+          return;
+        }
+        deptSet.add(d);
+      } else if (item.type === 'USER') {
+        if (userSet.has(item.user.id)) {
+          setErrorMsg(`Người duyệt "${item.user.name}" bị trùng lặp trong quy trình phê duyệt. Mỗi cá nhân chỉ tham gia duyệt 1 lần.`);
+          return;
+        }
+        userSet.add(item.user.id);
+      }
     }
 
     const now = new Date();
@@ -882,18 +953,36 @@ export const CreateDocumentModal: React.FC = () => {
                             className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer truncate"
                           >
                             <optgroup label="🏢 --- PHÒNG BAN XÉT DUYỆT ---">
-                              {allDepartments.map(d => (
-                                <option key={`dept-${d.id}`} value={`DEPT:${d.name}`}>
-                                  🏢 {d.name} ({d.code}) {d.defaultSlaHours ? `— Chuẩn SLA: ${d.defaultSlaHours}h` : ''}
-                                </option>
-                              ))}
+                              {allDepartments.map(d => {
+                                const isDuplicate = isDepartmentAlreadyChosen(d.name, idx);
+                                return (
+                                  <option 
+                                    key={`dept-${d.id}`} 
+                                    value={`DEPT:${d.name}`}
+                                    disabled={isDuplicate}
+                                    className={isDuplicate ? 'text-slate-400 bg-slate-100' : ''}
+                                  >
+                                    🏢 {d.name} ({d.code}) {isDuplicate ? ' — (⚠️ Đã chọn ở bước khác)' : (d.defaultSlaHours ? `— Chuẩn SLA: ${d.defaultSlaHours}h` : '')}
+                                  </option>
+                                );
+                              })}
                             </optgroup>
                             <optgroup label="👤 --- CÁ NHÂN CỤ THỂ ---">
-                              {users.map(u => (
-                                <option key={`user-${u.id}`} value={`USER:${u.id}`}>
-                                  👤 {u.name} — {u.roleTitle} ({u.department})
-                                </option>
-                              ))}
+                              {users.map(u => {
+                                const isDuplicate = isUserAlreadyChosen(u.id, idx);
+                                const isCc = isUserInCc(u.id);
+                                const isDisabled = isDuplicate || isCc;
+                                return (
+                                  <option 
+                                    key={`user-${u.id}`} 
+                                    value={`USER:${u.id}`}
+                                    disabled={isDisabled}
+                                    className={isDisabled ? 'text-slate-400 bg-slate-100' : ''}
+                                  >
+                                    👤 {u.name} — {u.roleTitle} ({u.department}) {isDuplicate ? ' — (⚠️ Đã chọn ở bước khác)' : isCc ? ' — (⚠️ Đang là Cc)' : ''}
+                                  </option>
+                                );
+                              })}
                             </optgroup>
                           </select>
                         </div>
@@ -1031,47 +1120,100 @@ export const CreateDocumentModal: React.FC = () => {
               </div>
 
               {isApproverDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 divide-y divide-slate-100 animate-slide-down">
+                <div className="absolute top-full left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 divide-y divide-slate-100 animate-slide-down">
                   {matchedDepartments.length > 0 && (
-                    <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
-                      🏢 Chọn theo Phòng Ban:
+                    <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                      <span>🏢 Chọn theo Phòng Ban:</span>
+                      <span className="text-[9px] text-slate-400 font-normal">Mỗi phòng chỉ duyệt 1 lần</span>
                     </div>
                   )}
-                  {matchedDepartments.map(dept => (
-                    <div
-                      key={`search-dept-${dept.id}`}
-                      onClick={() => handleAddDeptApprover(dept)}
-                      className="p-2.5 hover:bg-blue-50 flex items-center justify-between cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-3.5 h-3.5 text-brand-blue shrink-0" />
-                        <span className="font-bold text-slate-900 text-xs">{dept.name} ({dept.code})</span>
+                  {matchedDepartments.map(dept => {
+                    const isSelected = isDepartmentAlreadyChosen(dept.name);
+                    return (
+                      <div
+                        key={`search-dept-${dept.id}`}
+                        onClick={() => {
+                          if (isSelected) {
+                            setErrorMsg(`Phòng ban "${dept.name}" đã có trong chuỗi phê duyệt. Không được chọn trùng lần nữa.`);
+                            return;
+                          }
+                          handleAddDeptApprover(dept);
+                        }}
+                        className={`p-2.5 flex items-center justify-between transition-colors ${
+                          isSelected 
+                            ? 'bg-slate-50/80 text-slate-400 cursor-not-allowed opacity-75' 
+                            : 'hover:bg-blue-50 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Building2 className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-slate-400' : 'text-brand-blue'}`} />
+                          <span className={`text-xs ${isSelected ? 'font-medium text-slate-500' : 'font-bold text-slate-900'}`}>
+                            {dept.name} ({dept.code})
+                          </span>
+                        </div>
+                        {isSelected ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-600" /> Đã có trong chuỗi duyệt
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-brand-blue font-semibold hover:underline">+ Thêm phòng</span>
+                        )}
                       </div>
-                      <span className="text-[10px] text-brand-blue font-semibold">+ Thêm phòng</span>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {matchedUsers.length > 0 && (
-                    <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase">
-                      👤 Chọn theo Cá Nhân:
+                    <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                      <span>👤 Chọn theo Cá Nhân:</span>
+                      <span className="text-[9px] text-slate-400 font-normal">Mỗi người chỉ duyệt 1 lần</span>
                     </div>
                   )}
-                  {matchedUsers.map(u => (
-                    <div
-                      key={`search-user-${u.id}`}
-                      onClick={() => handleAddUserApprover(u)}
-                      className="p-2.5 hover:bg-blue-50 flex items-center justify-between cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <UserIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <div>
-                          <span className="font-bold text-slate-900 text-xs">{u.name}</span>
-                          <span className="text-[11px] text-slate-400 ml-1.5">({u.roleTitle} - {u.department})</span>
+                  {matchedUsers.map(u => {
+                    const isSelected = isUserAlreadyChosen(u.id);
+                    const isCc = isUserInCc(u.id);
+                    const isDisabled = isSelected || isCc;
+
+                    return (
+                      <div
+                        key={`search-user-${u.id}`}
+                        onClick={() => {
+                          if (isSelected) {
+                            setErrorMsg(`Người phê duyệt "${u.name}" đã có trong chuỗi phê duyệt. Không được chọn trùng lần nữa.`);
+                            return;
+                          }
+                          if (isCc) {
+                            setErrorMsg(`"${u.name}" đang nằm trong danh sách Người theo dõi (Cc). Không thể chọn làm người phê duyệt.`);
+                            return;
+                          }
+                          handleAddUserApprover(u);
+                        }}
+                        className={`p-2.5 flex items-center justify-between transition-colors ${
+                          isDisabled 
+                            ? 'bg-slate-50/80 text-slate-400 cursor-not-allowed opacity-75' 
+                            : 'hover:bg-blue-50 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <UserIcon className={`w-3.5 h-3.5 shrink-0 ${isDisabled ? 'text-slate-400' : 'text-slate-500'}`} />
+                          <div>
+                            <span className={`text-xs ${isDisabled ? 'font-medium text-slate-500' : 'font-bold text-slate-900'}`}>{u.name}</span>
+                            <span className="text-[11px] text-slate-400 ml-1.5">({u.roleTitle} - {u.department})</span>
+                          </div>
                         </div>
+                        {isSelected ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-600" /> Đã có trong chuỗi duyệt
+                          </span>
+                        ) : isCc ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">
+                            Đang là Cc
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-brand-blue font-semibold hover:underline">+ Thêm cá nhân</span>
+                        )}
                       </div>
-                      <span className="text-[10px] text-brand-blue font-semibold">+ Thêm cá nhân</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

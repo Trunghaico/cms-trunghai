@@ -1460,6 +1460,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!Array.isArray(templateData.steps) || templateData.steps.length === 0) {
       return { success: false, message: 'Quy trình phải có ít nhất 01 bước phê duyệt.' };
     }
+
+    // Kiểm tra không cho phép chọn trùng phòng ban trong cùng một quy trình
+    const deptSet = new Set<string>();
+    for (const step of templateData.steps) {
+      const d = step.department.trim().toLowerCase();
+      if (deptSet.has(d)) {
+        return { success: false, message: `Phòng ban "${step.department}" bị trùng lặp trong quy trình. Mỗi phòng ban chỉ tham gia phê duyệt 1 lần.` };
+      }
+      deptSet.add(d);
+    }
+
     if (workflowTemplates.some(w => w.name.toLowerCase() === trimmedName.toLowerCase())) {
       return { success: false, message: 'Tên mẫu quy trình này đã tồn tại.' };
     }
@@ -1493,6 +1504,18 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const trimmedName = templateData.name.trim();
       if (workflowTemplates.some(w => w.id !== id && w.name.toLowerCase() === trimmedName.toLowerCase())) {
         return { success: false, message: 'Tên mẫu quy trình này đã được sử dụng.' };
+      }
+    }
+
+    // Kiểm tra không cho phép trùng phòng ban nếu có cập nhật các bước
+    if (Array.isArray(templateData.steps)) {
+      const deptSet = new Set<string>();
+      for (const step of templateData.steps) {
+        const d = step.department.trim().toLowerCase();
+        if (deptSet.has(d)) {
+          return { success: false, message: `Phòng ban "${step.department}" bị trùng lặp trong quy trình. Mỗi phòng ban chỉ tham gia phê duyệt 1 lần.` };
+        }
+        deptSet.add(d);
       }
     }
 

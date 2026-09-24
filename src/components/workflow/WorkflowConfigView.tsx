@@ -203,8 +203,19 @@ export const WorkflowConfigView: React.FC = () => {
   // Step Builder Handlers
   const handleAddStep = () => {
     const nextOrder = formData.steps.length + 1;
-    const defaultDept = departments[0]?.name || 'Phòng Kỹ thuật & Dự án';
+    // Tìm phòng ban khả dụng chưa được chọn trong các bước trước
+    const selectedDeptNames = new Set(formData.steps.map(s => s.department.trim().toLowerCase()));
+    const allAvailable = [
+      ...departments.map(d => ({ name: d.name, code: d.code, defaultSla: d.defaultSlaHours, defaultOverdue: d.defaultOverdueAction })),
+      { name: 'Ban Giám đốc', code: 'BGD', defaultSla: 24, defaultOverdue: 'WARN_AND_RETURN' as OverdueAction },
+      { name: 'Ban Pháp chế & Kiểm soát', code: 'PCKS', defaultSla: 12, defaultOverdue: 'WARN_AND_RETURN' as OverdueAction },
+      { name: 'Phòng ban đề xuất', code: 'DX', defaultSla: 8, defaultOverdue: 'WARN_AND_RETURN' as OverdueAction }
+    ];
+    
+    const availableDept = allAvailable.find(d => !selectedDeptNames.has(d.name.toLowerCase()));
+    const defaultDept = availableDept ? availableDept.name : (departments[0]?.name || 'Phòng Kỹ thuật & Dự án');
     const deptObj = departments.find(d => d.name === defaultDept);
+
     setFormData(prev => ({
       ...prev,
       steps: [
@@ -212,11 +223,11 @@ export const WorkflowConfigView: React.FC = () => {
         {
           order: nextOrder,
           title: `Bước ${nextOrder}: Xét duyệt & Thẩm định`,
-          role: 'DEPT_HEAD',
-          roleTitle: 'Trưởng bộ phận',
+          role: defaultDept.includes('Giám đốc') ? 'DIRECTOR' : defaultDept.includes('Pháp chế') ? 'LEGAL_DEPT' : defaultDept.includes('Kế toán') ? 'CHIEF_ACCOUNTANT' : 'DEPT_HEAD',
+          roleTitle: defaultDept.includes('Giám đốc') ? 'Tổng Giám đốc' : defaultDept.includes('Pháp chế') ? 'Trưởng ban Pháp chế' : defaultDept.includes('Kế toán') ? 'Kế toán trưởng' : 'Trưởng bộ phận',
           department: defaultDept,
-          slaHours: deptObj?.defaultSlaHours || 8,
-          overdueAction: deptObj?.defaultOverdueAction || 'WARN_AND_RETURN',
+          slaHours: availableDept?.defaultSla || deptObj?.defaultSlaHours || 8,
+          overdueAction: availableDept?.defaultOverdue || deptObj?.defaultOverdueAction || 'WARN_AND_RETURN',
           isInternalCheck: false
         }
       ]
@@ -292,6 +303,18 @@ export const WorkflowConfigView: React.FC = () => {
     if (formData.steps.length === 0) {
       setModalError('Quy trình phải có ít nhất 01 bước phê duyệt.');
       return;
+    }
+
+    // Check duplicate departments across steps (Mỗi phòng ban chỉ được duyệt 1 lần tránh sai quy trình)
+    const seenDepts = new Set<string>();
+    for (let i = 0; i < formData.steps.length; i++) {
+      const s = formData.steps[i];
+      const d = s.department.trim().toLowerCase();
+      if (seenDepts.has(d)) {
+        setModalError(`Bước ${i + 1} chứa phòng ban "${s.department}" đã được chọn ở bước khác. Mỗi phòng ban chỉ được duyệt 1 lần để tránh sai quy trình.`);
+        return;
+      }
+      seenDepts.add(d);
     }
 
     // Check valid step titles & SLA
@@ -872,6 +895,12 @@ export const WorkflowConfigView: React.FC = () => {
                               value={step.department}
                               onChange={(e) => {
                                 const deptName = e.target.value;
+                                const isDuplicate = formData.steps.some((s, i) => i !== idx && s.department.trim().toLowerCase() === deptName.trim().toLowerCase());
+                                if (isDuplicate) {
+                                  setModalError(`Phòng ban "${deptName}" đã được chọn ở bước khác. Mỗi phòng ban chỉ được duyệt 1 lần.`);
+                                  return;
+                                }
+                                setModalError('');
                                 const foundDept = departments.find(d => d.name === deptName);
                                 handleUpdateStep(idx, { 
                                   department: deptName,
@@ -881,12 +910,22 @@ export const WorkflowConfigView: React.FC = () => {
                               }}
                               className="w-full px-2.5 py-1.5 bg-white border border-slate-200/80 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer"
                             >
-                              {departments.map(d => (
-                                <option key={d.id} value={d.name}>{d.name} ({d.code})</option>
-                              ))}
-                              <option value="Ban Giám đốc">Ban Giám đốc (BGD)</option>
-                              <option value="Ban Pháp chế & Kiểm soát">Ban Pháp chế & Kiểm soát</option>
-                              <option value="Phòng ban đề xuất">Phòng ban đề xuất (Nội bộ)</option>
+                              {departments.map(d => {
+                                const isSelectedInOther = formData.steps.some((s, i) => i !== idx && s.department.trim().toLowerCase() === d.name.trim().toLowerCase());
+                                return (
+                                  <option key={d.id} value={d.name} disabled={isSelectedInOther}>
+                                    {d.name} ({d.code}) {isSelectedInOther ? ' — (⚠️ Đã chọn ở bước khác)' : ''}
+                                  </option>
+                                );
+                              })}
+                              {['Ban Giám đốc', 'Ban Pháp chế & Kiểm soát', 'Phòng ban đề xuất'].map(name => {
+                                const isSelectedInOther = formData.steps.some((s, i) => i !== idx && s.department.trim().toLowerCase() === name.trim().toLowerCase());
+                                return (
+                                  <option key={name} value={name} disabled={isSelectedInOther}>
+                                    {name} {isSelectedInOther ? ' — (⚠️ Đã chọn ở bước khác)' : ''}
+                                  </option>
+                                );
+                              })}
                             </select>
                           </div>
 
