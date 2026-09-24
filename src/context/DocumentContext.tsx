@@ -717,12 +717,33 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             });
             const mergedDocs = deduplicateDocuments(Array.from(docMap.values()));
 
+            // MERGE NOTIFICATIONS:
+            const localNotifs = loadNotifications();
+            const snapNotifs = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
+            const notifMap = new Map<string, NotificationItem>();
+            snapNotifs.forEach(n => {
+              if (n && n.id) notifMap.set(n.id, n);
+            });
+            localNotifs.forEach(n => {
+              if (!n || !n.id) return;
+              if (!notifMap.has(n.id)) {
+                notifMap.set(n.id, n);
+              } else {
+                const snapN = notifMap.get(n.id)!;
+                notifMap.set(n.id, { ...snapN, read: snapN.read || n.read });
+              }
+            });
+            const mergedNotifs = Array.from(notifMap.values()).sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+
             setUsers(mergedUsers);
             setDepartments(mergedDepts);
             setJobTitles(mergedJobs);
             setPermissionPresets(mergedPresets);
             setWorkflowTemplates(mergedWfs);
             setDocuments(mergedDocs);
+            setNotifications(mergedNotifs);
 
             saveUsers(mergedUsers);
             saveDepartments(mergedDepts);
@@ -730,6 +751,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             savePermissionPresets(mergedPresets);
             saveWorkflowTemplates(mergedWfs);
             saveDocuments(mergedDocs);
+            saveNotifications(mergedNotifs);
 
             const nowStr = new Date().toISOString();
             setLastNASSyncTime(nowStr);
@@ -742,7 +764,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 mergedJobs.length > snapJobs.length ||
                 mergedPresets.length > snapPresets.length ||
                 mergedWfs.length > snapWfs.length ||
-                mergedDocs.length > snapDocs.length) {
+                mergedDocs.length > snapDocs.length ||
+                mergedNotifs.length > snapNotifs.length) {
               saveDatabaseToNAS({
                 documents: mergedDocs,
                 users: mergedUsers,
@@ -750,7 +773,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 jobTitles: mergedJobs,
                 permissionPresets: mergedPresets,
                 workflowTemplates: mergedWfs,
-                notifications,
+                notifications: mergedNotifs,
                 deletedDocumentIds: loadDeletedDocumentIds(),
                 deletedUserIds: loadDeletedUserIds(),
                 deletedDepartmentIds: loadDeletedDeptIds(),
@@ -823,27 +846,31 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     mutationDebounceTimerRef.current = setTimeout(() => {
       syncToNAS(true).catch(err => console.warn('Auto backup on change error:', err));
-    }, 5000); // 5 seconds debounce
+    }, 1500); // 1.5 seconds debounce
 
     return () => {
       if (mutationDebounceTimerRef.current) {
         clearTimeout(mutationDebounceTimerRef.current);
       }
     };
-  }, [documents, users, departments, jobTitles, autoBackupConfig.enabled, autoBackupConfig.backupOnChange, syncToNAS]);
+  }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, autoBackupConfig.enabled, autoBackupConfig.backupOnChange, syncToNAS]);
 
-  // 4. Remote Polling: Check if NAS has newer snapshot from other clients
+  // 4. Remote Polling & Real-time Synchronization across Devices
   useEffect(() => {
     if (!autoBackupConfig.enabled) return;
 
+    let isPolling = false;
+
     const checkRemoteNAS = async () => {
+      if (isPolling || isSyncInProgress.current) return;
+      isPolling = true;
       try {
         const info = await getLatestNASDatabaseInfo();
-        if (info && info.exists && info.lastModified && lastNASSyncTime) {
+        if (info && info.exists && info.lastModified) {
           const remoteTime = new Date(info.lastModified).getTime();
-          const localTime = new Date(lastNASSyncTime).getTime();
-          // If remote is at least 10s newer than our last sync, sync it quietly
-          if (remoteTime - localTime > 10000 && !isSyncInProgress.current) {
+          const localTime = lastNASSyncTime ? new Date(lastNASSyncTime).getTime() : 0;
+          
+          if (remoteTime > localTime) {
             const snapshot = await fetchDatabaseFromNAS();
             if (snapshot) {
               if (Array.isArray(snapshot.deletedDocumentIds)) {
@@ -861,6 +888,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               if (Array.isArray(snapshot.deletedPresetIds)) {
                 snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
               }
+              if (Array.isArray(snapshot.deletedWorkflowTemplateIds)) {
+                snapshot.deletedWorkflowTemplateIds.forEach(id => addDeletedWorkflowTemplateId(id));
+              }
 
               const currentUsers = loadUsers();
               const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
@@ -873,6 +903,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               const currentJobs = loadJobTitles();
               const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
               const mergedJobs = deduplicateJobTitles([...currentJobs, ...snapJobs]);
+
+              const currentPresets = loadPermissionPresets();
+              const snapPresets = Array.isArray(snapshot.permissionPresets) ? snapshot.permissionPresets : [];
+              const mergedPresets = deduplicatePresets([...currentPresets, ...snapPresets]);
+
+              const currentWfs = loadWorkflowTemplates();
+              const snapWfs = Array.isArray(snapshot.workflowTemplates) ? snapshot.workflowTemplates : [];
+              const mergedWfs = deduplicateWorkflowTemplates([...currentWfs, ...snapWfs]);
 
               const currentDocs = loadDocuments();
               const snapDocs = Array.isArray(snapshot.documents) ? snapshot.documents : [];
@@ -894,15 +932,60 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               });
               const mergedDocs = deduplicateDocuments(Array.from(docMap.values()));
 
+              // Gộp Notifications & Phát hiện thông báo mới để gửi Push Notification
+              const currentNotifs = loadNotifications();
+              const currentNotifIds = new Set(currentNotifs.map(n => n.id));
+              const snapNotifs = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
+              const notifMap = new Map<string, NotificationItem>();
+              snapNotifs.forEach(n => {
+                if (n && n.id) notifMap.set(n.id, n);
+              });
+              currentNotifs.forEach(n => {
+                if (!n || !n.id) return;
+                if (!notifMap.has(n.id)) {
+                  notifMap.set(n.id, n);
+                } else {
+                  const snapN = notifMap.get(n.id)!;
+                  notifMap.set(n.id, { ...snapN, read: snapN.read || n.read });
+                }
+              });
+              const mergedNotifs = Array.from(notifMap.values()).sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+
               setUsers(mergedUsers);
               setDepartments(mergedDepts);
               setJobTitles(mergedJobs);
+              setPermissionPresets(mergedPresets);
+              setWorkflowTemplates(mergedWfs);
               setDocuments(mergedDocs);
+              setNotifications(mergedNotifs);
 
               saveUsers(mergedUsers);
               saveDepartments(mergedDepts);
               saveJobTitles(mergedJobs);
+              savePermissionPresets(mergedPresets);
+              saveWorkflowTemplates(mergedWfs);
               saveDocuments(mergedDocs);
+              saveNotifications(mergedNotifs);
+
+              // Tự động kích hoạt Push Notification cho các thông báo mới gửi đến activeUser
+              if (activeUser) {
+                const brandNewNotifs = snapNotifs.filter(n => 
+                  !currentNotifIds.has(n.id) && 
+                  !n.read &&
+                  canUserReceiveNotification(activeUser, n, docMap.get(n.documentId?.toLowerCase() || ''))
+                );
+
+                brandNewNotifs.forEach(newN => {
+                  sendDeviceNotification({
+                    title: newN.title,
+                    body: newN.message,
+                    documentId: newN.documentId,
+                    type: newN.type
+                  });
+                });
+              }
 
               setLastNASSyncTime(info.lastModified);
               localStorage.setItem('trunghai_last_nas_sync', info.lastModified);
@@ -911,12 +994,30 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       } catch (err) {
         console.warn('Check remote NAS error:', err);
+      } finally {
+        isPolling = false;
       }
     };
 
-    const interval = setInterval(checkRemoteNAS, 30000); // Poll every 30s
-    return () => clearInterval(interval);
-  }, [autoBackupConfig.enabled, lastNASSyncTime]);
+    // Kiểm tra ngay khi focus cửa sổ hoặc chuyển tab hoặc mạng bật lại
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' || document.hasFocus()) {
+        checkRemoteNAS();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    window.addEventListener('online', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    const interval = setInterval(checkRemoteNAS, 5000); // Poll mỗi 5s
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('online', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [autoBackupConfig.enabled, lastNASSyncTime, activeUser]);
 
   const login = (username: string, pass: string): { success: boolean; message?: string } => {
     const trimmed = username.trim().toLowerCase();
@@ -1630,10 +1731,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ]
     };
 
-    setDocuments(prev => [newDoc, ...prev]);
+    const updatedDocs = [newDoc, ...documents];
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
 
     // Thêm thông báo cho người có trách nhiệm duyệt bước 1
     const firstApprover = stepsWithDates[0];
+    let updatedNotifs = notifications;
     if (firstApprover) {
       const newNotif: NotificationItem = {
         id: `notif-${Date.now()}`,
@@ -1650,7 +1754,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         targetStepIndex: 0,
         targetDepartment: firstApprover.department,
       };
-      setNotifications(prev => [newNotif, ...prev]);
+      updatedNotifs = [newNotif, ...notifications];
+      setNotifications(updatedNotifs);
+      saveNotifications(updatedNotifs);
       sendDeviceNotification({
         title: newNotif.title,
         body: newNotif.message,
@@ -1658,6 +1764,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         type: newNotif.type
       });
     }
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      notifications: updatedNotifs,
+      actionDescription: `Khởi tạo trình ký hồ sơ ${newDoc.code} - ${newDoc.title}`
+    }).catch(e => console.warn('Lỗi persist database khi tạo hồ sơ:', e));
 
     return newDoc;
   };
@@ -1674,76 +1786,76 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const now = new Date().toISOString();
+    const currentStepIdx = targetDoc.currentStepIndex;
+    const updatedSteps = [...targetDoc.steps];
+    updatedSteps[currentStepIdx] = {
+      ...curStep,
+      isInternalChecked: true,
+      checkedByName: activeUser.name,
+      checkedAt: now,
+      checkedComment: comment || 'Đã kiểm tra nội bộ hồ sơ hợp lệ',
+      checkedSignature: signatureImage || 'internal_checked',
+    };
 
-    setDocuments(prevDocs => {
-      return prevDocs.map(doc => {
-        if (doc.id !== documentId) return doc;
+    const newLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      documentId: targetDoc.id,
+      action: 'APPROVE' as const,
+      actorId: activeUser.id,
+      actorName: activeUser.name,
+      actorTitle: activeUser.roleTitle,
+      timestamp: now,
+      comment: comment 
+        ? `[Kiểm tra nội bộ]: ${comment}` 
+        : `Đã kiểm tra nội bộ hồ sơ tại ${curStep.department}, chuyển cấp Quản lý ban phê duyệt`,
+      previousStatus: targetDoc.status,
+      newStatus: targetDoc.status,
+    };
 
-        const currentStepIdx = doc.currentStepIndex;
-        const currentStep = doc.steps[currentStepIdx];
-        if (!currentStep) return doc;
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      steps: updatedSteps,
+      updatedAt: now,
+      auditLogs: [...targetDoc.auditLogs, newLog],
+    };
 
-        const updatedSteps = [...doc.steps];
-        updatedSteps[currentStepIdx] = {
-          ...currentStep,
-          isInternalChecked: true,
-          checkedByName: activeUser.name,
-          checkedAt: now,
-          checkedComment: comment || 'Đã kiểm tra nội bộ hồ sơ hợp lệ',
-          checkedSignature: signatureImage || 'internal_checked',
-        };
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
 
-        const newLog: AuditLog = {
-          id: `log-${Date.now()}`,
-          documentId: doc.id,
-          action: 'APPROVE' as const,
-          actorId: activeUser.id,
-          actorName: activeUser.name,
-          actorTitle: activeUser.roleTitle,
-          timestamp: now,
-          comment: comment 
-            ? `[Kiểm tra nội bộ]: ${comment}` 
-            : `Đã kiểm tra nội bộ hồ sơ tại ${currentStep.department}, chuyển cấp Quản lý ban phê duyệt`,
-          previousStatus: doc.status,
-          newStatus: doc.status,
-        };
+    if (selectedDocument?.id === documentId) {
+      setSelectedDocument(updatedDoc);
+    }
 
-        const updatedDoc: DocumentItem = {
-          ...doc,
-          steps: updatedSteps,
-          updatedAt: now,
-          auditLogs: [...doc.auditLogs, newLog],
-        };
-
-        if (selectedDocument?.id === doc.id) {
-          setSelectedDocument(updatedDoc);
-        }
-
-        // Gửi thông báo đến cấp Quản lý của phòng ban
-        const checkNotif: NotificationItem = {
-          id: `notif-${Date.now()}`,
-          title: `Hồ sơ đã qua kiểm tra nội bộ - Chờ Quản lý ${currentStep.department} duyệt`,
-          message: `Hồ sơ "${doc.code} - ${doc.title}" đã được chuyên viên ${activeUser.name} kiểm tra nội bộ. Kính mời cấp Quản lý ban xem xét và ký số.`,
-          documentId: doc.id,
-          documentCode: doc.code,
-          type: 'ACTION_REQUIRED',
-          read: false,
-          createdAt: now,
-          actorId: activeUser.id,
-          targetStepIndex: currentStepIdx,
-          targetDepartment: currentStep.department,
-        };
-        setNotifications(prev => [checkNotif, ...prev]);
-        sendDeviceNotification({
-          title: checkNotif.title,
-          body: checkNotif.message,
-          documentId: checkNotif.documentId,
-          type: checkNotif.type
-        });
-
-        return updatedDoc;
-      });
+    // Gửi thông báo đến cấp Quản lý của phòng ban
+    const checkNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: `Hồ sơ đã qua kiểm tra nội bộ - Chờ Quản lý ${curStep.department} duyệt`,
+      message: `Hồ sơ "${targetDoc.code} - ${targetDoc.title}" đã được chuyên viên ${activeUser.name} kiểm tra nội bộ. Kính mời cấp Quản lý ban xem xét và ký số.`,
+      documentId: targetDoc.id,
+      documentCode: targetDoc.code,
+      type: 'ACTION_REQUIRED',
+      read: false,
+      createdAt: now,
+      actorId: activeUser.id,
+      targetStepIndex: currentStepIdx,
+      targetDepartment: curStep.department,
+    };
+    const updatedNotifs = [checkNotif, ...notifications];
+    setNotifications(updatedNotifs);
+    saveNotifications(updatedNotifs);
+    sendDeviceNotification({
+      title: checkNotif.title,
+      body: checkNotif.message,
+      documentId: checkNotif.documentId,
+      type: checkNotif.type
     });
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      notifications: updatedNotifs,
+      actionDescription: `Kiểm tra nội bộ hồ sơ ${targetDoc.code}`
+    }).catch(e => console.warn('Lỗi persist NAS khi kiểm tra nội bộ:', e));
   };
 
   // 2. Hành động Phê duyệt cấp Quản lý (Chặng 2 / Duyệt chính thức bước)
@@ -1758,152 +1870,157 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const now = new Date().toISOString();
+    const currentStepIdx = targetDoc.currentStepIndex;
 
-    setDocuments(prevDocs => {
-      return prevDocs.map(doc => {
-        if (doc.id !== documentId) return doc;
+    // Cập nhật bước hiện tại hoàn tất
+    const updatedSteps = [...targetDoc.steps];
+    updatedSteps[currentStepIdx] = {
+      ...curStep,
+      status: 'APPROVED',
+      isInternalChecked: true,
+      checkedByName: curStep.checkedByName || activeUser.name,
+      checkedAt: curStep.checkedAt || now,
+      comment: comment || 'Đã kiểm tra và phê duyệt',
+      decisionDate: now,
+      signatureImage: signatureImage || 'signature_stamp',
+      approverId: activeUser.id,
+      approverName: activeUser.name,
+      approverTitle: activeUser.roleTitle,
+    };
 
-        const currentStepIdx = doc.currentStepIndex;
-        const currentStep = doc.steps[currentStepIdx];
-        if (!currentStep) return doc;
+    const isLastStep = currentStepIdx === targetDoc.steps.length - 1;
+    let newStatus: DocumentStatus = isLastStep ? 'APPROVED' : 'IN_PROGRESS';
+    let newStepIdx = currentStepIdx;
 
-        // Cập nhật bước hiện tại hoàn tất
-        const updatedSteps = [...doc.steps];
-        updatedSteps[currentStepIdx] = {
-          ...currentStep,
-          status: 'APPROVED',
-          isInternalChecked: true,
-          checkedByName: currentStep.checkedByName || activeUser.name,
-          checkedAt: currentStep.checkedAt || now,
-          comment: comment || 'Đã kiểm tra và phê duyệt',
-          decisionDate: now,
-          signatureImage: signatureImage || 'signature_stamp',
-          approverId: activeUser.id,
-          approverName: activeUser.name,
-          approverTitle: activeUser.roleTitle,
-        };
+    if (!isLastStep) {
+      newStepIdx = currentStepIdx + 1;
+      const nextStep = updatedSteps[newStepIdx];
+      const nextStepSla = nextStep.slaHours || 8;
+      const nextDeadline = new Date(Date.now() + nextStepSla * 3600 * 1000).toISOString();
 
-        const isLastStep = currentStepIdx === doc.steps.length - 1;
-        let newStatus: DocumentStatus = isLastStep ? 'APPROVED' : 'IN_PROGRESS';
-        let newStepIdx = currentStepIdx;
+      updatedSteps[newStepIdx] = {
+        ...nextStep,
+        status: 'CURRENT',
+        startedAt: now,
+        deadline: nextDeadline,
+        isOverdue: false,
+      };
+    }
 
-        if (!isLastStep) {
-          newStepIdx = currentStepIdx + 1;
-          const nextStep = updatedSteps[newStepIdx];
-          const nextStepSla = nextStep.slaHours || 8;
-          const nextDeadline = new Date(Date.now() + nextStepSla * 3600 * 1000).toISOString();
+    const newLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      documentId: targetDoc.id,
+      action: 'APPROVE' as const,
+      actorId: activeUser.id,
+      actorName: activeUser.name,
+      actorTitle: activeUser.roleTitle,
+      timestamp: now,
+      comment: comment ? `Phê duyệt: ${comment}` : `Đã duyệt bước ${currentStepIdx + 1}: ${curStep.title}`,
+      previousStatus: targetDoc.status,
+      newStatus: newStatus,
+    };
 
-          updatedSteps[newStepIdx] = {
-            ...nextStep,
-            status: 'CURRENT',
-            startedAt: now,
-            deadline: nextDeadline,
-            isOverdue: false,
-          };
-        }
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      status: newStatus,
+      currentStepIndex: newStepIdx,
+      steps: updatedSteps,
+      deadline: isLastStep ? undefined : updatedSteps[newStepIdx]?.deadline,
+      isOverdue: false,
+      overdueDepartment: undefined,
+      overdueHours: undefined,
+      updatedAt: now,
+      auditLogs: [...targetDoc.auditLogs, newLog],
+    };
 
-        const newLog: AuditLog = {
-          id: `log-${Date.now()}`,
-          documentId: doc.id,
-          action: 'APPROVE' as const,
-          actorId: activeUser.id,
-          actorName: activeUser.name,
-          actorTitle: activeUser.roleTitle,
-          timestamp: now,
-          comment: comment ? `Phê duyệt: ${comment}` : `Đã duyệt bước ${currentStepIdx + 1}: ${currentStep.title}`,
-          previousStatus: doc.status,
-          newStatus: newStatus,
-        };
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
 
-        const updatedDoc: DocumentItem = {
-          ...doc,
-          status: newStatus,
-          currentStepIndex: newStepIdx,
-          steps: updatedSteps,
-          deadline: isLastStep ? undefined : updatedSteps[newStepIdx]?.deadline,
-          isOverdue: false,
-          overdueDepartment: undefined,
-          overdueHours: undefined,
-          updatedAt: now,
-          auditLogs: [...doc.auditLogs, newLog],
-        };
+    if (selectedDocument?.id === targetDoc.id) {
+      setSelectedDocument(updatedDoc);
+    }
 
-        if (selectedDocument?.id === doc.id) {
-          setSelectedDocument(updatedDoc);
-        }
+    let addedNotifs: NotificationItem[] = [];
 
-        if (isLastStep) {
-          // BƯỚC CUỐI CÙNG: Sau khi duyệt thì chỉ người lập hồ sơ (và Cc) nhận được thông báo, người duyệt KHÔNG nhận.
-          const doneNotif: NotificationItem = {
-            id: `notif-${Date.now()}`,
-            title: 'Hồ sơ đã được phê duyệt hoàn tất',
-            message: `Hồ sơ "${doc.code} - ${doc.title}" đã được hoàn tất phê duyệt & đóng dấu điện tử bởi ${activeUser.name}.`,
-            documentId: doc.id,
-            documentCode: doc.code,
-            type: 'APPROVED',
-            read: false,
-            createdAt: now,
-            actorId: activeUser.id,
-            recipientId: doc.creatorId,
-            recipientIds: [doc.creatorId, ...(doc.ccUsers?.map(c => c.id) || [])],
-          };
-          setNotifications(prev => [doneNotif, ...prev]);
-          sendDeviceNotification({
-            title: doneNotif.title,
-            body: doneNotif.message,
-            documentId: doneNotif.documentId,
-            type: doneNotif.type
-          });
-        } else {
-          const nextApprover = updatedSteps[newStepIdx];
-          const nextNotifTitle = 'Hồ sơ mới cần xử lý';
-          const nextNotifMsg = `Hồ sơ "${doc.code} - ${doc.title}" đang chờ xử lý tại bước ${newStepIdx + 1} (${nextApprover.title}). SLA: ${nextApprover.slaHours || 8}h.`;
-
-          const newNotifs: NotificationItem[] = [
-            // 1. Người lập hồ sơ nhận được thông báo bước hiện tại đã duyệt xong
-            {
-              id: `notif-${Date.now()}-creator`,
-              title: `Hồ sơ đã được duyệt bước ${currentStepIdx + 1}`,
-              message: `Hồ sơ "${doc.code} - ${doc.title}" đã được ${activeUser.name} phê duyệt tại bước ${currentStepIdx + 1} (${currentStep.department || currentStep.title}). Hồ sơ đã chuyển đến bước tiếp theo.`,
-              documentId: doc.id,
-              documentCode: doc.code,
-              type: 'INFO',
-              read: false,
-              createdAt: now,
-              actorId: activeUser.id,
-              recipientId: doc.creatorId,
-            },
-            // 2. Người có trách nhiệm duyệt bước tiếp theo nhận thông báo
-            {
-              id: `notif-${Date.now()}-next`,
-              title: nextNotifTitle,
-              message: nextNotifMsg,
-              documentId: doc.id,
-              documentCode: doc.code,
-              type: 'ACTION_REQUIRED',
-              read: false,
-              createdAt: now,
-              actorId: activeUser.id,
-              recipientId: nextApprover.approverId,
-              recipientRole: nextApprover.approverRole,
-              targetStepIndex: newStepIdx,
-              targetDepartment: nextApprover.department,
-            }
-          ];
-          setNotifications(prev => [...newNotifs, ...prev]);
-          newNotifs.forEach(n => {
-            sendDeviceNotification({
-              title: n.title,
-              body: n.message,
-              documentId: n.documentId,
-              type: n.type
-            });
-          });
-        }
-
-        return updatedDoc;
+    if (isLastStep) {
+      // BƯỚC CUỐI CÙNG: Sau khi duyệt thì chỉ người lập hồ sơ (và Cc) nhận được thông báo, người duyệt KHÔNG nhận.
+      const doneNotif: NotificationItem = {
+        id: `notif-${Date.now()}`,
+        title: 'Hồ sơ đã được phê duyệt hoàn tất',
+        message: `Hồ sơ "${targetDoc.code} - ${targetDoc.title}" đã được hoàn tất phê duyệt & đóng dấu điện tử bởi ${activeUser.name}.`,
+        documentId: targetDoc.id,
+        documentCode: targetDoc.code,
+        type: 'APPROVED',
+        read: false,
+        createdAt: now,
+        actorId: activeUser.id,
+        recipientId: targetDoc.creatorId,
+        recipientIds: [targetDoc.creatorId, ...(targetDoc.ccUsers?.map(c => c.id) || [])],
+      };
+      addedNotifs = [doneNotif];
+      sendDeviceNotification({
+        title: doneNotif.title,
+        body: doneNotif.message,
+        documentId: doneNotif.documentId,
+        type: doneNotif.type
       });
-    });
+    } else {
+      const nextApprover = updatedSteps[newStepIdx];
+      const nextNotifTitle = 'Hồ sơ mới cần xử lý';
+      const nextNotifMsg = `Hồ sơ "${targetDoc.code} - ${targetDoc.title}" đang chờ xử lý tại bước ${newStepIdx + 1} (${nextApprover.title}). SLA: ${nextApprover.slaHours || 8}h.`;
+
+      addedNotifs = [
+        // 1. Người lập hồ sơ nhận được thông báo bước hiện tại đã duyệt xong
+        {
+          id: `notif-${Date.now()}-creator`,
+          title: `Hồ sơ đã được duyệt bước ${currentStepIdx + 1}`,
+          message: `Hồ sơ "${targetDoc.code} - ${targetDoc.title}" đã được ${activeUser.name} phê duyệt tại bước ${currentStepIdx + 1} (${curStep.department || curStep.title}). Hồ sơ đã chuyển đến bước tiếp theo.`,
+          documentId: targetDoc.id,
+          documentCode: targetDoc.code,
+          type: 'INFO',
+          read: false,
+          createdAt: now,
+          actorId: activeUser.id,
+          recipientId: targetDoc.creatorId,
+        },
+        // 2. Người có trách nhiệm duyệt bước tiếp theo nhận thông báo
+        {
+          id: `notif-${Date.now()}-next`,
+          title: nextNotifTitle,
+          message: nextNotifMsg,
+          documentId: targetDoc.id,
+          documentCode: targetDoc.code,
+          type: 'ACTION_REQUIRED',
+          read: false,
+          createdAt: now,
+          actorId: activeUser.id,
+          recipientId: nextApprover.approverId,
+          recipientRole: nextApprover.approverRole,
+          targetStepIndex: newStepIdx,
+          targetDepartment: nextApprover.department,
+        }
+      ];
+
+      addedNotifs.forEach(n => {
+        sendDeviceNotification({
+          title: n.title,
+          body: n.message,
+          documentId: n.documentId,
+          type: n.type
+        });
+      });
+    }
+
+    const updatedNotifs = [...addedNotifs, ...notifications];
+    setNotifications(updatedNotifs);
+    saveNotifications(updatedNotifs);
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      notifications: updatedNotifs,
+      actionDescription: `Phê duyệt hồ sơ ${targetDoc.code} (Bước ${currentStepIdx + 1})`
+    }).catch(e => console.warn('Lỗi persist NAS khi phê duyệt:', e));
   };
 
   const returnOverdueDocument = (documentId: string, reason: string): { success: boolean; message?: string } => {
@@ -1915,61 +2032,65 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const currentStep = targetDoc.steps[targetDoc.currentStepIndex];
     const deptName = currentStep?.department || 'Phòng ban liên quan';
 
-    setDocuments(prevDocs => {
-      return prevDocs.map(doc => {
-        if (doc.id !== documentId) return doc;
+    const newLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      documentId: targetDoc.id,
+      action: 'REQUEST_INFO',
+      actorId: activeUser.id,
+      actorName: activeUser.name,
+      actorTitle: activeUser.roleTitle,
+      timestamp: now,
+      comment: `[TRẢ HỒ SƠ DO QUÁ HẠN SLA - Phòng ${deptName}]: ${reason}`,
+      previousStatus: targetDoc.status,
+      newStatus: 'ADDITIONAL_REQ',
+    };
 
-        const newLog: AuditLog = {
-          id: `log-${Date.now()}`,
-          documentId: doc.id,
-          action: 'REQUEST_INFO',
-          actorId: activeUser.id,
-          actorName: activeUser.name,
-          actorTitle: activeUser.roleTitle,
-          timestamp: now,
-          comment: `[TRẢ HỒ SƠ DO QUÁ HẠN SLA - Phòng ${deptName}]: ${reason}`,
-          previousStatus: doc.status,
-          newStatus: 'ADDITIONAL_REQ',
-        };
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      status: 'ADDITIONAL_REQ',
+      isOverdue: false,
+      overdueDepartment: undefined,
+      overdueHours: undefined,
+      updatedAt: now,
+      auditLogs: [...targetDoc.auditLogs, newLog],
+    };
 
-        const updatedDoc: DocumentItem = {
-          ...doc,
-          status: 'ADDITIONAL_REQ',
-          isOverdue: false,
-          overdueDepartment: undefined,
-          overdueHours: undefined,
-          updatedAt: now,
-          auditLogs: [...doc.auditLogs, newLog],
-        };
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
 
-        if (selectedDocument?.id === doc.id) {
-          setSelectedDocument(updatedDoc);
-        }
+    if (selectedDocument?.id === targetDoc.id) {
+      setSelectedDocument(updatedDoc);
+    }
 
-        const slaNotif: NotificationItem = {
-          id: `notif-${Date.now()}`,
-          title: `Hồ sơ bị trả về do vi phạm SLA (${deptName})`,
-          message: `${activeUser.name} đã trả hồ sơ "${doc.code}" về cho người lập do phòng ${deptName} xử lý quá hạn SLA. Lý do: ${reason}`,
-          documentId: doc.id,
-          documentCode: doc.code,
-          type: 'SLA_VIOLATION',
-          read: false,
-          createdAt: now,
-          actorId: activeUser.id,
-          recipientId: doc.creatorId,
-          recipientIds: [doc.creatorId, ...(doc.ccUsers?.map(c => c.id) || [])],
-        };
-        setNotifications(prev => [slaNotif, ...prev]);
-        sendDeviceNotification({
-          title: slaNotif.title,
-          body: slaNotif.message,
-          documentId: slaNotif.documentId,
-          type: slaNotif.type
-        });
-
-        return updatedDoc;
-      });
+    const slaNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: `Hồ sơ bị trả về do vi phạm SLA (${deptName})`,
+      message: `${activeUser.name} đã trả hồ sơ "${targetDoc.code}" về cho người lập do phòng ${deptName} xử lý quá hạn SLA. Lý do: ${reason}`,
+      documentId: targetDoc.id,
+      documentCode: targetDoc.code,
+      type: 'SLA_VIOLATION',
+      read: false,
+      createdAt: now,
+      actorId: activeUser.id,
+      recipientId: targetDoc.creatorId,
+      recipientIds: [targetDoc.creatorId, ...(targetDoc.ccUsers?.map(c => c.id) || [])],
+    };
+    const updatedNotifs = [slaNotif, ...notifications];
+    setNotifications(updatedNotifs);
+    saveNotifications(updatedNotifs);
+    sendDeviceNotification({
+      title: slaNotif.title,
+      body: slaNotif.message,
+      documentId: slaNotif.documentId,
+      type: slaNotif.type
     });
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      notifications: updatedNotifs,
+      actionDescription: `Trả hồ sơ quá hạn SLA ${targetDoc.code}`
+    }).catch(e => console.warn('Lỗi persist NAS khi trả hồ sơ quá hạn:', e));
 
     return { success: true, message: 'Đã trả hồ sơ về cho người lập thành công.' };
   };
@@ -1985,74 +2106,75 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const now = new Date().toISOString();
+    const currentStepIdx = targetDoc.currentStepIndex;
+    const updatedSteps = [...targetDoc.steps];
+    if (curStep) {
+      updatedSteps[currentStepIdx] = {
+        ...curStep,
+        status: 'REJECTED',
+        comment: reason,
+        decisionDate: now,
+        approverId: activeUser.id,
+        approverName: activeUser.name,
+      };
+    }
 
-    setDocuments(prevDocs => {
-      return prevDocs.map(doc => {
-        if (doc.id !== documentId) return doc;
+    const newLog = {
+      id: `log-${Date.now()}`,
+      documentId: targetDoc.id,
+      action: 'REJECT' as const,
+      actorId: activeUser.id,
+      actorName: activeUser.name,
+      actorTitle: activeUser.roleTitle,
+      timestamp: now,
+      comment: `Từ chối phê duyệt: ${reason}`,
+      previousStatus: targetDoc.status,
+      newStatus: 'REJECTED' as DocumentStatus,
+    };
 
-        const currentStepIdx = doc.currentStepIndex;
-        const currentStep = doc.steps[currentStepIdx];
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      status: 'REJECTED',
+      steps: updatedSteps,
+      updatedAt: now,
+      auditLogs: [...targetDoc.auditLogs, newLog],
+    };
 
-        const updatedSteps = [...doc.steps];
-        if (currentStep) {
-          updatedSteps[currentStepIdx] = {
-            ...currentStep,
-            status: 'REJECTED',
-            comment: reason,
-            decisionDate: now,
-            approverId: activeUser.id,
-            approverName: activeUser.name,
-          };
-        }
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
 
-        const newLog = {
-          id: `log-${Date.now()}`,
-          documentId: doc.id,
-          action: 'REJECT' as const,
-          actorId: activeUser.id,
-          actorName: activeUser.name,
-          actorTitle: activeUser.roleTitle,
-          timestamp: now,
-          comment: `Từ chối phê duyệt: ${reason}`,
-          previousStatus: doc.status,
-          newStatus: 'REJECTED' as DocumentStatus,
-        };
+    if (selectedDocument?.id === targetDoc.id) {
+      setSelectedDocument(updatedDoc);
+    }
 
-        const updatedDoc: DocumentItem = {
-          ...doc,
-          status: 'REJECTED',
-          steps: updatedSteps,
-          updatedAt: now,
-          auditLogs: [...doc.auditLogs, newLog],
-        };
-
-        if (selectedDocument?.id === doc.id) {
-          setSelectedDocument(updatedDoc);
-        }
-
-        const rejectNotif: NotificationItem = {
-          id: `notif-${Date.now()}`,
-          title: 'Hồ sơ bị từ chối phê duyệt',
-          message: `Hồ sơ "${doc.code}" bị từ chối bởi ${activeUser.name}. Lý do: ${reason}`,
-          documentId: doc.id,
-          documentCode: doc.code,
-          type: 'REJECTED',
-          read: false,
-          createdAt: now,
-          actorId: activeUser.id,
-          recipientId: doc.creatorId,
-        };
-        setNotifications(prev => [rejectNotif, ...prev]);
-        sendDeviceNotification({
-          title: rejectNotif.title,
-          body: rejectNotif.message,
-          documentId: rejectNotif.documentId,
-          type: rejectNotif.type
-        });
-
-        return updatedDoc;
-      });
+    const rejectNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Hồ sơ bị từ chối phê duyệt',
+      message: `Hồ sơ "${targetDoc.code}" bị từ chối bởi ${activeUser.name}. Lý do: ${reason}`,
+      documentId: targetDoc.id,
+      documentCode: targetDoc.code,
+      type: 'REJECTED',
+      read: false,
+      createdAt: now,
+      actorId: activeUser.id,
+      recipientId: targetDoc.creatorId,
+    };
+    const updatedNotifs = [rejectNotif, ...notifications];
+    setNotifications(updatedNotifs);
+    saveNotifications(updatedNotifs);
+    sendDeviceNotification({
+      title: rejectNotif.title,
+      body: rejectNotif.message,
+      documentId: rejectNotif.documentId,
+      type: rejectNotif.type
     });
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      notifications: updatedNotifs,
+      actionDescription: `Từ chối duyệt hồ sơ ${targetDoc.code}`
+    }).catch(e => console.warn('Lỗi persist NAS khi từ chối hồ sơ:', e));
   };
 
   const requestAdditionalInfo = (documentId: string, note: string) => {
@@ -2066,59 +2188,62 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const now = new Date().toISOString();
+    const newLog = {
+      id: `log-${Date.now()}`,
+      documentId: targetDoc.id,
+      action: 'REQUEST_INFO' as const,
+      actorId: activeUser.id,
+      actorName: activeUser.name,
+      actorTitle: activeUser.roleTitle,
+      timestamp: now,
+      comment: `Yêu cầu bổ sung tài liệu/thông tin: ${note}`,
+      previousStatus: targetDoc.status,
+      newStatus: 'ADDITIONAL_REQ' as DocumentStatus,
+    };
 
-    setDocuments(prevDocs => {
-      return prevDocs.map(doc => {
-        if (doc.id !== documentId) return doc;
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      status: 'ADDITIONAL_REQ',
+      updatedAt: now,
+      auditLogs: [...targetDoc.auditLogs, newLog],
+    };
 
-        const newLog = {
-          id: `log-${Date.now()}`,
-          documentId: doc.id,
-          action: 'REQUEST_INFO' as const,
-          actorId: activeUser.id,
-          actorName: activeUser.name,
-          actorTitle: activeUser.roleTitle,
-          timestamp: now,
-          comment: `Yêu cầu bổ sung tài liệu/thông tin: ${note}`,
-          previousStatus: doc.status,
-          newStatus: 'ADDITIONAL_REQ' as DocumentStatus,
-        };
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
 
-        const updatedDoc: DocumentItem = {
-          ...doc,
-          status: 'ADDITIONAL_REQ',
-          updatedAt: now,
-          auditLogs: [...doc.auditLogs, newLog],
-        };
+    if (selectedDocument?.id === targetDoc.id) {
+      setSelectedDocument(updatedDoc);
+    }
 
-        if (selectedDocument?.id === doc.id) {
-          setSelectedDocument(updatedDoc);
-        }
-
-        // BẮT BUỘC: Hồ sơ trả về sẽ trả về đúng tài khoản của người lập (recipientId: doc.creatorId)
-        const reqNotif: NotificationItem = {
-          id: `notif-${Date.now()}`,
-          title: 'Yêu cầu bổ sung hồ sơ',
-          message: `${activeUser.name} yêu cầu bổ sung hồ sơ "${doc.code}": ${note}`,
-          documentId: doc.id,
-          documentCode: doc.code,
-          type: 'ACTION_REQUIRED',
-          read: false,
-          createdAt: now,
-          actorId: activeUser.id,
-          recipientId: doc.creatorId,
-        };
-        setNotifications(prev => [reqNotif, ...prev]);
-        sendDeviceNotification({
-          title: reqNotif.title,
-          body: reqNotif.message,
-          documentId: reqNotif.documentId,
-          type: reqNotif.type
-        });
-
-        return updatedDoc;
-      });
+    // BẮT BUỘC: Hồ sơ trả về sẽ trả về đúng tài khoản của người lập (recipientId: doc.creatorId)
+    const reqNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Yêu cầu bổ sung hồ sơ',
+      message: `${activeUser.name} yêu cầu bổ sung hồ sơ "${targetDoc.code}": ${note}`,
+      documentId: targetDoc.id,
+      documentCode: targetDoc.code,
+      type: 'ACTION_REQUIRED',
+      read: false,
+      createdAt: now,
+      actorId: activeUser.id,
+      recipientId: targetDoc.creatorId,
+    };
+    const updatedNotifs = [reqNotif, ...notifications];
+    setNotifications(updatedNotifs);
+    saveNotifications(updatedNotifs);
+    sendDeviceNotification({
+      title: reqNotif.title,
+      body: reqNotif.message,
+      documentId: reqNotif.documentId,
+      type: reqNotif.type
     });
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      notifications: updatedNotifs,
+      actionDescription: `Yêu cầu bổ sung hồ sơ ${targetDoc.code}`
+    }).catch(e => console.warn('Lỗi persist NAS khi yêu cầu bổ sung:', e));
   };
 
   const resubmitDocument = (
@@ -2143,110 +2268,108 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'Hồ sơ đã được trả về cho người lập. Chỉ đúng tài khoản người lập mới có quyền bổ sung và gửi lại.' };
     }
 
-    let isSuccess = false;
+    const isContinuing = data.resubmitMode === 'CONTINUE_FROM_CURRENT';
+    const targetStepIndex = isContinuing ? targetDocToResubmit.currentStepIndex : 0;
+    const targetStatus: DocumentStatus = isContinuing 
+      ? (targetDocToResubmit.currentStepIndex === 0 ? 'PENDING' : 'IN_PROGRESS')
+      : 'PENDING';
 
-    setDocuments(prevDocs => {
-      return prevDocs.map(doc => {
-        if (doc.id !== documentId) return doc;
-
-        const isContinuing = data.resubmitMode === 'CONTINUE_FROM_CURRENT';
-        const targetStepIndex = isContinuing ? doc.currentStepIndex : 0;
-        const targetStatus: DocumentStatus = isContinuing 
-          ? (doc.currentStepIndex === 0 ? 'PENDING' : 'IN_PROGRESS')
-          : 'PENDING';
-
-        // Cập nhật các bước duyệt
-        const updatedSteps = doc.steps.map((step, idx) => {
-          if (isContinuing) {
-            // Tiếp tục quy trình: Giữ nguyên kết quả và chữ ký các bước trước đã APPROVED
-            // Bước hiện tại được chuyển sang trạng thái CURRENT để kiểm tra và duyệt tiếp
-            if (idx === doc.currentStepIndex) {
-              return {
-                ...step,
-                status: 'CURRENT' as StepStatus,
-              };
-            }
-            return step;
-          } else {
-            // Trình duyệt lại từ đầu: reset tất cả các bước về PENDING, bước 0 thành CURRENT
-            return {
-              ...step,
-              status: (idx === 0 ? 'CURRENT' : 'PENDING') as StepStatus,
-              comment: undefined,
-              decisionDate: undefined,
-              signatureImage: undefined,
-            };
-          }
-        });
-
-        const targetApprover = updatedSteps[targetStepIndex];
-        const approverNameDisplay = targetApprover?.approverName || targetApprover?.approverTitle || targetApprover?.department || 'Cấp phê duyệt';
-        const modeDescription = isContinuing 
-          ? `Duyệt tiếp tục từ Bước ${targetStepIndex + 1} (${approverNameDisplay})`
-          : `Trình duyệt lại từ Bước 1 (${updatedSteps[0]?.approverName || updatedSteps[0]?.approverTitle || updatedSteps[0]?.department})`;
-
-        const newLog: AuditLog = {
-          id: `log-${Date.now()}`,
-          documentId: doc.id,
-          action: 'RESUBMIT',
-          actorId: activeUser.id,
-          actorName: activeUser.name,
-          actorTitle: activeUser.roleTitle,
-          timestamp: now,
-          comment: `[Bổ sung hồ sơ - ${modeDescription}]: ${data.supplementNote}`,
-          previousStatus: doc.status,
-          newStatus: targetStatus,
-        };
-
-        const updatedDoc: DocumentItem = {
-          ...doc,
-          title: data.title !== undefined ? data.title : doc.title,
-          amount: data.amount !== undefined ? data.amount : doc.amount,
-          description: data.description !== undefined ? data.description : doc.description,
-          contentHtml: data.contentHtml !== undefined ? data.contentHtml : doc.contentHtml,
-          attachments: data.attachments || doc.attachments,
-          status: targetStatus,
-          currentStepIndex: targetStepIndex,
-          steps: updatedSteps,
-          updatedAt: now,
-          auditLogs: [...doc.auditLogs, newLog],
-        };
-
-        if (selectedDocument?.id === doc.id) {
-          setSelectedDocument(updatedDoc);
+    // Cập nhật các bước duyệt
+    const updatedSteps = targetDocToResubmit.steps.map((step, idx) => {
+      if (isContinuing) {
+        if (idx === targetDocToResubmit.currentStepIndex) {
+          return {
+            ...step,
+            status: 'CURRENT' as StepStatus,
+          };
         }
-
-        const resubmitNotif: NotificationItem = {
-          id: `notif-${Date.now()}`,
-          title: isContinuing ? 'Hồ sơ đã được bổ sung & gửi lại' : 'Hồ sơ trình duyệt lại từ đầu',
-          message: `${activeUser.name} đã bổ sung hồ sơ "${doc.code}" (${modeDescription}): ${data.supplementNote}`,
-          documentId: doc.id,
-          documentCode: doc.code,
-          type: 'ACTION_REQUIRED',
-          read: false,
-          createdAt: now,
-          actorId: activeUser.id,
-          recipientId: targetApprover?.approverId,
-          recipientRole: targetApprover?.approverRole,
-          targetStepIndex: targetStepIndex,
-          targetDepartment: targetApprover?.department,
+        return step;
+      } else {
+        return {
+          ...step,
+          status: (idx === 0 ? 'CURRENT' : 'PENDING') as StepStatus,
+          comment: undefined,
+          decisionDate: undefined,
+          signatureImage: undefined,
         };
-        setNotifications(prev => [resubmitNotif, ...prev]);
-        sendDeviceNotification({
-          title: resubmitNotif.title,
-          body: resubmitNotif.message,
-          documentId: resubmitNotif.documentId,
-          type: resubmitNotif.type
-        });
-
-        isSuccess = true;
-        return updatedDoc;
-      });
+      }
     });
 
+    const targetApprover = updatedSteps[targetStepIndex];
+    const approverNameDisplay = targetApprover?.approverName || targetApprover?.approverTitle || targetApprover?.department || 'Cấp phê duyệt';
+    const modeDescription = isContinuing 
+      ? `Duyệt tiếp tục từ Bước ${targetStepIndex + 1} (${approverNameDisplay})`
+      : `Trình duyệt lại từ Bước 1 (${updatedSteps[0]?.approverName || updatedSteps[0]?.approverTitle || updatedSteps[0]?.department})`;
+
+    const newLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      documentId: targetDocToResubmit.id,
+      action: 'RESUBMIT',
+      actorId: activeUser.id,
+      actorName: activeUser.name,
+      actorTitle: activeUser.roleTitle,
+      timestamp: now,
+      comment: `[Bổ sung hồ sơ - ${modeDescription}]: ${data.supplementNote}`,
+      previousStatus: targetDocToResubmit.status,
+      newStatus: targetStatus,
+    };
+
+    const updatedDoc: DocumentItem = {
+      ...targetDocToResubmit,
+      title: data.title !== undefined ? data.title : targetDocToResubmit.title,
+      amount: data.amount !== undefined ? data.amount : targetDocToResubmit.amount,
+      description: data.description !== undefined ? data.description : targetDocToResubmit.description,
+      contentHtml: data.contentHtml !== undefined ? data.contentHtml : targetDocToResubmit.contentHtml,
+      attachments: data.attachments || targetDocToResubmit.attachments,
+      status: targetStatus,
+      currentStepIndex: targetStepIndex,
+      steps: updatedSteps,
+      updatedAt: now,
+      auditLogs: [...targetDocToResubmit.auditLogs, newLog],
+    };
+
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
+
+    if (selectedDocument?.id === documentId) {
+      setSelectedDocument(updatedDoc);
+    }
+
+    const resubmitNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: isContinuing ? 'Hồ sơ đã được bổ sung & gửi lại' : 'Hồ sơ trình duyệt lại từ đầu',
+      message: `${activeUser.name} đã bổ sung hồ sơ "${targetDocToResubmit.code}" (${modeDescription}): ${data.supplementNote}`,
+      documentId: targetDocToResubmit.id,
+      documentCode: targetDocToResubmit.code,
+      type: 'ACTION_REQUIRED',
+      read: false,
+      createdAt: now,
+      actorId: activeUser.id,
+      recipientId: targetApprover?.approverId,
+      recipientRole: targetApprover?.approverRole,
+      targetStepIndex: targetStepIndex,
+      targetDepartment: targetApprover?.department,
+    };
+    const updatedNotifs = [resubmitNotif, ...notifications];
+    setNotifications(updatedNotifs);
+    saveNotifications(updatedNotifs);
+    sendDeviceNotification({
+      title: resubmitNotif.title,
+      body: resubmitNotif.message,
+      documentId: resubmitNotif.documentId,
+      type: resubmitNotif.type
+    });
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      notifications: updatedNotifs,
+      actionDescription: `Gửi lại hồ sơ bổ sung ${targetDocToResubmit.code}`
+    }).catch(e => console.warn('Lỗi persist NAS khi gửi lại hồ sơ:', e));
+
     return { 
-      success: isSuccess, 
-      message: isSuccess ? 'Đã bổ sung và gửi lại hồ sơ thành công!' : 'Không tìm thấy hồ sơ.' 
+      success: true, 
+      message: 'Đã bổ sung và gửi lại hồ sơ thành công!' 
     };
   };
 
