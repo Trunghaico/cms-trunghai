@@ -160,10 +160,14 @@ export const CreateDocumentModal: React.FC = () => {
     return selectedCcUsers.some(u => u.id === userId);
   }, [selectedCcUsers]);
 
-  // Áp dụng Mẫu quy trình BPM
+  // Áp dụng Mẫu quy trình BPM (Chỉ nạp khi người dùng chủ động chọn từ danh sách)
   const handleApplyTemplate = useCallback((templateId: string) => {
     setSelectedTemplateId(templateId);
-    if (!templateId) return;
+    if (!templateId) {
+      // Khi chọn "-- Tự chọn phòng ban duyệt --", xóa chuỗi duyệt để người dùng tự chọn
+      setSelectedApprovers([]);
+      return;
+    }
     const tpl = workflowTemplates.find(w => w.id === templateId);
     if (!tpl) return;
 
@@ -218,7 +222,7 @@ export const CreateDocumentModal: React.FC = () => {
     return `${year}-${month}-${date}T${hours}:${mins}`;
   }, []);
 
-  // Hàm reset trắng toàn bộ dữ liệu form tạo hồ sơ mới
+  // Hàm reset trắng toàn bộ dữ liệu form tạo hồ sơ mới (Mặc định để trống chuỗi duyệt cho người lập tự chọn)
   const resetForm = useCallback(() => {
     const initialCategory = availableCategories[0] || 'Hợp đồng kinh tế';
     const prefix = initialCategory.includes('Hợp đồng') ? 'HĐ' :
@@ -231,7 +235,8 @@ export const CreateDocumentModal: React.FC = () => {
     setPriority('NORMAL');
     setDepartment(activeUser?.department || (systemDepts && systemDepts[0]?.name) || 'Phòng Kỹ thuật & Dự án');
     setDocOverdueAction('WARN_AND_RETURN');
-    setSelectedApprovers([]);
+    setSelectedApprovers([]); // Để trống chuỗi duyệt, người lập tự tạo tự chọn phòng ban
+    setSelectedTemplateId(''); // Mặc định ở chế độ tự chọn
     setApproverSearchQuery('');
     setIsApproverDropdownOpen(false);
     setSelectedCcUsers([]);
@@ -243,18 +248,7 @@ export const CreateDocumentModal: React.FC = () => {
     setPreviewAttachment(null);
     setErrorMsg('');
     setIsSubmitting(false);
-
-    if (workflowTemplates && workflowTemplates.length > 0) {
-      const defaultTpl = workflowTemplates.find(w => w.category.toLowerCase() === initialCategory.toLowerCase()) || workflowTemplates[0];
-      if (defaultTpl) {
-        handleApplyTemplate(defaultTpl.id);
-      } else {
-        setSelectedTemplateId('');
-      }
-    } else {
-      setSelectedTemplateId('');
-    }
-  }, [availableCategories, activeUser?.department, systemDepts, getDefaultDeadline, workflowTemplates, handleApplyTemplate]);
+  }, [availableCategories, activeUser?.department, systemDepts, getDefaultDeadline]);
 
   // Khi mở modal tạo hồ sơ mới, luôn reset sạch sẽ dữ liệu cũ để tránh lưu vết hồ sơ trước
   const prevOpenRef = useRef(false);
@@ -297,14 +291,7 @@ export const CreateDocumentModal: React.FC = () => {
                    newCat.includes('Tờ trình') ? 'TTr' :
                    newCat.includes('thanh toán') ? 'BB' : 'VB';
     setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
-
-    // Tự động tìm quy trình phù hợp với loại hồ sơ này
-    const matchingTpl = workflowTemplates.find(w => w.category.toLowerCase() === newCat.toLowerCase());
-    if (matchingTpl) {
-      handleApplyTemplate(matchingTpl.id);
-    } else {
-      setSelectedTemplateId('');
-    }
+    setSelectedTemplateId(''); // Giữ nguyên chuỗi duyệt do người lập tự chọn, không tự động đè mẫu
   };
 
 
@@ -754,7 +741,7 @@ export const CreateDocumentModal: React.FC = () => {
                   onChange={(e) => handleApplyTemplate(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-900/95 border border-blue-400/50 hover:border-amber-400 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer shadow-inner"
                 >
-                  <option value="">-- Chọn Mẫu Quy Trình Ký Nhanh --</option>
+                  <option value="">-- Tự chọn phòng ban / người duyệt --</option>
                   {workflowTemplates.map((tpl) => (
                     <option key={tpl.id} value={tpl.id}>
                       ⚡ [{tpl.category}] {tpl.name} ({tpl.steps.length} bước)
