@@ -935,27 +935,26 @@ export const SystemSettingsView: React.FC = () => {
                   <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
                     isNASSyncing
                       ? 'bg-blue-100 text-brand-blue border-blue-300 animate-pulse'
-                      : autoBackupConfig.enabled
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                      : 'bg-slate-100 text-slate-500 border-slate-300'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-2xs'
                   }`}>
                     {isNASSyncing ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                         <span>Đang đồng bộ...</span>
                       </>
-                    ) : autoBackupConfig.enabled ? (
-                      <>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>Auto-Backup: BẬT</span>
-                      </>
                     ) : (
                       <>
-                        <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                        <span>Auto-Backup: TẮT</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Đồng bộ 2 Chiều: BẬT (2s Realtime)</span>
                       </>
                     )}
                   </div>
+                  {autoBackupConfig.enabled && (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-brand-blue border border-blue-200">
+                      <Clock className="w-3 h-3" />
+                      <span>Auto-Save {autoBackupConfig.intervalMinutes}m</span>
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1041,7 +1040,7 @@ export const SystemSettingsView: React.FC = () => {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <DownloadCloud className="w-4 h-4 text-emerald-600" />
-                        <span>Đồng bộ khi mở Web</span>
+                        <span>Đồng bộ khi mở Web & App</span>
                       </span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -1054,12 +1053,12 @@ export const SystemSettingsView: React.FC = () => {
                       </label>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Tự động tải snapshot cơ sở dữ liệu mới nhất từ MinIO NAS về trình duyệt khi khởi động hoặc tải lại trang web.
+                      Tự động tải snapshot cơ sở dữ liệu mới nhất từ MinIO NAS về thiết bị ngay khi mở ứng dụng di động hoặc tải lại trang web.
                     </p>
                   </div>
                   <div className="pt-2 border-t border-slate-100 text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Dữ liệu luôn đồng nhất</span>
+                    <span>Dữ liệu luôn đồng nhất tức thì</span>
                   </div>
                 </div>
 

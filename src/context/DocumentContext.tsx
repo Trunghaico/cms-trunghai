@@ -727,50 +727,48 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return await listNASBackups();
   }, []);
 
-  // 1. Initial Sync from MinIO NAS on startup
+  // 1. Initial Sync from MinIO NAS on startup (Luôn đồng bộ dữ liệu mới nhất ngay khi mở Web / App)
   useEffect(() => {
     let isMounted = true;
     const initNASAndDB = async () => {
       try {
-        if (autoBackupConfig.syncOnStartup) {
-          const info = await getLatestNASDatabaseInfo();
-          const snapshot = await fetchDatabaseFromNAS();
-          if (!isMounted) return;
-          if (snapshot) {
-            applyRemoteSnapshot(snapshot, info?.eTag, info?.lastModified);
-          } else {
-            // Push initial baseline if none exists
-            saveDatabaseToNAS({
-              documents,
-              users,
-              departments,
-              jobTitles,
-              permissionPresets,
-              workflowTemplates,
-              notifications,
-              deletedDocumentIds: loadDeletedDocumentIds(),
-              deletedUserIds: loadDeletedUserIds(),
-              deletedDepartmentIds: loadDeletedDeptIds(),
-              deletedJobTitleIds: loadDeletedJobIds(),
-              deletedPresetIds: loadDeletedPresetIds(),
-              deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
-              savedBy: 'Khởi tạo hệ thống ban đầu'
-            }).then(res => {
-              if (res.success) {
-                const nowStr = res.lastModified || new Date().toISOString();
-                const newETag = res.eTag || nowStr;
-                lastSyncETagRef.current = newETag;
-                lastSyncServerTimeRef.current = nowStr;
-                localStorage.setItem('trunghai_last_nas_etag', newETag);
-                localStorage.setItem('trunghai_last_nas_sync', nowStr);
-                setLastNASSyncTime(nowStr);
-                setNasSyncStatus('synced');
-              }
-            }).catch(e => console.warn('Khởi tạo baseline NAS:', e));
-          }
+        const info = await getLatestNASDatabaseInfo();
+        const snapshot = await fetchDatabaseFromNAS();
+        if (!isMounted) return;
+        if (snapshot) {
+          applyRemoteSnapshot(snapshot, info?.eTag, info?.lastModified);
+        } else {
+          // Khởi tạo baseline NAS nếu NAS chưa có dữ liệu
+          saveDatabaseToNAS({
+            documents,
+            users,
+            departments,
+            jobTitles,
+            permissionPresets,
+            workflowTemplates,
+            notifications,
+            deletedDocumentIds: loadDeletedDocumentIds(),
+            deletedUserIds: loadDeletedUserIds(),
+            deletedDepartmentIds: loadDeletedDeptIds(),
+            deletedJobTitleIds: loadDeletedJobIds(),
+            deletedPresetIds: loadDeletedPresetIds(),
+            deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
+            savedBy: 'Khởi tạo hệ thống ban đầu'
+          }).then(res => {
+            if (res.success) {
+              const nowStr = res.lastModified || new Date().toISOString();
+              const newETag = res.eTag || nowStr;
+              lastSyncETagRef.current = newETag;
+              lastSyncServerTimeRef.current = nowStr;
+              localStorage.setItem('trunghai_last_nas_etag', newETag);
+              localStorage.setItem('trunghai_last_nas_sync', nowStr);
+              setLastNASSyncTime(nowStr);
+              setNasSyncStatus('synced');
+            }
+          }).catch(e => console.warn('Khởi tạo baseline NAS:', e));
         }
       } catch (err) {
-        console.warn('Sync notification:', err);
+        console.warn('Startup sync notification:', err);
       } finally {
         isInitialLoadDone.current = true;
       }
@@ -780,16 +778,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       isMounted = false;
     };
-  }, [autoBackupConfig.syncOnStartup, applyRemoteSnapshot]);
+  }, [applyRemoteSnapshot]);
 
-  // 2. Periodic Auto-Backup Interval Timer (Counts down every second)
+  // 2. Periodic Auto-Backup Interval Timer (Counts down every second - chỉ khi người dùng bật sao lưu định kỳ)
   useEffect(() => {
     if (!autoBackupConfig.enabled) return;
 
     const timer = setInterval(() => {
       setAutoBackupCountdown(prev => {
         if (prev <= 1) {
-          // Trigger periodic background backup
           syncToNAS(true).catch(err => console.warn('Auto backup interval error:', err));
           return autoBackupConfig.intervalMinutes * 60;
         }
@@ -802,7 +799,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 3. Debounced Auto-Backup on Data Mutation (Triggered after user changes documents/users/departments)
   useEffect(() => {
-    if (!isInitialLoadDone.current || !autoBackupConfig.enabled || !autoBackupConfig.backupOnChange) {
+    if (!isInitialLoadDone.current || !autoBackupConfig.backupOnChange) {
       return;
     }
 
@@ -819,12 +816,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         clearTimeout(mutationDebounceTimerRef.current);
       }
     };
-  }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, autoBackupConfig.enabled, autoBackupConfig.backupOnChange, syncToNAS]);
+  }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, autoBackupConfig.backupOnChange, syncToNAS]);
 
-  // 4. Remote Polling & Real-time Synchronization across Devices (Ultra-fast 2s Polling + Event Driven)
+  // 4. Remote Polling & Real-time Synchronization across Devices (Ultra-fast 2s Polling + Event Driven - Luôn chạy liên tục)
   useEffect(() => {
-    if (!autoBackupConfig.enabled) return;
-
     let isPolling = false;
 
     const checkRemoteNAS = async () => {
