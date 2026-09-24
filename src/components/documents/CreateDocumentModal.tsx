@@ -636,22 +636,22 @@ export const CreateDocumentModal: React.FC = () => {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2 sm:p-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-0 sm:p-4 overflow-hidden pt-safe pb-safe">
       <div 
-        className={`bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden transition-all duration-200 transform ${
+        className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl h-[94vh] sm:max-h-[92vh] flex flex-col overflow-hidden transition-all duration-200 transform ${
           isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100 animate-slide-down'
         }`}
       >
         
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex items-center justify-between border-b border-indigo-900/60 shadow-xs shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/10 rounded-xl shadow-xs">
+        <div className="px-4 sm:px-6 py-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex items-center justify-between border-b border-indigo-900/60 shadow-xs shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="p-2 bg-white/10 rounded-xl shadow-xs shrink-0">
               <FileText className="h-5 w-5 text-cyan-300" />
             </div>
             <div>
-              <h2 className="text-base font-bold tracking-tight">Khởi Tạo Hồ Sơ Trình Ký</h2>
-              <p className="text-[11px] text-indigo-200">
+              <h2 className="text-sm sm:text-base font-bold tracking-tight">Khởi Tạo Hồ Sơ Trình Ký</h2>
+              <p className="text-[10.5px] sm:text-[11px] text-indigo-200">
                 Thiết lập thông tin và cấu hình người / phòng ban phê duyệt
               </p>
             </div>
@@ -666,7 +666,7 @@ export const CreateDocumentModal: React.FC = () => {
         </div>
 
         {/* Modal Body Form */}
-        <form id="create-document-form" onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-xs text-slate-800 flex-1 overflow-y-auto">
+        <form id="create-document-form" onSubmit={handleSubmit} className="p-3.5 sm:p-6 space-y-4 text-xs text-slate-800 flex-1 overflow-y-auto overflow-x-hidden max-w-full">
           
           {errorMsg && (
             <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 flex items-center gap-2 rounded-xl text-xs">
@@ -929,64 +929,28 @@ export const CreateDocumentModal: React.FC = () => {
                   return (
                     <div 
                       key={idx}
-                      className="p-3 bg-white border border-slate-200/90 hover:border-brand-blue/50 rounded-2xl shadow-xs transition-all space-y-2.5"
+                      className="p-3.5 bg-white border border-slate-200/90 hover:border-brand-blue/50 rounded-2xl shadow-xs transition-all space-y-3 max-w-full overflow-hidden"
                     >
-                      {/* Dòng 1: STT, Dropdown Người/Phòng ban duyệt, Nút di chuyển/xóa */}
+                      {/* Dòng 1: STT, Nhãn loại duyệt, Nút di chuyển/xóa */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] text-white shrink-0 shadow-xs ${
-                          isFirst ? 'bg-emerald-600' : isLast ? 'bg-brand-red' : 'bg-brand-blue'
-                        }`}>
-                          {idx + 1}
-                        </span>
-
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
-                            {item.type === 'DEPARTMENT' && (
-                              <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold shrink-0 bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                🏢 Duyệt cấp Ban/Phòng (Gồm khâu Kiểm tra nội bộ + Quản lý duyệt)
-                              </span>
-                            )}
-                          </div>
-                          <select
-                            value={currentValue}
-                            onChange={(e) => handleChangeStepTarget(idx, e.target.value)}
-                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer truncate"
-                          >
-                            <optgroup label="🏢 --- PHÒNG BAN XÉT DUYỆT ---">
-                              {allDepartments.map(d => {
-                                const isDuplicate = isDepartmentAlreadyChosen(d.name, idx);
-                                return (
-                                  <option 
-                                    key={`dept-${d.id}`} 
-                                    value={`DEPT:${d.name}`}
-                                    disabled={isDuplicate}
-                                    className={isDuplicate ? 'text-slate-400 bg-slate-100' : ''}
-                                  >
-                                    🏢 {d.name} ({d.code}) {isDuplicate ? ' — (⚠️ Đã chọn ở bước khác)' : (d.defaultSlaHours ? `— Chuẩn SLA: ${d.defaultSlaHours}h` : '')}
-                                  </option>
-                                );
-                              })}
-                            </optgroup>
-                            <optgroup label="👤 --- CÁ NHÂN CỤ THỂ ---">
-                              {users.map(u => {
-                                const isDuplicate = isUserAlreadyChosen(u.id, idx);
-                                const isCc = isUserInCc(u.id);
-                                const isDisabled = isDuplicate || isCc;
-                                return (
-                                  <option 
-                                    key={`user-${u.id}`} 
-                                    value={`USER:${u.id}`}
-                                    disabled={isDisabled}
-                                    className={isDisabled ? 'text-slate-400 bg-slate-100' : ''}
-                                  >
-                                    👤 {u.name} — {u.roleTitle} ({u.department}) {isDuplicate ? ' — (⚠️ Đã chọn ở bước khác)' : isCc ? ' — (⚠️ Đang là Cc)' : ''}
-                                  </option>
-                                );
-                              })}
-                            </optgroup>
-                          </select>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] text-white shrink-0 shadow-xs ${
+                            isFirst ? 'bg-emerald-600' : isLast ? 'bg-brand-red' : 'bg-brand-blue'
+                          }`}>
+                            {idx + 1}
+                          </span>
+                          {item.type === 'DEPARTMENT' ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 truncate">
+                              🏢 Duyệt cấp Ban/Phòng
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 truncate">
+                              👤 Duyệt đích danh Cá nhân
+                            </span>
+                          )}
                         </div>
 
+                        {/* Nút di chuyển lên/xuống và xóa */}
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
@@ -1021,8 +985,50 @@ export const CreateDocumentModal: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Dòng 2: Cài đặt thời gian SLA và Hành vi quá hạn cho bước này */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px]">
+                      {/* Dòng 2: Dropdown Người/Phòng ban duyệt chiếm trọn bề ngang, không bị đè chữ */}
+                      <div>
+                        <select
+                          value={currentValue}
+                          onChange={(e) => handleChangeStepTarget(idx, e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-300 rounded-xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer truncate shadow-2xs"
+                        >
+                          <optgroup label="🏢 --- PHÒNG BAN XÉT DUYỆT ---">
+                            {allDepartments.map(d => {
+                              const isDuplicate = isDepartmentAlreadyChosen(d.name, idx);
+                              return (
+                                <option 
+                                  key={`dept-${d.id}`} 
+                                  value={`DEPT:${d.name}`}
+                                  disabled={isDuplicate}
+                                  className={isDuplicate ? 'text-slate-400 bg-slate-100' : ''}
+                                >
+                                  🏢 {d.name} ({d.code}) {isDuplicate ? ' — (⚠️ Đã chọn ở bước khác)' : (d.defaultSlaHours ? `— Chuẩn SLA: ${d.defaultSlaHours}h` : '')}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                          <optgroup label="👤 --- CÁ NHÂN CỤ THỂ ---">
+                            {users.map(u => {
+                              const isDuplicate = isUserAlreadyChosen(u.id, idx);
+                              const isCc = isUserInCc(u.id);
+                              const isDisabled = isDuplicate || isCc;
+                              return (
+                                <option 
+                                  key={`user-${u.id}`} 
+                                  value={`USER:${u.id}`}
+                                  disabled={isDisabled}
+                                  className={isDisabled ? 'text-slate-400 bg-slate-100' : ''}
+                                >
+                                  👤 {u.name} — {u.roleTitle} ({u.department}) {isDuplicate ? ' — (⚠️ Đã chọn ở bước khác)' : isCc ? ' — (⚠️ Đang là Cc)' : ''}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        </select>
+                      </div>
+
+                      {/* Dòng 3: Cài đặt thời gian SLA và Hành vi quá hạn cho bước này */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100 text-[11px]">
                         {/* SLA Picker */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -1040,15 +1046,15 @@ export const CreateDocumentModal: React.FC = () => {
                               <span className="text-slate-500 font-medium">giờ</span>
 
                               {/* Quick buttons */}
-                              <div className="flex items-center gap-1 ml-1">
+                              <div className="flex items-center gap-1 ml-1 flex-wrap">
                                 {[4, 8, 12, 24, 48].map((h) => (
                                   <button
                                     key={h}
                                     type="button"
                                     onClick={() => handleUpdateStepSla(idx, h)}
-                                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
                                       (item.slaHours || 8) === h
-                                        ? 'bg-amber-600 text-white border-amber-600'
+                                        ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
                                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700'
                                     }`}
                                   >
@@ -1059,20 +1065,20 @@ export const CreateDocumentModal: React.FC = () => {
                             </>
                           ) : (
                             <span className="px-2.5 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-full font-bold text-[11px] flex items-center gap-1 shadow-2xs">
-                              {item.slaHours || 8} giờ <span className="text-[9.5px] font-normal text-amber-700">(Cố định theo quy định)</span>
+                              {item.slaHours || 8} giờ <span className="text-[9.5px] font-normal text-amber-700">(Quy định)</span>
                             </span>
                           )}
                         </div>
 
                         {/* Overdue Action per step */}
-                        <div className="flex items-center gap-1.5 ml-auto">
+                        <div className="flex items-center gap-1.5">
                           {isAdmin ? (
                             <>
                               <span className="text-slate-500 font-medium">Quá hạn:</span>
                               <select
                                 value={item.overdueAction || docOverdueAction}
                                 onChange={(e) => handleUpdateStepOverdueAction(idx, e.target.value as OverdueAction)}
-                                className={`px-2 py-0.5 border rounded-lg font-semibold text-[10px] cursor-pointer focus:outline-none ${
+                                className={`px-2 py-1 border rounded-lg font-semibold text-[10px] cursor-pointer focus:outline-none ${
                                   (item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
                                     ? 'bg-purple-50 text-purple-700 border-purple-200'
                                     : 'bg-orange-50 text-orange-700 border-orange-200'
@@ -1421,7 +1427,7 @@ export const CreateDocumentModal: React.FC = () => {
         </form>
 
         {/* Fixed Form Actions Footer (Always visible) */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-end gap-3 shrink-0">
+        <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-200/80 flex items-center justify-end gap-3 shrink-0 pb-[max(env(safe-area-inset-bottom,0px),12px)]">
           <button
             type="button"
             onClick={handleClose}

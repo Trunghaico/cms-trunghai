@@ -84,7 +84,7 @@ export const LoginPage: React.FC = () => {
             {/* Username / Code / Email */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Tên đăng nhập / Mã NV / Email
+                Tên đăng nhập
               </label>
               <div className="relative">
                 <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
