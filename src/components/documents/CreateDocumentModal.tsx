@@ -204,15 +204,66 @@ export const CreateDocumentModal: React.FC = () => {
     setSelectedApprovers(mappedSteps);
   }, [workflowTemplates, systemDepts, getDeptDefaultSla, getDeptDefaultOverdueAction]);
 
-  // Tự động áp dụng mẫu quy trình đầu tiên khi mở modal nếu chưa có cấp duyệt
-  useEffect(() => {
-    if (isCreateModalOpen && selectedApprovers.length === 0 && workflowTemplates.length > 0) {
-      const defaultTpl = workflowTemplates.find(w => w.category.toLowerCase() === category.toLowerCase()) || workflowTemplates[0];
+  // Helper lấy deadline mặc định
+  const getDefaultDeadline = useCallback(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    d.setHours(17, 0, 0, 0);
+    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const date = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const mins = pad(d.getMinutes());
+    return `${year}-${month}-${date}T${hours}:${mins}`;
+  }, []);
+
+  // Hàm reset trắng toàn bộ dữ liệu form tạo hồ sơ mới
+  const resetForm = useCallback(() => {
+    const initialCategory = availableCategories[0] || 'Hợp đồng kinh tế';
+    const prefix = initialCategory.includes('Hợp đồng') ? 'HĐ' :
+                   initialCategory.includes('Tờ trình') ? 'TTr' :
+                   initialCategory.includes('thanh toán') ? 'BB' : 'VB';
+    setCategory(initialCategory);
+    setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
+    setTitle('');
+    setProject('');
+    setPriority('NORMAL');
+    setDepartment(activeUser?.department || (systemDepts && systemDepts[0]?.name) || 'Phòng Kỹ thuật & Dự án');
+    setDocOverdueAction('WARN_AND_RETURN');
+    setSelectedApprovers([]);
+    setApproverSearchQuery('');
+    setIsApproverDropdownOpen(false);
+    setSelectedCcUsers([]);
+    setCcSearchQuery('');
+    setIsCcDropdownOpen(false);
+    setDesiredDeadline(getDefaultDeadline());
+    setContentHtml('');
+    setAttachments([]);
+    setPreviewAttachment(null);
+    setErrorMsg('');
+    setIsSubmitting(false);
+
+    if (workflowTemplates && workflowTemplates.length > 0) {
+      const defaultTpl = workflowTemplates.find(w => w.category.toLowerCase() === initialCategory.toLowerCase()) || workflowTemplates[0];
       if (defaultTpl) {
         handleApplyTemplate(defaultTpl.id);
+      } else {
+        setSelectedTemplateId('');
       }
+    } else {
+      setSelectedTemplateId('');
     }
-  }, [isCreateModalOpen, workflowTemplates, category, selectedApprovers.length, handleApplyTemplate]);
+  }, [availableCategories, activeUser?.department, systemDepts, getDefaultDeadline, workflowTemplates, handleApplyTemplate]);
+
+  // Khi mở modal tạo hồ sơ mới, luôn reset sạch sẽ dữ liệu cũ để tránh lưu vết hồ sơ trước
+  const prevOpenRef = useRef(false);
+  useEffect(() => {
+    if (isCreateModalOpen && !prevOpenRef.current) {
+      resetForm();
+    }
+    prevOpenRef.current = isCreateModalOpen;
+  }, [isCreateModalOpen, resetForm]);
 
   // Handle outside clicks for search dropdowns
   useEffect(() => {
@@ -236,6 +287,7 @@ export const CreateDocumentModal: React.FC = () => {
       setIsClosing(false);
       setIsCreateModalOpen(false);
       setErrorMsg('');
+      resetForm();
     }, 200);
   };
 
@@ -601,6 +653,7 @@ export const CreateDocumentModal: React.FC = () => {
     });
 
     setIsSubmitting(false);
+    resetForm();
     handleClose();
   };
 
