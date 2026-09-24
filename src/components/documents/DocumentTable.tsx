@@ -269,9 +269,156 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         onReset={handleResetFilters}
       />
 
-      {/* Main Table */}
+      {/* Main Table / Cards View */}
       <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
+        
+        {/* 1. MOBILE & TABLET CARDS FEED (< lg) */}
+        <div className="lg:hidden p-3 sm:p-4 divide-y divide-slate-100 space-y-3">
+          {filteredDocuments.length === 0 ? (
+            <div className="py-12 text-center text-slate-400">
+              <FileText className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+              <p className="text-sm font-medium">Không tìm thấy hồ sơ nào phù hợp</p>
+              <p className="text-xs text-slate-400 mt-1">Thử thay đổi bộ lọc hoặc tạo hồ sơ trình ký mới</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {filteredDocuments.map((doc) => {
+                const currentStep = doc.steps[doc.currentStepIndex];
+                const isApproverForCurrentStep = isUserApproverForStep(activeUser, currentStep);
+                const isMyTurn = doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && doc.status !== 'ADDITIONAL_REQ' && currentStep?.status === 'CURRENT' && isApproverForCurrentStep;
+                const progressPct = Math.round(((doc.status === 'APPROVED' ? doc.steps.length : doc.currentStepIndex) / doc.steps.length) * 100);
+
+                return (
+                  <div
+                    key={`mobile-${doc.id}`}
+                    onClick={() => setSelectedDocument(doc)}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-3 ${
+                      isMyTurn 
+                        ? 'bg-gradient-to-br from-amber-50/70 via-white to-orange-50/40 border-amber-300 shadow-sm ring-1 ring-amber-400/30' 
+                        : 'bg-white border-slate-200/90 hover:border-indigo-300 shadow-2xs hover:shadow-sm'
+                    }`}
+                  >
+                    {/* Header: Code, Priority, Status */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-bold text-xs text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-100">
+                          {doc.code}
+                        </span>
+                        {doc.priority === 'VERY_URGENT' && (
+                          <span className="px-2 py-0.5 bg-brand-red text-white text-[9px] font-bold rounded-full flex items-center gap-0.5 shadow-2xs">
+                            <Flame className="h-2.5 w-2.5" />
+                            Hỏa tốc
+                          </span>
+                        )}
+                        {doc.priority === 'URGENT' && (
+                          <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded-full">
+                            Khẩn
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        {getStatusBadge(doc.status)}
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 hover:text-indigo-600 transition-colors leading-snug">
+                        {doc.title}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1 text-[10.5px] text-slate-500">
+                        <span className="bg-slate-100 px-2 py-0.5 rounded-full font-medium truncate max-w-[140px]">
+                          {doc.category}
+                        </span>
+                        {doc.amount ? (
+                          <span className="font-mono font-semibold text-slate-700">
+                            • {formatCurrency(doc.amount)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Progress Bar & Current Step */}
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-600">
+                          {doc.status === 'APPROVED' ? '✓ Hoàn tất phê duyệt' : `Tiến trình: Bước ${doc.currentStepIndex + 1}/${doc.steps.length}`}
+                        </span>
+                        <span className="font-bold text-indigo-600 font-mono text-[10px]">{progressPct}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            doc.status === 'APPROVED' ? 'bg-emerald-500' : isMyTurn ? 'bg-amber-500' : 'bg-brand-blue'
+                          }`}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      {doc.status !== 'APPROVED' && (
+                        <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                          Đang chờ: <strong className="text-slate-800">{currentStep?.title || currentStep?.department}</strong>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Footer: Creator info & Actions */}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[11px]">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800 truncate">{doc.creatorName}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">{formatDate(doc.createdAt)}</p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {doc.status === 'ADDITIONAL_REQ' && (doc.creatorId === activeUser.id || activeUser.role === 'ADMIN') ? (
+                          <button
+                            onClick={() => setSelectedDocument(doc)}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 cursor-pointer"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>Bổ Sung</span>
+                          </button>
+                        ) : isMyTurn ? (
+                          <button
+                            onClick={() => setSelectedDocument(doc)}
+                            className="px-3.5 py-1.5 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-indigo-600 hover:to-brand-blue text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                          >
+                            <FileSignature className="h-3.5 w-3.5" />
+                            <span>Ký Duyệt Ngay</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedDocument(doc)}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 text-indigo-700 font-bold text-xs rounded-xl border border-slate-200 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Chi Tiết</span>
+                          </button>
+                        )}
+
+                        {canDelete && (doc.creatorId === activeUser.id || canOverride) && (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Xác nhận xóa hồ sơ ${doc.code}?`)) {
+                                deleteDocument(doc.id);
+                              }
+                            }}
+                            title="Xóa hồ sơ"
+                            className="p-1.5 text-slate-400 hover:text-brand-red hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 2. DESKTOP FULL TABLE (>= lg) */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50/90 text-slate-600 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider select-none">
               <tr>
@@ -469,9 +616,9 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           </table>
         </div>
 
-        {/* Table Footer */}
-        <div className="px-5 py-3.5 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-          <span>Hiển thị {filteredDocuments.length} trên tổng số {documents.length} hồ sơ</span>
+        {/* Table / Feed Footer */}
+        <div className="px-4 sm:px-5 py-3.5 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+          <span>Hiển thị <strong>{filteredDocuments.length}</strong> trên <strong>{documents.length}</strong> hồ sơ</span>
           <span className="font-semibold text-indigo-700">Trung Hải E-Approval BPM</span>
         </div>
       </div>

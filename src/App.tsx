@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DocumentProvider, useDocument } from './context/DocumentContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
+import { MobileBottomNav } from './components/layout/MobileBottomNav';
+import { MobileDrawer } from './components/layout/MobileDrawer';
+import { PWAInstallPrompt } from './components/common/PWAInstallPrompt';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { DocumentTable } from './components/documents/DocumentTable';
 import { WorkflowConfigView } from './components/workflow/WorkflowConfigView';
@@ -18,6 +21,7 @@ import { LoginPage } from './components/auth/LoginPage';
 
 const AppContent: React.FC = () => {
   const { activeTab, isAuthenticated, hasPermission, activeUser } = useDocument();
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -125,20 +129,32 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Top Header - Fixed & Sticky */}
-      <Header />
+      <Header onOpenDrawer={() => setIsMobileDrawerOpen(true)} />
 
-      {/* Main Layout: Fixed Compact Sidebar (w-60) on Left + Scrollable Content on Right (pl-60) */}
+      {/* Main Layout: Fixed Compact Sidebar (w-60) on Left + Scrollable Content on Right (pl-0 on mobile, pl-60 on desktop) */}
       <div className="flex-1 flex">
-        {/* Left Fixed Sidebar */}
+        {/* Left Fixed Sidebar (Hidden on mobile < md) */}
         <Sidebar />
 
-        {/* Right Main Content Area with pl-60 offset */}
-        <main className="flex-1 pl-60 min-w-0">
-          <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in">
+        {/* Right Main Content Area */}
+        <main className="flex-1 pl-0 md:pl-60 min-w-0 pb-20 md:pb-8">
+          <div className="p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in">
             {renderContent()}
           </div>
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar (< md) */}
+      <MobileBottomNav onOpenDrawer={() => setIsMobileDrawerOpen(true)} />
+
+      {/* Mobile Slide Drawer Menu */}
+      <MobileDrawer 
+        isOpen={isMobileDrawerOpen} 
+        onClose={() => setIsMobileDrawerOpen(false)} 
+      />
+
+      {/* PWA 1-Tap Install & Web Push Prompt */}
+      <PWAInstallPrompt />
 
       {/* Global Modals */}
       <CreateDocumentModal />

@@ -19,12 +19,17 @@ import {
   Camera,
   KeyRound,
   PenTool,
-  Settings
+  Settings,
+  Menu
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { formatDate } from '../../lib/storage';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onOpenDrawer?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onOpenDrawer }) => {
   const {
     activeUser,
     logout,
@@ -49,6 +54,7 @@ export const Header: React.FC = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNASMenuOpen, setIsNASMenuOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -106,27 +112,42 @@ export const Header: React.FC = () => {
   if (!activeUser) return null;
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 shadow-xs transition-all select-none">
-      <div className="flex items-center justify-between px-4 lg:px-7 h-16">
+    <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 shadow-xs transition-all select-none">
+      <div className="flex items-center justify-between px-3 sm:px-4 lg:px-7 h-15 sm:h-16">
 
-        {/* Left: Brand Logo & Title */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 group cursor-pointer">
+        {/* Left: Mobile Hamburger & Brand Logo & Title */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile Hamburger Button */}
+          {onOpenDrawer && (
+            <button
+              type="button"
+              onClick={onOpenDrawer}
+              className="md:hidden p-2 text-slate-600 hover:text-brand-blue hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
+              aria-label="Mở menu danh mục"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
+
+          <div 
+            onClick={() => setActiveTab('dashboard')}
+            className="flex items-center gap-2.5 sm:gap-3 group cursor-pointer"
+          >
             {/* Logo Image */}
-            <div className="h-10 w-10 flex items-center justify-center p-1.5 bg-white border border-slate-200/90 rounded-xl shadow-xs group-hover:border-indigo-400 group-hover:shadow-[0_0_15px_rgba(99,102,241,0.25)] transition-all duration-300">
-              <img src="/logo.png" alt="Trung Hải Logo" className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
+            <div className="h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center p-1 bg-white border border-slate-200/90 rounded-xl shadow-xs group-hover:border-indigo-400 transition-all duration-300">
+              <img src="/logo.png" alt="Trung Hải Logo" className="h-6 sm:h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-wider bg-gradient-to-r from-brand-blue via-indigo-600 to-indigo-800 bg-clip-text text-transparent uppercase transition-colors">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-extrabold text-sm sm:text-base tracking-wider bg-gradient-to-r from-brand-blue via-indigo-600 to-indigo-800 bg-clip-text text-transparent uppercase transition-colors">
                   TRUNG HAI
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full border border-indigo-200/60 shadow-xs flex items-center gap-1">
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.2 sm:py-0.5 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full border border-indigo-200/60 shadow-xs flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
                   CMS
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-slate-500 leading-none mt-0.5">
+              <p className="hidden sm:block text-[10.5px] font-medium text-slate-500 leading-none mt-0.5">
                 Hệ Thống Trình Ký & Quản Lý Hồ Sơ Điện Tử
               </p>
             </div>

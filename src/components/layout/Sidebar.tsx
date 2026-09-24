@@ -200,7 +200,7 @@ export const Sidebar: React.FC = () => {
   if (!activeUser) return null;
 
   return (
-    <aside className="fixed left-0 top-16 bottom-0 w-60 bg-slate-950/95 backdrop-blur-2xl text-slate-300 flex flex-col shrink-0 z-20 border-r border-slate-800/80 shadow-2xl transition-all select-none">
+    <aside className="hidden md:flex fixed left-0 top-16 bottom-0 w-60 bg-slate-950/95 backdrop-blur-2xl text-slate-300 flex-col shrink-0 z-20 border-r border-slate-800/80 shadow-2xl transition-all select-none">
 
       {/* Main Navigation Menu */}
       <div className="flex-1 py-3.5 px-3 space-y-4 overflow-y-auto custom-scrollbar text-xs">

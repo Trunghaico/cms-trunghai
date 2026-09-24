@@ -70,6 +70,7 @@ import {
   canUserPerformManagerApproval,
   isSameDepartment
 } from '../lib/permissions';
+import { sendDeviceNotification } from '../lib/pwaService';
 
 
 interface DocumentContextType {
@@ -409,7 +410,18 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setNotifications(prevNotifs => {
             const existingKeys = new Set(prevNotifs.slice(0, 15).map(n => `${n.documentId}-${n.type}`));
             const filteredNew = newNotifs.filter(n => !existingKeys.has(`${n.documentId}-${n.type}`));
-            return filteredNew.length > 0 ? [...filteredNew, ...prevNotifs] : prevNotifs;
+            if (filteredNew.length > 0) {
+              filteredNew.forEach(n => {
+                sendDeviceNotification({
+                  title: n.title,
+                  body: n.message,
+                  documentId: n.documentId,
+                  type: n.type
+                });
+              });
+              return [...filteredNew, ...prevNotifs];
+            }
+            return prevNotifs;
           });
         }
 
@@ -1639,6 +1651,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         targetDepartment: firstApprover.department,
       };
       setNotifications(prev => [newNotif, ...prev]);
+      sendDeviceNotification({
+        title: newNotif.title,
+        body: newNotif.message,
+        documentId: newNotif.documentId,
+        type: newNotif.type
+      });
     }
 
     return newDoc;
@@ -1702,7 +1720,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         // Gửi thông báo đến cấp Quản lý của phòng ban
-        setNotifications(prev => [{
+        const checkNotif: NotificationItem = {
           id: `notif-${Date.now()}`,
           title: `Hồ sơ đã qua kiểm tra nội bộ - Chờ Quản lý ${currentStep.department} duyệt`,
           message: `Hồ sơ "${doc.code} - ${doc.title}" đã được chuyên viên ${activeUser.name} kiểm tra nội bộ. Kính mời cấp Quản lý ban xem xét và ký số.`,
@@ -1714,7 +1732,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           actorId: activeUser.id,
           targetStepIndex: currentStepIdx,
           targetDepartment: currentStep.department,
-        }, ...prev]);
+        };
+        setNotifications(prev => [checkNotif, ...prev]);
+        sendDeviceNotification({
+          title: checkNotif.title,
+          body: checkNotif.message,
+          documentId: checkNotif.documentId,
+          type: checkNotif.type
+        });
 
         return updatedDoc;
       });
@@ -1809,7 +1834,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (isLastStep) {
           // BƯỚC CUỐI CÙNG: Sau khi duyệt thì chỉ người lập hồ sơ (và Cc) nhận được thông báo, người duyệt KHÔNG nhận.
-          setNotifications(prev => [{
+          const doneNotif: NotificationItem = {
             id: `notif-${Date.now()}`,
             title: 'Hồ sơ đã được phê duyệt hoàn tất',
             message: `Hồ sơ "${doc.code} - ${doc.title}" đã được hoàn tất phê duyệt & đóng dấu điện tử bởi ${activeUser.name}.`,
@@ -1821,7 +1846,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             actorId: activeUser.id,
             recipientId: doc.creatorId,
             recipientIds: [doc.creatorId, ...(doc.ccUsers?.map(c => c.id) || [])],
-          }, ...prev]);
+          };
+          setNotifications(prev => [doneNotif, ...prev]);
+          sendDeviceNotification({
+            title: doneNotif.title,
+            body: doneNotif.message,
+            documentId: doneNotif.documentId,
+            type: doneNotif.type
+          });
         } else {
           const nextApprover = updatedSteps[newStepIdx];
           const nextNotifTitle = 'Hồ sơ mới cần xử lý';
@@ -1859,6 +1891,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
           ];
           setNotifications(prev => [...newNotifs, ...prev]);
+          newNotifs.forEach(n => {
+            sendDeviceNotification({
+              title: n.title,
+              body: n.message,
+              documentId: n.documentId,
+              type: n.type
+            });
+          });
         }
 
         return updatedDoc;
@@ -1906,7 +1946,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setSelectedDocument(updatedDoc);
         }
 
-        setNotifications(prev => [{
+        const slaNotif: NotificationItem = {
           id: `notif-${Date.now()}`,
           title: `Hồ sơ bị trả về do vi phạm SLA (${deptName})`,
           message: `${activeUser.name} đã trả hồ sơ "${doc.code}" về cho người lập do phòng ${deptName} xử lý quá hạn SLA. Lý do: ${reason}`,
@@ -1918,7 +1958,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           actorId: activeUser.id,
           recipientId: doc.creatorId,
           recipientIds: [doc.creatorId, ...(doc.ccUsers?.map(c => c.id) || [])],
-        }, ...prev]);
+        };
+        setNotifications(prev => [slaNotif, ...prev]);
+        sendDeviceNotification({
+          title: slaNotif.title,
+          body: slaNotif.message,
+          documentId: slaNotif.documentId,
+          type: slaNotif.type
+        });
 
         return updatedDoc;
       });
@@ -1983,7 +2030,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setSelectedDocument(updatedDoc);
         }
 
-        setNotifications(prev => [{
+        const rejectNotif: NotificationItem = {
           id: `notif-${Date.now()}`,
           title: 'Hồ sơ bị từ chối phê duyệt',
           message: `Hồ sơ "${doc.code}" bị từ chối bởi ${activeUser.name}. Lý do: ${reason}`,
@@ -1994,7 +2041,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           createdAt: now,
           actorId: activeUser.id,
           recipientId: doc.creatorId,
-        }, ...prev]);
+        };
+        setNotifications(prev => [rejectNotif, ...prev]);
+        sendDeviceNotification({
+          title: rejectNotif.title,
+          body: rejectNotif.message,
+          documentId: rejectNotif.documentId,
+          type: rejectNotif.type
+        });
 
         return updatedDoc;
       });
@@ -2042,7 +2096,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         // BẮT BUỘC: Hồ sơ trả về sẽ trả về đúng tài khoản của người lập (recipientId: doc.creatorId)
-        setNotifications(prev => [{
+        const reqNotif: NotificationItem = {
           id: `notif-${Date.now()}`,
           title: 'Yêu cầu bổ sung hồ sơ',
           message: `${activeUser.name} yêu cầu bổ sung hồ sơ "${doc.code}": ${note}`,
@@ -2053,7 +2107,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           createdAt: now,
           actorId: activeUser.id,
           recipientId: doc.creatorId,
-        }, ...prev]);
+        };
+        setNotifications(prev => [reqNotif, ...prev]);
+        sendDeviceNotification({
+          title: reqNotif.title,
+          body: reqNotif.message,
+          documentId: reqNotif.documentId,
+          type: reqNotif.type
+        });
 
         return updatedDoc;
       });
@@ -2155,7 +2216,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setSelectedDocument(updatedDoc);
         }
 
-        setNotifications(prev => [{
+        const resubmitNotif: NotificationItem = {
           id: `notif-${Date.now()}`,
           title: isContinuing ? 'Hồ sơ đã được bổ sung & gửi lại' : 'Hồ sơ trình duyệt lại từ đầu',
           message: `${activeUser.name} đã bổ sung hồ sơ "${doc.code}" (${modeDescription}): ${data.supplementNote}`,
@@ -2169,7 +2230,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           recipientRole: targetApprover?.approverRole,
           targetStepIndex: targetStepIndex,
           targetDepartment: targetApprover?.department,
-        }, ...prev]);
+        };
+        setNotifications(prev => [resubmitNotif, ...prev]);
+        sendDeviceNotification({
+          title: resubmitNotif.title,
+          body: resubmitNotif.message,
+          documentId: resubmitNotif.documentId,
+          type: resubmitNotif.type
+        });
 
         isSuccess = true;
         return updatedDoc;

@@ -1,0 +1,51 @@
+{
+  "name": "CMS Trung Hải - Quản Lý & Trình Ký Văn Bản",
+  "short_name": "CMS Trung Hải",
+  "description": "Hệ thống quản lý, trình ký và phê duyệt hồ sơ điện tử BPM & DMS - Công ty Cổ phần Trung Hải",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "lang": "vi",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Chờ tôi duyệt",
+      "short_name": "Chờ duyệt",
+      "description": "Xem danh sách hồ sơ cần phê duyệt ngay",
+      "url": "/?tab=pending-approvals",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Khởi tạo hồ sơ",
+      "short_name": "Trình ký",
+      "description": "Tạo hồ sơ trình ký mới",
+      "url": "/?action=create",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    }
+  ]
+}
