@@ -4,18 +4,16 @@ const path = require('path');
 
 async function generateIcons() {
   const publicDir = path.join(__dirname, '..', 'public');
-  const svgPath = path.join(publicDir, 'logo.svg');
+  const logoPngPath = path.join(publicDir, 'logo.png');
   
-  if (!fs.existsSync(svgPath)) {
-    console.error('logo.svg not found!');
+  if (!fs.existsSync(logoPngPath)) {
+    console.error('logo.png not found!');
     return;
   }
 
-  const svgBuffer = fs.readFileSync(svgPath);
-
-  // 1. Render logo SVG to 400x400 PNG with transparent background
-  const logoInner = await sharp(svgBuffer)
-    .resize(380, 380, { fit: 'inside' })
+  // 1. Render original logo.png to 440x440 with transparent background
+  const logoInner = await sharp(logoPngPath)
+    .resize(440, 440, { fit: 'inside' })
     .toBuffer();
 
   // 2. Generate 512x512 Apple Touch Icon with solid clean white background (#ffffff)
@@ -59,8 +57,8 @@ async function generateIcons() {
   console.log('Created icon-512.png (512x512 white background)');
 
   // 4. Generate icon-192.png (PWA 192x192)
-  const logoInner192 = await sharp(svgBuffer)
-    .resize(145, 145, { fit: 'inside' })
+  const logoInner192 = await sharp(logoPngPath)
+    .resize(165, 165, { fit: 'inside' })
     .toBuffer();
 
   await sharp({
@@ -81,7 +79,7 @@ async function generateIcons() {
   .toFile(path.join(publicDir, 'icon-192.png'));
 
   console.log('Created icon-192.png (192x192 white background)');
-  console.log('All icons generated successfully!');
+  console.log('All icons generated successfully from official logo.png!');
 }
 
 generateIcons().catch(console.error);

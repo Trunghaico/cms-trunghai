@@ -118,18 +118,42 @@ export const isMobileOrTabletDevice = (): boolean => {
   );
 };
 
-// 7. Cập nhật số thông báo trên Icon App ngoài màn hình chính (App Badging API)
+// 7. Cập nhật số thông báo trên Icon App ngoài màn hình chính (App Badging API) & Tiêu đề Tab
 export const updateAppBadge = (count: number) => {
   if (typeof window === 'undefined') return;
+
+  // 1. Cập nhật tiêu đề trang web / App Title
+  try {
+    const baseTitle = 'CMS Trung Hải - Quản Lý & Trình Ký Văn Bản';
+    if (count > 0) {
+      document.title = `(${count}) ${baseTitle}`;
+    } else {
+      document.title = baseTitle;
+    }
+  } catch (e) {}
+
+  // 2. Cập nhật Huy hiệu ngoài màn hình chính (App Badging API cho iOS 16.4+ và Android/Desktop PWA)
   try {
     if ('setAppBadge' in navigator) {
       if (count > 0) {
-        navigator.setAppBadge(count).catch(() => {});
+        navigator.setAppBadge(count).catch((err) => {
+          console.debug('[PWA] navigator.setAppBadge:', err);
+        });
       } else {
         navigator.clearAppBadge().catch(() => {});
       }
     }
   } catch (e) {
-    console.warn('[PWA] updateAppBadge error:', e);
+    console.debug('[PWA] updateAppBadge error:', e);
   }
+
+  // 3. Gửi thông điệp cập nhật badge cho Service Worker
+  try {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SET_BADGE',
+        count: count
+      });
+    }
+  } catch (e) {}
 };

@@ -22,6 +22,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenDrawer }
     setIsCreateModalOpen,
     documents,
     activeUser,
+    unreadNotificationCount,
     hasPermission 
   } = useDocument();
 
@@ -113,10 +114,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenDrawer }
       <button
         type="button"
         onClick={onOpenDrawer}
-        className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
+        className="relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
       >
-        <div className="p-1 rounded-xl">
+        <div className="relative p-1 rounded-xl">
           <Menu className="h-5 w-5" />
+          {unreadNotificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center text-[9px] font-black text-white bg-brand-red rounded-full shadow-md animate-bounce">
+              {unreadNotificationCount}
+            </span>
+          )}
         </div>
         <span className="text-[10px] mt-0.5 font-semibold">Tất cả</span>
       </button>

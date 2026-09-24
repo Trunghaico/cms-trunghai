@@ -42,8 +42,11 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
     documents,
     hasPermission,
     openProfileModal,
-    setIsCreateModalOpen
+    setIsCreateModalOpen,
+    unreadNotificationCount
   } = useDocument();
+
+  const [pushStatus, setPushStatus] = React.useState<string>('');
 
   const isAdmin = activeUser?.role === 'ADMIN';
 
@@ -94,7 +97,14 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
   };
 
   const handleEnablePush = async () => {
-    await requestNotificationPermission();
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      setPushStatus('✅ Đã bật thông báo thành công');
+      setTimeout(() => setPushStatus(''), 4000);
+    } else {
+      setPushStatus('⚠️ Vui lòng cho phép thông báo');
+      setTimeout(() => setPushStatus(''), 4000);
+    }
   };
 
   return (
@@ -384,13 +394,19 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
           <div className="pt-2 border-t border-slate-100 space-y-2">
             <button
               onClick={handleEnablePush}
-              className="w-full p-2.5 bg-blue-50/70 hover:bg-blue-100/70 text-brand-navy rounded-xl flex items-center justify-between transition-colors text-[11px] font-semibold"
+              className="w-full p-2.5 bg-blue-50/70 hover:bg-blue-100/70 text-brand-navy rounded-xl flex items-center justify-between transition-colors text-[11px] font-semibold cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-brand-blue" />
-                <span>Bật thông báo ngoài màn hình</span>
+                <span>{pushStatus || 'Bật thông báo & Huy hiệu ngoài màn hình'}</span>
               </div>
-              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+              {unreadNotificationCount > 0 && !pushStatus ? (
+                <span className="px-2 py-0.5 bg-brand-red text-white font-bold text-[10px] rounded-full shadow-xs">
+                  {unreadNotificationCount} mới
+                </span>
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+              )}
             </button>
 
             <button
@@ -398,7 +414,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 openProfileModal();
                 onClose();
               }}
-              className="w-full p-2.5 hover:bg-slate-100 text-slate-700 rounded-xl flex items-center justify-between transition-colors text-[11px] font-semibold"
+              className="w-full p-2.5 hover:bg-slate-100 text-slate-700 rounded-xl flex items-center justify-between transition-colors text-[11px] font-semibold cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <UserIcon className="h-4 w-4 text-slate-500" />

@@ -97,13 +97,34 @@ self.addEventListener('push', (event) => {
       { action: 'open', title: '👁️ Xem chi tiết' },
       { action: 'dismiss', title: 'Đóng' }
     ]
+  };
+
   event.waitUntil(
     self.registration.showNotification(data.title, options).then(() => {
       if ('setAppBadge' in self.navigator) {
-        self.navigator.setAppBadge().catch(() => {});
+        if (typeof data.unreadCount === 'number') {
+          self.navigator.setAppBadge(data.unreadCount).catch(() => {});
+        } else {
+          self.navigator.setAppBadge().catch(() => {});
+        }
       }
     })
   );
+});
+
+// Message Event - Receive commands from app (e.g. SET_BADGE)
+self.addEventListener('message', (event) => {
+  if (!event.data) return;
+  if (event.data.type === 'SET_BADGE') {
+    const count = event.data.count;
+    if ('setAppBadge' in self.navigator) {
+      if (count > 0) {
+        self.navigator.setAppBadge(count).catch(() => {});
+      } else {
+        self.navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  }
 });
 
 // Notification Click Event - Open or Focus App Window
