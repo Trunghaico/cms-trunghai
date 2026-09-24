@@ -290,6 +290,7 @@ export const saveDatabaseToNAS = async (
     deletedPresetIds?: string[];
     deletedWorkflowTemplateIds?: string[];
     savedBy?: string;
+    createTimestampedBackup?: boolean;
   }
 ): Promise<{ success: boolean; path?: string; message?: string; eTag?: string; lastModified?: string }> => {
   if (isGatewayMode()) {
@@ -318,6 +319,7 @@ export const saveDatabaseToNAS = async (
   try {
     const now = new Date();
     const timestampStr = now.toISOString().replace(/[:.]/g, '-');
+    const createTimestampedBackup = !!snapshotData.createTimestampedBackup;
     
     const payload: DatabaseSnapshot = {
       version: '1.0.0',
@@ -347,7 +349,7 @@ export const saveDatabaseToNAS = async (
     const textEncoder = new TextEncoder();
     const uint8Array = textEncoder.encode(jsonString);
 
-    // 1. Lưu bản mới nhất: database/cms_database_latest.json
+    // 1. Lưu bản mới nhất: database/cms_database_latest.json (duy nhất, không tốn dung lượng)
     const putLatestResult = await s3Client.send(new PutObjectCommand({
       Bucket: MINIO_BUCKET,
       Key: 'database/cms_database_latest.json',
@@ -360,40 +362,26 @@ export const saveDatabaseToNAS = async (
       }
     }));
 
-    // 2. Lưu bản sao lưu theo thời gian: database/backups/backup_YYYY-MM-DD_HH-mm-ss.json
-    const backupKey = `database/backups/backup_${timestampStr}.json`;
-    await s3Client.send(new PutObjectCommand({
-      Bucket: MINIO_BUCKET,
-      Key: backupKey,
-      Body: uint8Array,
-      ContentType: 'application/json'
-    }));
-
-    // 3. Tách lưu riêng các file JSON thực thể cho mục đích truy vấn phân tán
-    const saveEntity = async (key: string, data: any) => {
-      const bytes = textEncoder.encode(JSON.stringify(data, null, 2));
+    // 2. Chỉ tạo file sao lưu timestamped khi có yêu cầu cụ thể (createTimestampedBackup: true)
+    let backupKey = 'database/cms_database_latest.json';
+    if (createTimestampedBackup) {
+      backupKey = `database/backups/backup_${timestampStr}.json`;
       await s3Client.send(new PutObjectCommand({
         Bucket: MINIO_BUCKET,
-        Key: `database/${key}.json`,
-        Body: bytes,
+        Key: backupKey,
+        Body: uint8Array,
         ContentType: 'application/json'
       }));
-    };
-
-    await Promise.all([
-      saveEntity('documents', snapshotData.documents),
-      saveEntity('users', snapshotData.users),
-      saveEntity('departments', snapshotData.departments),
-      saveEntity('job_titles', snapshotData.jobTitles),
-      saveEntity('permission_presets', snapshotData.permissionPresets || [])
-    ]);
+    }
 
     return {
       success: true,
       path: backupKey,
       eTag: putLatestResult.ETag,
       lastModified: now.toISOString(),
-      message: `Đã sao lưu cơ sở dữ liệu lên NAS thành công vào "${backupKey}".`
+      message: createTimestampedBackup 
+        ? `Đã sao lưu cơ sở dữ liệu lên NAS thành công vào "${backupKey}".`
+        : 'Đã đồng bộ cơ sở dữ liệu lên NAS thành công.'
     };
   } catch (err: any) {
     console.error('Lỗi khi lưu database lên MinIO NAS:', err);

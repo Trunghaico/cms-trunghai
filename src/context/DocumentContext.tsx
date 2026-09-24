@@ -184,6 +184,26 @@ interface DocumentContextType {
   };
 }
 
+// Helper tính toán chữ ký dữ liệu (Fingerprint) để phát hiện sự thay đổi thực sự
+const calculateStateFingerprint = (
+  docs: DocumentItem[],
+  usrs: User[],
+  depts: DepartmentItem[],
+  jobs: JobTitleItem[],
+  presets: PermissionPreset[],
+  wfs: WorkflowTemplate[],
+  notifs: NotificationItem[]
+): string => {
+  const dSig = (docs || []).map(d => `${d.id}:${d.status}:${d.updatedAt || d.createdAt}:${d.currentStepIndex}:${(d.steps || []).map(s => s.status).join(',')}`).join(';');
+  const uSig = (usrs || []).map(u => `${u.id}:${u.pass}:${u.role}:${u.department}:${u.name}`).join(';');
+  const dpSig = (depts || []).map(d => `${d.id}:${d.name}:${d.defaultSlaHours}`).join(';');
+  const jSig = (jobs || []).map(j => `${j.id}:${j.name}`).join(';');
+  const pSig = (presets || []).map(p => `${p.id}:${p.name}`).join(';');
+  const wSig = (wfs || []).map(w => `${w.id}:${w.category}:${w.steps?.length}`).join(';');
+  const nSig = (notifs || []).length;
+  return `${dSig}#${uSig}#${dpSig}#${jSig}#${pSig}#${wSig}#${nSig}`;
+};
+
 // Kênh BroadcastChannel đồng bộ tức thì giữa các tab trình duyệt và PWA trên cùng thiết bị
 const syncBroadcastChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
   ? new BroadcastChannel('trunghai_cms_sync_channel')
@@ -212,6 +232,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // ETag và Server Time Ref để phát hiện thay đổi tức thì giữa các máy mà không phụ thuộc đồng hồ lệch
   const lastSyncETagRef = React.useRef<string | null>(localStorage.getItem('trunghai_last_nas_etag'));
   const lastSyncServerTimeRef = React.useRef<string | null>(localStorage.getItem('trunghai_last_nas_sync'));
+  const lastSavedFingerprintRef = React.useRef<string>('');
   
   // Auto Backup Configuration
   const [autoBackupConfig, setAutoBackupConfigState] = useState<AutoBackupConfig>(() => loadAutoBackupConfig());
@@ -369,6 +390,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     lastSyncETagRef.current = newETag;
     lastSyncServerTimeRef.current = newSyncTime;
+    lastSavedFingerprintRef.current = calculateStateFingerprint(
+      cleanDocs,
+      cleanUsers,
+      cleanDepts,
+      cleanJobs,
+      cleanPresets,
+      cleanWfs,
+      cleanNotifs
+    );
     localStorage.setItem('trunghai_last_nas_etag', newETag);
     localStorage.setItem('trunghai_last_nas_sync', newSyncTime);
     setLastNASSyncTime(newSyncTime);
@@ -548,11 +578,20 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => clearInterval(checkSlaInterval);
   }, []);
 
-  // Sync state to NAS
+  // Sync state to NAS (Chỉ sao lưu khi có dữ liệu mới/thay đổi)
   const syncToNAS = useCallback(async (isAuto = false): Promise<{ success: boolean; message: string; path?: string }> => {
     if (isSyncInProgress.current) {
       return { success: false, message: 'Đang có tiến trình đồng bộ khác chạy' };
     }
+
+    const currentFp = calculateStateFingerprint(documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications);
+
+    // Nếu là tự động sao lưu mà dữ liệu KHÔNG HỀ THAY ĐỔI -> Bỏ qua ngay lập tức để không tốn dung lượng NAS
+    if (isAuto && currentFp === lastSavedFingerprintRef.current && lastSavedFingerprintRef.current !== '') {
+      setAutoBackupCountdown(autoBackupConfig.intervalMinutes * 60);
+      return { success: true, message: 'Dữ liệu không thay đổi, bỏ qua sao lưu.' };
+    }
+
     isSyncInProgress.current = true;
     setIsNASSyncing(true);
     setNasSyncStatus('syncing');
@@ -577,12 +616,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         deletedPresetIds: loadDeletedPresetIds(),
         deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
         savedBy: isAuto ? 'Tự động sao lưu hệ thống' : (activeUser?.name || 'Tài khoản quản trị'),
+        createTimestampedBackup: !isAuto, // Chỉ tạo file backup timestamp riêng khi người dùng bấm thủ công "Sao lưu ngay"
       });
       if (res.success) {
         const nowStr = res.lastModified || new Date().toISOString();
         const newETag = res.eTag || nowStr;
         lastSyncETagRef.current = newETag;
         lastSyncServerTimeRef.current = nowStr;
+        lastSavedFingerprintRef.current = currentFp;
         localStorage.setItem('trunghai_last_nas_etag', newETag);
         localStorage.setItem('trunghai_last_nas_sync', nowStr);
         setLastNASSyncTime(nowStr);
@@ -634,6 +675,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const targetDocs = overrides?.documents || documents;
     const targetNotifs = overrides?.notifications || notifications;
 
+    const newFp = calculateStateFingerprint(targetDocs, targetUsers, targetDepts, targetJobs, targetPresets, targetWorkflowTemplates, targetNotifs);
+
     // 1. Lưu tức thời vào LocalStorage
     if (overrides?.users) saveUsers(targetUsers);
     if (overrides?.departments) saveDepartments(targetDepts);
@@ -643,7 +686,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (overrides?.documents) saveDocuments(targetDocs);
     if (overrides?.notifications) saveNotifications(targetNotifs);
 
-    // 2. Lưu trực tiếp vào Database NAS
+    // 2. Lưu trực tiếp vào Database NAS (Chỉ cập nhật bản chính cms_database_latest.json, không tạo backup thừa)
     try {
       setIsNASSyncing(true);
       setNasSyncStatus('syncing');
@@ -662,12 +705,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         deletedPresetIds: loadDeletedPresetIds(),
         deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
         savedBy: overrides?.actionDescription || (activeUser?.name ? `${activeUser.name} (${activeUser.roleTitle})` : 'Tài khoản quản trị'),
+        createTimestampedBackup: false,
       });
       if (res.success) {
         const nowStr = res.lastModified || new Date().toISOString();
         const newETag = res.eTag || nowStr;
         lastSyncETagRef.current = newETag;
         lastSyncServerTimeRef.current = nowStr;
+        lastSavedFingerprintRef.current = newFp;
         localStorage.setItem('trunghai_last_nas_etag', newETag);
         localStorage.setItem('trunghai_last_nas_sync', nowStr);
         setLastNASSyncTime(nowStr);
@@ -797,7 +842,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => clearInterval(timer);
   }, [autoBackupConfig.enabled, autoBackupConfig.intervalMinutes, syncToNAS]);
 
-  // 3. Debounced Auto-Backup on Data Mutation (Triggered after user changes documents/users/departments)
+  // 3. Debounced Auto-Backup on Data Mutation (Chỉ chạy khi có dữ liệu thực sự mới/thay đổi)
   useEffect(() => {
     if (!isInitialLoadDone.current || !autoBackupConfig.backupOnChange) {
       return;
@@ -808,8 +853,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     mutationDebounceTimerRef.current = setTimeout(() => {
-      syncToNAS(true).catch(err => console.warn('Auto backup on change error:', err));
-    }, 1500); // 1.5 seconds debounce
+      const currentFp = calculateStateFingerprint(documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications);
+      if (currentFp !== lastSavedFingerprintRef.current && lastSavedFingerprintRef.current !== '') {
+        syncToNAS(true).catch(err => console.warn('Auto backup on change error:', err));
+      }
+    }, 2000); // 2 seconds debounce
 
     return () => {
       if (mutationDebounceTimerRef.current) {

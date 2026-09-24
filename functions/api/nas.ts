@@ -344,6 +344,7 @@ export async function onRequest(context: any): Promise<Response> {
       const snapshotData = await request.json();
       const now = new Date();
       const timestampStr = now.toISOString().replace(/[:.]/g, '-');
+      const createTimestampedBackup = !!snapshotData.createTimestampedBackup;
       const backupKey = `database/backups/backup_${timestampStr}.json`;
 
       const payload = {
@@ -372,7 +373,7 @@ export async function onRequest(context: any): Promise<Response> {
 
       const jsonString = JSON.stringify(payload, null, 2);
 
-      // 1. Lưu bản mới nhất
+      // 1. Lưu bản mới nhất: database/cms_database_latest.json (duy nhất, không tốn dung lượng)
       const putLatest = await signedSocketFetch(aws, `${endpoint}/${bucket}/database/cms_database_latest.json`, {
         method: 'PUT',
         headers: {
@@ -388,47 +389,36 @@ export async function onRequest(context: any): Promise<Response> {
 
       const savedETag = putLatest.headers.get('etag') || undefined;
 
-      // 2. Lưu bản sao lưu theo thời gian
-      const putBackup = await signedSocketFetch(aws, `${endpoint}/${bucket}/${backupKey}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonString,
-      });
-
-      if (!putBackup.ok) {
-        const errText = await putBackup.text();
-        throw new Error(`Lưu ${backupKey} thất bại (HTTP ${putBackup.status}): ${errText.substring(0, 200)}`);
-      }
-
-      // 3. Lưu riêng các thực thể
-      const saveEntity = (key: string, data: any) => {
-        return signedSocketFetch(aws, `${endpoint}/${bucket}/database/${key}.json`, {
+      // 2. Chỉ tạo file sao lưu timestamped khi có yêu cầu cụ thể (createTimestampedBackup: true)
+      if (createTimestampedBackup) {
+        const putBackup = await signedSocketFetch(aws, `${endpoint}/${bucket}/${backupKey}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(data, null, 2),
+          body: jsonString,
         });
-      };
 
-      await Promise.all([
-        saveEntity('documents', snapshotData.documents || []),
-        saveEntity('users', snapshotData.users || []),
-        saveEntity('departments', snapshotData.departments || []),
-        saveEntity('job_titles', snapshotData.jobTitles || []),
-        saveEntity('permission_presets', snapshotData.permissionPresets || []),
-        saveEntity('workflow_templates', snapshotData.workflowTemplates || [])
-      ]);
+        if (!putBackup.ok) {
+          const errText = await putBackup.text();
+          throw new Error(`Lưu ${backupKey} thất bại (HTTP ${putBackup.status}): ${errText.substring(0, 200)}`);
+        }
+      }
 
       return new Response(JSON.stringify({
         success: true,
-        path: backupKey,
+        path: createTimestampedBackup ? backupKey : 'database/cms_database_latest.json',
         eTag: savedETag,
         lastModified: now.toISOString(),
-        message: `Đã sao lưu lên MinIO NAS qua Cloudflare Gateway thành công vào "${backupKey}".`
-      }), { headers: corsHeaders });
+        message: createTimestampedBackup 
+          ? `Đã sao lưu cơ sở dữ liệu lên NAS thành công vào "${backupKey}".`
+          : 'Đã đồng bộ cơ sở dữ liệu lên NAS thành công.'
+      }), { 
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        } 
+      });
     }
 
     // 4. List backups
