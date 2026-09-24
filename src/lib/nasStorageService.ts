@@ -291,7 +291,7 @@ export const saveDatabaseToNAS = async (
     deletedWorkflowTemplateIds?: string[];
     savedBy?: string;
   }
-): Promise<{ success: boolean; path?: string; message?: string }> => {
+): Promise<{ success: boolean; path?: string; message?: string; eTag?: string; lastModified?: string }> => {
   if (isGatewayMode()) {
     try {
       const res = await fetch('/api/nas?action=save', {
@@ -343,13 +343,12 @@ export const saveDatabaseToNAS = async (
       }
     };
 
-
     const jsonString = JSON.stringify(payload, null, 2);
     const textEncoder = new TextEncoder();
     const uint8Array = textEncoder.encode(jsonString);
 
     // 1. Lưu bản mới nhất: database/cms_database_latest.json
-    await s3Client.send(new PutObjectCommand({
+    const putLatestResult = await s3Client.send(new PutObjectCommand({
       Bucket: MINIO_BUCKET,
       Key: 'database/cms_database_latest.json',
       Body: uint8Array,
@@ -392,6 +391,8 @@ export const saveDatabaseToNAS = async (
     return {
       success: true,
       path: backupKey,
+      eTag: putLatestResult.ETag,
+      lastModified: now.toISOString(),
       message: `Đã sao lưu cơ sở dữ liệu lên NAS thành công vào "${backupKey}".`
     };
   } catch (err: any) {
@@ -409,10 +410,11 @@ export const saveDatabaseToNAS = async (
 export const fetchDatabaseFromNAS = async (backupKey?: string): Promise<DatabaseSnapshot | null> => {
   if (isGatewayMode()) {
     try {
+      const cacheBuster = `_t=${Date.now()}`;
       const url = backupKey 
-        ? `/api/nas?action=fetch&key=${encodeURIComponent(backupKey)}` 
-        : '/api/nas?action=fetch';
-      const res = await fetch(url);
+        ? `/api/nas?action=fetch&key=${encodeURIComponent(backupKey)}&${cacheBuster}` 
+        : `/api/nas?action=fetch&${cacheBuster}`;
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) {
         console.warn(`Gateway fetch failed: HTTP ${res.status}`);
         return null;
@@ -430,6 +432,7 @@ export const fetchDatabaseFromNAS = async (backupKey?: string): Promise<Database
     const res = await s3Client.send(new GetObjectCommand({
       Bucket: MINIO_BUCKET,
       Key: targetKey,
+      ResponseCacheControl: 'no-cache, no-store, must-revalidate',
     }));
 
     if (!res.Body) return null;
@@ -449,7 +452,7 @@ export const fetchDatabaseFromNAS = async (backupKey?: string): Promise<Database
 export const listNASBackups = async (): Promise<NASBackupItem[]> => {
   if (isGatewayMode()) {
     try {
-      const res = await fetch('/api/nas?action=backups');
+      const res = await fetch(`/api/nas?action=backups&_t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) return [];
       return await res.json();
     } catch (err) {
@@ -494,7 +497,7 @@ export const getLatestNASDatabaseInfo = async (): Promise<{
 } | null> => {
   if (isGatewayMode()) {
     try {
-      const res = await fetch('/api/nas?action=info');
+      const res = await fetch(`/api/nas?action=info&_t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) return null;
       return await res.json();
     } catch (err) {

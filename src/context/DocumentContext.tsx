@@ -184,6 +184,11 @@ interface DocumentContextType {
   };
 }
 
+// Kênh BroadcastChannel đồng bộ tức thì giữa các tab trình duyệt và PWA trên cùng thiết bị
+const syncBroadcastChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
+  ? new BroadcastChannel('trunghai_cms_sync_channel')
+  : null;
+
 const DocumentContext = createContext<DocumentContextType | undefined>(undefined);
 
 export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -203,6 +208,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isNASSyncing, setIsNASSyncing] = useState(false);
   const [nasSyncStatus, setNasSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [lastNASSyncTime, setLastNASSyncTime] = useState<string | null>(() => localStorage.getItem('trunghai_last_nas_sync'));
+
+  // ETag và Server Time Ref để phát hiện thay đổi tức thì giữa các máy mà không phụ thuộc đồng hồ lệch
+  const lastSyncETagRef = React.useRef<string | null>(localStorage.getItem('trunghai_last_nas_etag'));
+  const lastSyncServerTimeRef = React.useRef<string | null>(localStorage.getItem('trunghai_last_nas_sync'));
   
   // Auto Backup Configuration
   const [autoBackupConfig, setAutoBackupConfigState] = useState<AutoBackupConfig>(() => loadAutoBackupConfig());
@@ -248,7 +257,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveWorkflowTemplates(workflowTemplates);
   }, [workflowTemplates]);
 
-
   // Sync documents to storage
   useEffect(() => {
     saveDocuments(documents);
@@ -258,6 +266,114 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     saveNotifications(notifications);
   }, [notifications]);
+
+  // Hàm cập nhật snapshot từ máy chủ MinIO NAS vào ứng dụng một cách nhất quán (Single Source of Truth)
+  const applyRemoteSnapshot = useCallback((snapshot: DatabaseSnapshot, eTag?: string, lastModified?: string) => {
+    if (Array.isArray(snapshot.deletedDocumentIds)) {
+      snapshot.deletedDocumentIds.forEach(id => addDeletedDocumentId(id));
+    }
+    if (Array.isArray(snapshot.deletedUserIds)) {
+      snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
+    }
+    if (Array.isArray(snapshot.deletedDepartmentIds)) {
+      snapshot.deletedDepartmentIds.forEach(id => addDeletedDeptId(id));
+    }
+    if (Array.isArray(snapshot.deletedJobTitleIds)) {
+      snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
+    }
+    if (Array.isArray(snapshot.deletedPresetIds)) {
+      snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
+    }
+    if (Array.isArray(snapshot.deletedWorkflowTemplateIds)) {
+      snapshot.deletedWorkflowTemplateIds.forEach(id => addDeletedWorkflowTemplateId(id));
+    }
+
+    const cleanDocs = deduplicateDocuments(snapshot.documents || []);
+    const cleanUsers = deduplicateUsers(snapshot.users || []);
+    const cleanDepts = deduplicateDepartments(snapshot.departments || []);
+    const cleanJobs = deduplicateJobTitles(snapshot.jobTitles || []);
+    const cleanPresets = deduplicatePresets(snapshot.permissionPresets || []);
+    const cleanWfs = deduplicateWorkflowTemplates(snapshot.workflowTemplates || []);
+    const cleanNotifs = snapshot.notifications || [];
+
+    setDocuments(cleanDocs);
+    saveDocuments(cleanDocs);
+
+    if (cleanUsers.length > 0) {
+      setUsers(cleanUsers);
+      saveUsers(cleanUsers);
+    }
+    if (cleanDepts.length > 0) {
+      setDepartments(cleanDepts);
+      saveDepartments(cleanDepts);
+    }
+    if (cleanJobs.length > 0) {
+      setJobTitles(cleanJobs);
+      saveJobTitles(cleanJobs);
+    }
+    if (cleanPresets.length > 0) {
+      setPermissionPresets(cleanPresets);
+      savePermissionPresets(cleanPresets);
+    }
+    if (cleanWfs.length > 0) {
+      setWorkflowTemplates(cleanWfs);
+      saveWorkflowTemplates(cleanWfs);
+    }
+
+    // Tự động phát hiện thông báo mới và kích hoạt Push Notification / Rung chuông thiết bị
+    setNotifications(prevNotifs => {
+      if (activeUser) {
+        const prevIds = new Set(prevNotifs.map(n => n.id));
+        const docMap = new Map(cleanDocs.map(d => [d.id.toLowerCase(), d]));
+        const brandNew = cleanNotifs.filter(n => 
+          !prevIds.has(n.id) && 
+          !n.read && 
+          canUserReceiveNotification(activeUser, n, docMap.get(n.documentId?.toLowerCase() || ''))
+        );
+        brandNew.forEach(n => {
+          sendDeviceNotification({
+            title: n.title,
+            body: n.message,
+            documentId: n.documentId,
+            type: n.type
+          });
+        });
+      }
+      saveNotifications(cleanNotifs);
+      return cleanNotifs;
+    });
+
+    // Cập nhật selectedDocument tức thời nếu người dùng đang mở chi tiết hồ sơ
+    setSelectedDocument(prev => {
+      if (!prev) return null;
+      const updated = cleanDocs.find(d => d.id.toLowerCase() === prev.id.toLowerCase());
+      return updated || null;
+    });
+
+    // Cập nhật activeUser nếu thông tin role / phòng ban / quyền của tài khoản thay đổi
+    if (activeUser) {
+      const updatedActive = cleanUsers.find(u => u.id === activeUser.id || (u.username && u.username.toLowerCase() === activeUser.username.toLowerCase()));
+      if (updatedActive && (
+        updatedActive.role !== activeUser.role || 
+        updatedActive.department !== activeUser.department ||
+        updatedActive.name !== activeUser.name ||
+        JSON.stringify(updatedActive.permissions) !== JSON.stringify(activeUser.permissions)
+      )) {
+        setActiveUserState(updatedActive);
+        saveActiveUser(updatedActive);
+      }
+    }
+
+    const newETag = eTag || snapshot.savedAt || new Date().toISOString();
+    const newSyncTime = lastModified || snapshot.savedAt || new Date().toISOString();
+
+    lastSyncETagRef.current = newETag;
+    lastSyncServerTimeRef.current = newSyncTime;
+    localStorage.setItem('trunghai_last_nas_etag', newETag);
+    localStorage.setItem('trunghai_last_nas_sync', newSyncTime);
+    setLastNASSyncTime(newSyncTime);
+    setNasSyncStatus('synced');
+  }, [activeUser]);
 
   // SLA & OVERDUE AUTOMATED ENGINE (Quét định kỳ tự động phê duyệt hoặc cảnh báo vi phạm SLA)
   useEffect(() => {
@@ -463,12 +579,24 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         savedBy: isAuto ? 'Tự động sao lưu hệ thống' : (activeUser?.name || 'Tài khoản quản trị'),
       });
       if (res.success) {
-        const nowStr = new Date().toISOString();
-        setLastNASSyncTime(nowStr);
+        const nowStr = res.lastModified || new Date().toISOString();
+        const newETag = res.eTag || nowStr;
+        lastSyncETagRef.current = newETag;
+        lastSyncServerTimeRef.current = nowStr;
+        localStorage.setItem('trunghai_last_nas_etag', newETag);
         localStorage.setItem('trunghai_last_nas_sync', nowStr);
+        setLastNASSyncTime(nowStr);
         setNasSyncStatus('synced');
         // Reset countdown timer
         setAutoBackupCountdown(autoBackupConfig.intervalMinutes * 60);
+
+        if (syncBroadcastChannel) {
+          syncBroadcastChannel.postMessage({
+            type: 'STATE_UPDATED',
+            eTag: newETag,
+            lastModified: nowStr,
+          });
+        }
       } else {
         setNasSyncStatus('error');
       }
@@ -536,10 +664,22 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         savedBy: overrides?.actionDescription || (activeUser?.name ? `${activeUser.name} (${activeUser.roleTitle})` : 'Tài khoản quản trị'),
       });
       if (res.success) {
-        const nowStr = new Date().toISOString();
-        setLastNASSyncTime(nowStr);
+        const nowStr = res.lastModified || new Date().toISOString();
+        const newETag = res.eTag || nowStr;
+        lastSyncETagRef.current = newETag;
+        lastSyncServerTimeRef.current = nowStr;
+        localStorage.setItem('trunghai_last_nas_etag', newETag);
         localStorage.setItem('trunghai_last_nas_sync', nowStr);
+        setLastNASSyncTime(nowStr);
         setNasSyncStatus('synced');
+
+        if (syncBroadcastChannel) {
+          syncBroadcastChannel.postMessage({
+            type: 'STATE_UPDATED',
+            eTag: newETag,
+            lastModified: nowStr,
+          });
+        }
       } else {
         setNasSyncStatus('error');
       }
@@ -565,63 +705,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: false, message: 'Không tìm thấy dữ liệu trên MinIO NAS hoặc không thể đọc file.' };
       }
 
-      if (Array.isArray(snapshot.deletedDocumentIds)) {
-        snapshot.deletedDocumentIds.forEach(id => addDeletedDocumentId(id));
-      }
-      if (Array.isArray(snapshot.deletedUserIds)) {
-        snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
-      }
-      if (Array.isArray(snapshot.deletedDepartmentIds)) {
-        snapshot.deletedDepartmentIds.forEach(id => addDeletedDeptId(id));
-      }
-      if (Array.isArray(snapshot.deletedJobTitleIds)) {
-        snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
-      }
-      if (Array.isArray(snapshot.deletedPresetIds)) {
-        snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
-      }
-      if (Array.isArray(snapshot.deletedWorkflowTemplateIds)) {
-        snapshot.deletedWorkflowTemplateIds.forEach(id => addDeletedWorkflowTemplateId(id));
-      }
-
-      if (Array.isArray(snapshot.documents)) {
-        const cleanDocs = deduplicateDocuments(snapshot.documents);
-        setDocuments(cleanDocs);
-        saveDocuments(cleanDocs);
-      }
-      if (Array.isArray(snapshot.users) && snapshot.users.length > 0) {
-        const cleanUsers = deduplicateUsers(snapshot.users);
-        setUsers(cleanUsers);
-        saveUsers(cleanUsers);
-      }
-      if (Array.isArray(snapshot.departments) && snapshot.departments.length > 0) {
-        const cleanDepts = deduplicateDepartments(snapshot.departments);
-        setDepartments(cleanDepts);
-        saveDepartments(cleanDepts);
-      }
-      if (Array.isArray(snapshot.jobTitles) && snapshot.jobTitles.length > 0) {
-        const cleanJobs = deduplicateJobTitles(snapshot.jobTitles);
-        setJobTitles(cleanJobs);
-        saveJobTitles(cleanJobs);
-      }
-      if (Array.isArray(snapshot.permissionPresets) && snapshot.permissionPresets.length > 0) {
-        const cleanPresets = deduplicatePresets(snapshot.permissionPresets);
-        setPermissionPresets(cleanPresets);
-        savePermissionPresets(cleanPresets);
-      }
-      if (Array.isArray(snapshot.workflowTemplates) && snapshot.workflowTemplates.length > 0) {
-        const cleanWfs = deduplicateWorkflowTemplates(snapshot.workflowTemplates);
-        setWorkflowTemplates(cleanWfs);
-        saveWorkflowTemplates(cleanWfs);
-      }
-      if (Array.isArray(snapshot.notifications)) {
-        setNotifications(snapshot.notifications);
-        saveNotifications(snapshot.notifications);
-      }
-
-      const nowStr = new Date().toISOString();
-      setLastNASSyncTime(nowStr);
-      localStorage.setItem('trunghai_last_nas_sync', nowStr);
+      applyRemoteSnapshot(snapshot);
       setIsNASSyncing(false);
       setNasSyncStatus('synced');
       return { 
@@ -633,7 +717,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setNasSyncStatus('error');
       return { success: false, message: e.message || 'Lỗi khi khôi phục từ NAS' };
     }
-  }, []);
+  }, [applyRemoteSnapshot]);
 
   const testNAS = useCallback(async () => {
     return await testNASConnection();
@@ -643,146 +727,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return await listNASBackups();
   }, []);
 
-  // 1. Initial Sync from MinIO NAS on startup (Gộp thông minh để không ghi đè mất user/phòng ban/hồ sơ đã tạo)
+  // 1. Initial Sync from MinIO NAS on startup
   useEffect(() => {
     let isMounted = true;
     const initNASAndDB = async () => {
       try {
         if (autoBackupConfig.syncOnStartup) {
+          const info = await getLatestNASDatabaseInfo();
           const snapshot = await fetchDatabaseFromNAS();
           if (!isMounted) return;
           if (snapshot) {
-            if (Array.isArray(snapshot.deletedDocumentIds)) {
-              snapshot.deletedDocumentIds.forEach(id => addDeletedDocumentId(id));
-            }
-            if (Array.isArray(snapshot.deletedUserIds)) {
-              snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
-            }
-            if (Array.isArray(snapshot.deletedDepartmentIds)) {
-              snapshot.deletedDepartmentIds.forEach(id => addDeletedDeptId(id));
-            }
-            if (Array.isArray(snapshot.deletedJobTitleIds)) {
-              snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
-            }
-            if (Array.isArray(snapshot.deletedPresetIds)) {
-              snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
-            }
-            if (Array.isArray(snapshot.deletedWorkflowTemplateIds)) {
-              snapshot.deletedWorkflowTemplateIds.forEach(id => addDeletedWorkflowTemplateId(id));
-            }
-
-            // MERGE & DEDUPLICATE USERS:
-            const localUsers = loadUsers();
-            const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
-            const mergedUsers = deduplicateUsers([...localUsers, ...snapUsers]);
-
-            // MERGE & DEDUPLICATE DEPARTMENTS:
-            const localDepts = loadDepartments();
-            const snapDepts = Array.isArray(snapshot.departments) ? snapshot.departments : [];
-            const mergedDepts = deduplicateDepartments([...localDepts, ...snapDepts]);
-
-            // MERGE & DEDUPLICATE JOB TITLES:
-            const localJobs = loadJobTitles();
-            const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
-            const mergedJobs = deduplicateJobTitles([...localJobs, ...snapJobs]);
-
-            // MERGE & DEDUPLICATE PERMISSION PRESETS:
-            const localPresets = loadPermissionPresets();
-            const snapPresets = Array.isArray(snapshot.permissionPresets) ? snapshot.permissionPresets : [];
-            const mergedPresets = deduplicatePresets([...localPresets, ...snapPresets]);
-
-            // MERGE & DEDUPLICATE WORKFLOW TEMPLATES:
-            const localWfs = loadWorkflowTemplates();
-            const snapWfs = Array.isArray(snapshot.workflowTemplates) ? snapshot.workflowTemplates : [];
-            const mergedWfs = deduplicateWorkflowTemplates([...localWfs, ...snapWfs]);
-
-            // MERGE DOCUMENTS:
-            const localDocs = loadDocuments();
-            const snapDocs = Array.isArray(snapshot.documents) ? snapshot.documents : [];
-            const docMap = new Map<string, DocumentItem>();
-            snapDocs.forEach(d => {
-              if (d && d.id) docMap.set(d.id.toLowerCase(), d);
-            });
-            localDocs.forEach(d => {
-              if (!d || !d.id) return;
-              const key = d.id.toLowerCase();
-              if (!docMap.has(key)) {
-                docMap.set(key, d);
-              } else {
-                const existing = docMap.get(key)!;
-                if (new Date(d.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
-                  docMap.set(key, d);
-                }
-              }
-            });
-            const mergedDocs = deduplicateDocuments(Array.from(docMap.values()));
-
-            // MERGE NOTIFICATIONS:
-            const localNotifs = loadNotifications();
-            const snapNotifs = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
-            const notifMap = new Map<string, NotificationItem>();
-            snapNotifs.forEach(n => {
-              if (n && n.id) notifMap.set(n.id, n);
-            });
-            localNotifs.forEach(n => {
-              if (!n || !n.id) return;
-              if (!notifMap.has(n.id)) {
-                notifMap.set(n.id, n);
-              } else {
-                const snapN = notifMap.get(n.id)!;
-                notifMap.set(n.id, { ...snapN, read: snapN.read || n.read });
-              }
-            });
-            const mergedNotifs = Array.from(notifMap.values()).sort(
-              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            );
-
-            setUsers(mergedUsers);
-            setDepartments(mergedDepts);
-            setJobTitles(mergedJobs);
-            setPermissionPresets(mergedPresets);
-            setWorkflowTemplates(mergedWfs);
-            setDocuments(mergedDocs);
-            setNotifications(mergedNotifs);
-
-            saveUsers(mergedUsers);
-            saveDepartments(mergedDepts);
-            saveJobTitles(mergedJobs);
-            savePermissionPresets(mergedPresets);
-            saveWorkflowTemplates(mergedWfs);
-            saveDocuments(mergedDocs);
-            saveNotifications(mergedNotifs);
-
-            const nowStr = new Date().toISOString();
-            setLastNASSyncTime(nowStr);
-            localStorage.setItem('trunghai_last_nas_sync', nowStr);
-            setNasSyncStatus('synced');
-
-            // Cập nhật lại NAS với snapshot đầy đủ nhất
-            if (mergedUsers.length > snapUsers.length || 
-                mergedDepts.length > snapDepts.length || 
-                mergedJobs.length > snapJobs.length ||
-                mergedPresets.length > snapPresets.length ||
-                mergedWfs.length > snapWfs.length ||
-                mergedDocs.length > snapDocs.length ||
-                mergedNotifs.length > snapNotifs.length) {
-              saveDatabaseToNAS({
-                documents: mergedDocs,
-                users: mergedUsers,
-                departments: mergedDepts,
-                jobTitles: mergedJobs,
-                permissionPresets: mergedPresets,
-                workflowTemplates: mergedWfs,
-                notifications: mergedNotifs,
-                deletedDocumentIds: loadDeletedDocumentIds(),
-                deletedUserIds: loadDeletedUserIds(),
-                deletedDepartmentIds: loadDeletedDeptIds(),
-                deletedJobTitleIds: loadDeletedJobIds(),
-                deletedPresetIds: loadDeletedPresetIds(),
-                deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
-                savedBy: 'Đồng bộ gộp dữ liệu khởi động'
-              }).catch(e => console.warn('Lưu snapshot gộp lên NAS:', e));
-            }
+            applyRemoteSnapshot(snapshot, info?.eTag, info?.lastModified);
           } else {
             // Push initial baseline if none exists
             saveDatabaseToNAS({
@@ -800,6 +755,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               deletedPresetIds: loadDeletedPresetIds(),
               deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
               savedBy: 'Khởi tạo hệ thống ban đầu'
+            }).then(res => {
+              if (res.success) {
+                const nowStr = res.lastModified || new Date().toISOString();
+                const newETag = res.eTag || nowStr;
+                lastSyncETagRef.current = newETag;
+                lastSyncServerTimeRef.current = nowStr;
+                localStorage.setItem('trunghai_last_nas_etag', newETag);
+                localStorage.setItem('trunghai_last_nas_sync', nowStr);
+                setLastNASSyncTime(nowStr);
+                setNasSyncStatus('synced');
+              }
             }).catch(e => console.warn('Khởi tạo baseline NAS:', e));
           }
         }
@@ -814,7 +780,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       isMounted = false;
     };
-  }, [autoBackupConfig.syncOnStartup]);
+  }, [autoBackupConfig.syncOnStartup, applyRemoteSnapshot]);
 
   // 2. Periodic Auto-Backup Interval Timer (Counts down every second)
   useEffect(() => {
@@ -855,7 +821,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, autoBackupConfig.enabled, autoBackupConfig.backupOnChange, syncToNAS]);
 
-  // 4. Remote Polling & Real-time Synchronization across Devices
+  // 4. Remote Polling & Real-time Synchronization across Devices (Ultra-fast 2s Polling + Event Driven)
   useEffect(() => {
     if (!autoBackupConfig.enabled) return;
 
@@ -866,129 +832,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isPolling = true;
       try {
         const info = await getLatestNASDatabaseInfo();
-        if (info && info.exists && info.lastModified) {
-          const remoteTime = new Date(info.lastModified).getTime();
-          const localTime = lastNASSyncTime ? new Date(lastNASSyncTime).getTime() : 0;
-          
-          if (remoteTime > localTime) {
+        if (info && info.exists) {
+          const currentETag = lastSyncETagRef.current;
+          const currentSyncTime = lastSyncServerTimeRef.current;
+
+          const isETagChanged = info.eTag && info.eTag !== currentETag;
+          const isTimeChanged = info.lastModified && info.lastModified !== currentSyncTime;
+
+          if (isETagChanged || isTimeChanged || !currentETag) {
             const snapshot = await fetchDatabaseFromNAS();
             if (snapshot) {
-              if (Array.isArray(snapshot.deletedDocumentIds)) {
-                snapshot.deletedDocumentIds.forEach(id => addDeletedDocumentId(id));
-              }
-              if (Array.isArray(snapshot.deletedUserIds)) {
-                snapshot.deletedUserIds.forEach(id => addDeletedUserId(id));
-              }
-              if (Array.isArray(snapshot.deletedDepartmentIds)) {
-                snapshot.deletedDepartmentIds.forEach(id => addDeletedDeptId(id));
-              }
-              if (Array.isArray(snapshot.deletedJobTitleIds)) {
-                snapshot.deletedJobTitleIds.forEach(id => addDeletedJobId(id));
-              }
-              if (Array.isArray(snapshot.deletedPresetIds)) {
-                snapshot.deletedPresetIds.forEach(id => addDeletedPresetId(id));
-              }
-              if (Array.isArray(snapshot.deletedWorkflowTemplateIds)) {
-                snapshot.deletedWorkflowTemplateIds.forEach(id => addDeletedWorkflowTemplateId(id));
-              }
-
-              const currentUsers = loadUsers();
-              const snapUsers = Array.isArray(snapshot.users) ? snapshot.users : [];
-              const mergedUsers = deduplicateUsers([...currentUsers, ...snapUsers]);
-
-              const currentDepts = loadDepartments();
-              const snapDepts = Array.isArray(snapshot.departments) ? snapshot.departments : [];
-              const mergedDepts = deduplicateDepartments([...currentDepts, ...snapDepts]);
-
-              const currentJobs = loadJobTitles();
-              const snapJobs = Array.isArray(snapshot.jobTitles) ? snapshot.jobTitles : [];
-              const mergedJobs = deduplicateJobTitles([...currentJobs, ...snapJobs]);
-
-              const currentPresets = loadPermissionPresets();
-              const snapPresets = Array.isArray(snapshot.permissionPresets) ? snapshot.permissionPresets : [];
-              const mergedPresets = deduplicatePresets([...currentPresets, ...snapPresets]);
-
-              const currentWfs = loadWorkflowTemplates();
-              const snapWfs = Array.isArray(snapshot.workflowTemplates) ? snapshot.workflowTemplates : [];
-              const mergedWfs = deduplicateWorkflowTemplates([...currentWfs, ...snapWfs]);
-
-              const currentDocs = loadDocuments();
-              const snapDocs = Array.isArray(snapshot.documents) ? snapshot.documents : [];
-              const docMap = new Map<string, DocumentItem>();
-              snapDocs.forEach(d => {
-                if (d && d.id) docMap.set(d.id.toLowerCase(), d);
-              });
-              currentDocs.forEach(d => {
-                if (!d || !d.id) return;
-                const key = d.id.toLowerCase();
-                if (!docMap.has(key)) {
-                  docMap.set(key, d);
-                } else {
-                  const existing = docMap.get(key)!;
-                  if (new Date(d.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
-                    docMap.set(key, d);
-                  }
-                }
-              });
-              const mergedDocs = deduplicateDocuments(Array.from(docMap.values()));
-
-              // Gộp Notifications & Phát hiện thông báo mới để gửi Push Notification
-              const currentNotifs = loadNotifications();
-              const currentNotifIds = new Set(currentNotifs.map(n => n.id));
-              const snapNotifs = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
-              const notifMap = new Map<string, NotificationItem>();
-              snapNotifs.forEach(n => {
-                if (n && n.id) notifMap.set(n.id, n);
-              });
-              currentNotifs.forEach(n => {
-                if (!n || !n.id) return;
-                if (!notifMap.has(n.id)) {
-                  notifMap.set(n.id, n);
-                } else {
-                  const snapN = notifMap.get(n.id)!;
-                  notifMap.set(n.id, { ...snapN, read: snapN.read || n.read });
-                }
-              });
-              const mergedNotifs = Array.from(notifMap.values()).sort(
-                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-              );
-
-              setUsers(mergedUsers);
-              setDepartments(mergedDepts);
-              setJobTitles(mergedJobs);
-              setPermissionPresets(mergedPresets);
-              setWorkflowTemplates(mergedWfs);
-              setDocuments(mergedDocs);
-              setNotifications(mergedNotifs);
-
-              saveUsers(mergedUsers);
-              saveDepartments(mergedDepts);
-              saveJobTitles(mergedJobs);
-              savePermissionPresets(mergedPresets);
-              saveWorkflowTemplates(mergedWfs);
-              saveDocuments(mergedDocs);
-              saveNotifications(mergedNotifs);
-
-              // Tự động kích hoạt Push Notification cho các thông báo mới gửi đến activeUser
-              if (activeUser) {
-                const brandNewNotifs = snapNotifs.filter(n => 
-                  !currentNotifIds.has(n.id) && 
-                  !n.read &&
-                  canUserReceiveNotification(activeUser, n, docMap.get(n.documentId?.toLowerCase() || ''))
-                );
-
-                brandNewNotifs.forEach(newN => {
-                  sendDeviceNotification({
-                    title: newN.title,
-                    body: newN.message,
-                    documentId: newN.documentId,
-                    type: newN.type
-                  });
-                });
-              }
-
-              setLastNASSyncTime(info.lastModified);
-              localStorage.setItem('trunghai_last_nas_sync', info.lastModified);
+              applyRemoteSnapshot(snapshot, info.eTag, info.lastModified);
             }
           }
         }
@@ -999,7 +853,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     };
 
-    // Kiểm tra ngay khi focus cửa sổ hoặc chuyển tab hoặc mạng bật lại
+    // Kiểm tra tức thì khi chuyển tab, focus ứng dụng, bật mạng hoặc chuyển qua lại giữa các ứng dụng
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible' || document.hasFocus()) {
         checkRemoteNAS();
@@ -1008,16 +862,31 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     window.addEventListener('focus', handleVisibilityOrFocus);
     window.addEventListener('online', handleVisibilityOrFocus);
+    window.addEventListener('pageshow', handleVisibilityOrFocus);
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
 
-    const interval = setInterval(checkRemoteNAS, 5000); // Poll mỗi 5s
+    let handleBroadcast: ((e: MessageEvent) => void) | null = null;
+    if (syncBroadcastChannel) {
+      handleBroadcast = (e: MessageEvent) => {
+        if (e.data?.type === 'STATE_UPDATED' || e.data?.type === 'CHECK_REMOTE') {
+          checkRemoteNAS();
+        }
+      };
+      syncBroadcastChannel.addEventListener('message', handleBroadcast);
+    }
+
+    const interval = setInterval(checkRemoteNAS, 2000); // Quét mỗi 2 giây
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleVisibilityOrFocus);
       window.removeEventListener('online', handleVisibilityOrFocus);
+      window.removeEventListener('pageshow', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      if (syncBroadcastChannel && handleBroadcast) {
+        syncBroadcastChannel.removeEventListener('message', handleBroadcast);
+      }
     };
-  }, [autoBackupConfig.enabled, lastNASSyncTime, activeUser]);
+  }, [autoBackupConfig.enabled, applyRemoteSnapshot]);
 
   const login = (username: string, pass: string): { success: boolean; message?: string } => {
     const trimmed = username.trim().toLowerCase();
@@ -1685,7 +1554,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 
   const markNotificationAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+    setNotifications(updated);
+    saveNotifications(updated);
+    persistStateToDatabase({
+      notifications: updated,
+      actionDescription: 'Đánh dấu đã đọc thông báo'
+    }).catch(() => {});
   };
 
   const createDocument = (docData: Omit<DocumentItem, 'id' | 'createdAt' | 'updatedAt' | 'auditLogs'>): DocumentItem => {
@@ -2391,19 +2266,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSelectedDocument(null);
     }
 
-    saveDatabaseToNAS({
+    persistStateToDatabase({
       documents: updatedDocs,
-      users,
-      departments,
-      jobTitles,
-      permissionPresets,
       notifications: updatedNotifs,
-      deletedDocumentIds: loadDeletedDocumentIds(),
-      deletedUserIds: loadDeletedUserIds(),
-      deletedDepartmentIds: loadDeletedDeptIds(),
-      deletedJobTitleIds: loadDeletedJobIds(),
-      deletedPresetIds: loadDeletedPresetIds(),
-      savedBy: activeUser ? `${activeUser.name} (Xóa hồ sơ ${docToDelete?.code || documentId})` : 'Xóa hồ sơ'
+      actionDescription: activeUser ? `${activeUser.name} (Xóa hồ sơ ${docToDelete?.code || documentId})` : 'Xóa hồ sơ'
     }).catch(e => console.warn('Lỗi đồng bộ xóa hồ sơ lên NAS:', e));
   };
 
@@ -2452,7 +2318,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const markAllNotificationsAsRead = () => {
     const userNotifIds = new Set(userNotifications.map(n => n.id));
-    setNotifications(prev => prev.map(n => userNotifIds.has(n.id) ? { ...n, read: true } : n));
+    const updated = notifications.map(n => userNotifIds.has(n.id) ? { ...n, read: true } : n);
+    setNotifications(updated);
+    saveNotifications(updated);
+    persistStateToDatabase({
+      notifications: updated,
+      actionDescription: 'Đánh dấu tất cả thông báo đã đọc'
+    }).catch(() => {});
   };
 
   // Tính toán số liệu thống kê dựa trên các hồ sơ người dùng có quyền thấy

@@ -386,6 +386,8 @@ export async function onRequest(context: any): Promise<Response> {
         throw new Error(`Lưu database/cms_database_latest.json thất bại (HTTP ${putLatest.status}): ${errText.substring(0, 200)}`);
       }
 
+      const savedETag = putLatest.headers.get('etag') || undefined;
+
       // 2. Lưu bản sao lưu theo thời gian
       const putBackup = await signedSocketFetch(aws, `${endpoint}/${bucket}/${backupKey}`, {
         method: 'PUT',
@@ -420,10 +422,11 @@ export async function onRequest(context: any): Promise<Response> {
         saveEntity('workflow_templates', snapshotData.workflowTemplates || [])
       ]);
 
-
       return new Response(JSON.stringify({
         success: true,
         path: backupKey,
+        eTag: savedETag,
+        lastModified: now.toISOString(),
         message: `Đã sao lưu lên MinIO NAS qua Cloudflare Gateway thành công vào "${backupKey}".`
       }), { headers: corsHeaders });
     }
