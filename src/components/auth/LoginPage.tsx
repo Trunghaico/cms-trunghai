@@ -22,6 +22,11 @@ export const LoginPage: React.FC = () => {
   // Tự động kéo dữ liệu tài khoản mới nhất từ máy chủ MinIO NAS khi mở trang đăng nhập
   useEffect(() => {
     syncFromNAS().catch(() => {});
+    const kickMsg = localStorage.getItem('trunghai_session_kick_message');
+    if (kickMsg) {
+      setErrorMsg(kickMsg);
+      localStorage.removeItem('trunghai_session_kick_message');
+    }
   }, [syncFromNAS]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {

@@ -107,6 +107,10 @@ export interface User {
   signatureUrl?: string;
   permissions: PermissionId[]; // Danh sách các quyền chi tiết (Permission Matrix)
   secondaryPositions?: UserPosition[]; // Vị trí & phòng ban kiêm nhiệm (nếu có)
+  currentMobileSessionId?: string; // Phiên đăng nhập hoạt động duy nhất trên Điện Thoại (Mobile)
+  lastMobileLoginAt?: string;
+  currentWebSessionId?: string; // Phiên đăng nhập hoạt động duy nhất trên Trình Duyệt Web (Desktop Web)
+  lastWebLoginAt?: string;
 }
 
 export interface Attachment {

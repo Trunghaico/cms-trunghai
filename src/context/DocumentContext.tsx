@@ -184,6 +184,16 @@ interface DocumentContextType {
   };
 }
 
+// Helper phát hiện loại thiết bị (Điện thoại / Mobile hay Trình duyệt Web / Desktop)
+export const getPlatformType = (): 'MOBILE' | 'WEB' => {
+  if (typeof window === 'undefined') return 'WEB';
+  const ua = (navigator.userAgent || navigator.vendor || (window as any).opera || '').toLowerCase();
+  const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+  const isTouch = 'ontouchstart' in window || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0);
+  const isSmallScreen = window.innerWidth <= 768;
+  return isMobileUA || (isTouch && isSmallScreen) ? 'MOBILE' : 'WEB';
+};
+
 // Helper tính toán chữ ký dữ liệu (Fingerprint) để phát hiện sự thay đổi thực sự
 const calculateStateFingerprint = (
   docs: DocumentItem[],
@@ -287,6 +297,62 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     saveNotifications(notifications);
   }, [notifications]);
+
+  // Kiểm tra tính hợp lệ của phiên đăng nhập (Đơn phiên trên Mobile, Đơn phiên trên Web, song song Web + Mobile)
+  const validateActiveSession = useCallback((latestUsers: User[]) => {
+    if (!activeUser) return;
+    const localSessionId = localStorage.getItem('trunghai_active_session_id');
+    const platform = getPlatformType();
+    const remoteUser = latestUsers.find(u => 
+      u.id === activeUser.id || 
+      (u.username && u.username.toLowerCase() === activeUser.username.toLowerCase())
+    );
+
+    if (!remoteUser) return;
+
+    // Nếu chưa có session ID cục bộ (phiên cũ trước đó), tự khởi tạo khớp với session hiện hành
+    if (!localSessionId) {
+      const existingSession = platform === 'MOBILE' ? remoteUser.currentMobileSessionId : remoteUser.currentWebSessionId;
+      if (existingSession) {
+        localStorage.setItem('trunghai_active_session_id', existingSession);
+        localStorage.setItem('trunghai_active_session_platform', platform);
+      }
+      return;
+    }
+
+    if (platform === 'MOBILE') {
+      if (remoteUser.currentMobileSessionId && remoteUser.currentMobileSessionId !== localSessionId) {
+        console.warn('⚠️ Phát hiện tài khoản vừa đăng nhập trên điện thoại khác. Đang đăng xuất thiết bị này...');
+        localStorage.setItem(
+          'trunghai_session_kick_message',
+          '⚠️ Tài khoản của bạn vừa đăng nhập trên một điện thoại khác. Bạn đã bị đăng xuất khỏi thiết bị này để đảm bảo an toàn.'
+        );
+        localStorage.removeItem('trunghai_active_session_id');
+        setActiveUserState(null);
+        saveActiveUser(null);
+        setSelectedDocument(null);
+      }
+    } else {
+      if (remoteUser.currentWebSessionId && remoteUser.currentWebSessionId !== localSessionId) {
+        console.warn('⚠️ Phát hiện tài khoản vừa đăng nhập trên trình duyệt Web khác. Đang đăng xuất...');
+        localStorage.setItem(
+          'trunghai_session_kick_message',
+          '⚠️ Tài khoản của bạn vừa đăng nhập trên một trình duyệt Web khác. Bạn đã bị đăng xuất khỏi trình duyệt này để đảm bảo an toàn.'
+        );
+        localStorage.removeItem('trunghai_active_session_id');
+        setActiveUserState(null);
+        saveActiveUser(null);
+        setSelectedDocument(null);
+      }
+    }
+  }, [activeUser]);
+
+  // Giám sát đơn phiên đăng nhập theo nền tảng
+  useEffect(() => {
+    if (activeUser && users.length > 0) {
+      validateActiveSession(users);
+    }
+  }, [users, activeUser, validateActiveSession]);
 
   // Hàm cập nhật snapshot từ máy chủ MinIO NAS vào ứng dụng một cách nhất quán (Single Source of Truth)
   const applyRemoteSnapshot = useCallback((snapshot: DatabaseSnapshot, eTag?: string, lastModified?: string) => {
@@ -403,7 +469,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('trunghai_last_nas_sync', newSyncTime);
     setLastNASSyncTime(newSyncTime);
     setNasSyncStatus('synced');
-  }, [activeUser]);
+
+    // Kiểm tra đơn phiên đăng nhập thiết bị
+    validateActiveSession(cleanUsers);
+  }, [activeUser, validateActiveSession]);
 
   // SLA & OVERDUE AUTOMATED ENGINE (Quét định kỳ tự động phê duyệt hoặc cảnh báo vi phạm SLA)
   useEffect(() => {
@@ -965,14 +1034,44 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     if (found) {
-      setActiveUserState(found);
-      saveActiveUser(found);
+      const platform = getPlatformType();
+      const newSessionId = `sess_${platform.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem('trunghai_active_session_id', newSessionId);
+      localStorage.setItem('trunghai_active_session_platform', platform);
+      localStorage.removeItem('trunghai_session_kick_message');
+
+      const nowIso = new Date().toISOString();
+      const updatedUser: User = {
+        ...found,
+        ...(platform === 'MOBILE' ? {
+          currentMobileSessionId: newSessionId,
+          lastMobileLoginAt: nowIso
+        } : {
+          currentWebSessionId: newSessionId,
+          lastWebLoginAt: nowIso
+        })
+      };
+
+      const updatedUsersList = currentUsers.map(u => u.id === found.id ? updatedUser : u);
+      setUsers(updatedUsersList);
+      saveUsers(updatedUsersList);
+      setActiveUserState(updatedUser);
+      saveActiveUser(updatedUser);
+
+      // Đẩy phiên đăng nhập mới lên máy chủ MinIO NAS ngay lập tức để ngắt phiên cũ trên thiết bị cùng loại
+      persistStateToDatabase({
+        users: updatedUsersList,
+        actionDescription: `Đăng nhập [${platform === 'MOBILE' ? 'Điện thoại' : 'Web'}] tài khoản: ${found.name}`
+      });
+
       return { success: true };
     }
     return { success: false, message: 'Tên đăng nhập hoặc mật khẩu không chính xác.' };
   };
 
   const logout = () => {
+    localStorage.removeItem('trunghai_active_session_id');
+    localStorage.removeItem('trunghai_session_kick_message');
     setActiveUserState(null);
     saveActiveUser(null);
     setSelectedDocument(null);
