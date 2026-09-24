@@ -339,6 +339,47 @@ export async function onRequest(context: any): Promise<Response> {
       }
     }
 
+    // 2b. Get database metadata info (ETag, Last-Modified, Size) for Realtime Polling
+    if (action === 'info') {
+      try {
+        const res = await signedSocketFetch(aws, `${endpoint}/${bucket}/database/cms_database_latest.json`, {
+          method: 'HEAD',
+        });
+        if (!res.ok) {
+          return new Response(JSON.stringify({ exists: false }), { 
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+            } 
+          });
+        }
+        const eTag = res.headers.get('etag') || undefined;
+        const lastModified = res.headers.get('last-modified') || undefined;
+        const contentLength = res.headers.get('content-length') ? Number(res.headers.get('content-length')) : undefined;
+        return new Response(JSON.stringify({
+          exists: true,
+          eTag,
+          lastModified,
+          size: contentLength
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          }
+        });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ exists: false }), { 
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          } 
+        });
+      }
+    }
+
     // 3. Save database snapshot
     if (action === 'save' && request.method === 'POST') {
       const snapshotData = await request.json();

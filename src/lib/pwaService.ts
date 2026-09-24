@@ -38,16 +38,30 @@ export const getNotificationPermission = (): NotificationPermission => {
   return Notification.permission;
 };
 
-// 3. Yêu cầu cấp quyền nhận thông báo từ người dùng
+// 3. Yêu cầu cấp quyền nhận thông báo từ người dùng (Hỗ trợ Promise + Callback cho mọi trình duyệt)
 export const requestNotificationPermission = async (): Promise<boolean> => {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return false;
   }
 
   try {
-    const permission = await Notification.requestPermission();
+    let permission: NotificationPermission;
+    try {
+      const promiseResult = Notification.requestPermission();
+      if (promiseResult && typeof promiseResult.then === 'function') {
+        permission = await promiseResult;
+      } else {
+        permission = await new Promise<NotificationPermission>((resolve) => {
+          Notification.requestPermission((result) => resolve(result));
+        });
+      }
+    } catch {
+      permission = await new Promise<NotificationPermission>((resolve) => {
+        Notification.requestPermission((result) => resolve(result));
+      });
+    }
+
     if (permission === 'granted') {
-      // Gửi thông báo chào mừng & xác nhận thành công
       sendDeviceNotification({
         title: '🔔 Đã bật thông báo CMS Trung Hải',
         body: 'Bạn sẽ nhận được cảnh báo ngay khi có hồ sơ mới cần duyệt hoặc sắp quá hạn SLA.',

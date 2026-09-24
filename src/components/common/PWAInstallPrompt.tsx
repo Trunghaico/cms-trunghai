@@ -92,10 +92,31 @@ export const PWAInstallPrompt: React.FC = () => {
   };
 
   const handleEnableNotification = async () => {
-    const granted = await requestNotificationPermission();
-    if (granted) {
-      setNotifPermission('granted');
+    // Nếu là thiết bị iOS và đang mở trên Safari (chưa thêm ra màn hình chính)
+    if (isIOS && !isStandaloneApp()) {
       setShowNotifPrompt(false);
+      setShowIOSGuide(true);
+      return;
+    }
+
+    try {
+      const granted = await requestNotificationPermission();
+      setShowNotifPrompt(false);
+      if (granted) {
+        setNotifPermission('granted');
+        localStorage.setItem('cms_notif_enabled', 'true');
+      } else {
+        const perm = getNotificationPermission();
+        localStorage.setItem('cms_notif_dismissed', 'true');
+        if (perm === 'denied') {
+          alert('Trình duyệt đang chặn quyền thông báo. Vui lòng bấm vào biểu tượng ổ khóa / Cài đặt trang web trên thanh địa chỉ của trình duyệt để BẬT lại quyền Thông báo (Notifications).');
+        } else if (perm === 'default') {
+          alert('Yêu cầu cấp quyền chưa hoàn tất. Bạn có thể cho phép thông báo trong cài đặt trình duyệt bất kỳ lúc nào.');
+        }
+      }
+    } catch (err: any) {
+      setShowNotifPrompt(false);
+      alert('Không thể kích hoạt thông báo: ' + (err?.message || 'Vui lòng kiểm tra quyền trong cài đặt trình duyệt.'));
     }
   };
 

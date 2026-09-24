@@ -205,7 +205,7 @@ const calculateStateFingerprint = (
   notifs: NotificationItem[]
 ): string => {
   const dSig = (docs || []).map(d => `${d.id}:${d.status}:${d.updatedAt || d.createdAt}:${d.currentStepIndex}:${(d.steps || []).map(s => s.status).join(',')}`).join(';');
-  const uSig = (usrs || []).map(u => `${u.id}:${u.pass}:${u.role}:${u.department}:${u.name}`).join(';');
+  const uSig = (usrs || []).map(u => `${u.id}:${u.pass}:${u.role}:${u.department}:${u.name}:${u.currentMobileSessionId || ''}:${u.currentWebSessionId || ''}`).join(';');
   const dpSig = (depts || []).map(d => `${d.id}:${d.name}:${d.defaultSlaHours}`).join(';');
   const jSig = (jobs || []).map(j => `${j.id}:${j.name}`).join(';');
   const pSig = (presets || []).map(p => `${p.id}:${p.name}`).join(';');
@@ -310,12 +310,43 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (!remoteUser) return;
 
-    // Nếu chưa có session ID cục bộ (phiên cũ trước đó), tự khởi tạo khớp với session hiện hành
+    // Nếu chưa có session ID cục bộ (phiên cũ trước đó), tự tạo session ID duy nhất cho thiết bị này
     if (!localSessionId) {
-      const existingSession = platform === 'MOBILE' ? remoteUser.currentMobileSessionId : remoteUser.currentWebSessionId;
-      if (existingSession) {
-        localStorage.setItem('trunghai_active_session_id', existingSession);
-        localStorage.setItem('trunghai_active_session_platform', platform);
+      const newLocal = `sess_${platform.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      localStorage.setItem('trunghai_active_session_id', newLocal);
+      localStorage.setItem('trunghai_active_session_platform', platform);
+
+      const existingRemoteSession = platform === 'MOBILE' ? remoteUser.currentMobileSessionId : remoteUser.currentWebSessionId;
+      if (!existingRemoteSession) {
+        // Chưa có phiên nào trên remote -> thiết lập phiên này
+        const nowIso = new Date().toISOString();
+        const updatedUser: User = {
+          ...remoteUser,
+          ...(platform === 'MOBILE' ? {
+            currentMobileSessionId: newLocal,
+            lastMobileLoginAt: nowIso
+          } : {
+            currentWebSessionId: newLocal,
+            lastWebLoginAt: nowIso
+          })
+        };
+        const updatedList = latestUsers.map(u => u.id === remoteUser.id ? updatedUser : u);
+        setUsers(updatedList);
+        saveUsers(updatedList);
+        return;
+      }
+
+      // Nếu remoteUser ĐÃ có phiên khác -> đăng xuất thiết bị này
+      if (existingRemoteSession !== newLocal) {
+        console.warn(`⚠️ Phát hiện tài khoản vừa đăng nhập trên ${platform === 'MOBILE' ? 'điện thoại' : 'trình duyệt Web'} khác.`);
+        localStorage.setItem(
+          'trunghai_session_kick_message',
+          `⚠️ Tài khoản của bạn vừa đăng nhập trên một ${platform === 'MOBILE' ? 'điện thoại' : 'trình duyệt Web'} khác. Bạn đã bị đăng xuất khỏi thiết bị này để đảm bảo an toàn.`
+        );
+        localStorage.removeItem('trunghai_active_session_id');
+        setActiveUserState(null);
+        saveActiveUser(null);
+        setSelectedDocument(null);
       }
       return;
     }
@@ -945,11 +976,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         const info = await getLatestNASDatabaseInfo();
         if (info && info.exists) {
-          const currentETag = lastSyncETagRef.current;
+          const currentETag = (lastSyncETagRef.current || '').replace(/^["']|["']$/g, '').trim();
+          const infoETag = (info.eTag || '').replace(/^["']|["']$/g, '').trim();
           const currentSyncTime = lastSyncServerTimeRef.current;
 
-          const isETagChanged = info.eTag && info.eTag !== currentETag;
-          const isTimeChanged = info.lastModified && info.lastModified !== currentSyncTime;
+          const isETagChanged = Boolean(infoETag && infoETag !== currentETag);
+          const isTimeChanged = Boolean(info.lastModified && info.lastModified !== currentSyncTime);
 
           if (isETagChanged || isTimeChanged || !currentETag) {
             const snapshot = await fetchDatabaseFromNAS();
