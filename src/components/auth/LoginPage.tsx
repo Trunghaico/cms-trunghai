@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDocument } from '../../context/DocumentContext';
 import {
   Lock,
@@ -6,18 +6,25 @@ import {
   LogIn,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { login } = useDocument();
+  const { login, syncFromNAS } = useDocument();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Tự động kéo dữ liệu tài khoản mới nhất từ máy chủ MinIO NAS khi mở trang đăng nhập
+  useEffect(() => {
+    syncFromNAS().catch(() => {});
+  }, [syncFromNAS]);
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -26,9 +33,16 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    const result = login(username, password);
-    if (!result.success) {
-      setErrorMsg(result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+    setIsSubmitting(true);
+    try {
+      const result = await login(username, password);
+      if (!result.success) {
+        setErrorMsg(result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Lỗi kết nối khi xác thực tài khoản.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -132,10 +146,20 @@ export const LoginPage: React.FC = () => {
             {/* Login Button */}
             <button
               type="submit"
-              className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-brand-blue via-indigo-700 to-indigo-800 hover:from-indigo-700 hover:to-brand-blue text-white font-bold text-xs rounded-xl shadow-[0_4px_16px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_20px_rgba(99,102,241,0.5)] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
+              disabled={isSubmitting}
+              className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-brand-blue via-indigo-700 to-indigo-800 hover:from-indigo-700 hover:to-brand-blue text-white font-bold text-xs rounded-xl shadow-[0_4px_16px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_20px_rgba(99,102,241,0.5)] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <LogIn className="h-4 w-4 stroke-[2.2]" />
-              <span>Đăng Nhập Vào Hệ Thống</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin stroke-[2.2]" />
+                  <span>Đang xác thực & đồng bộ...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4 stroke-[2.2]" />
+                  <span>Đăng Nhập Vào Hệ Thống</span>
+                </>
+              )}
             </button>
           </form>
 

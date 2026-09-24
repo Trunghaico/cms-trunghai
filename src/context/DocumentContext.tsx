@@ -77,7 +77,7 @@ interface DocumentContextType {
   users: User[];
   activeUser: User | null;
   isAuthenticated: boolean;
-  login: (username: string, pass: string) => { success: boolean; message?: string };
+  login: (username: string, pass: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   hasPermission: (permissionId: PermissionId) => boolean;
   hasAnyPermission: (permissionIds: PermissionId[]) => boolean;
@@ -888,16 +888,39 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [autoBackupConfig.enabled, applyRemoteSnapshot]);
 
-  const login = (username: string, pass: string): { success: boolean; message?: string } => {
+  const login = async (username: string, pass: string): Promise<{ success: boolean; message?: string }> => {
     const trimmed = username.trim().toLowerCase();
     const trimmedPass = pass.trim();
 
-    const found = users.find(u => 
+    // 1. Kiểm tra nhanh trong danh sách người dùng hiện có trong bộ nhớ
+    let currentUsers = users;
+    let found = currentUsers.find(u => 
       (u.username.toLowerCase() === trimmed || 
        (u.email && u.email.toLowerCase() === trimmed) ||
        (u.id && u.id.toLowerCase() === trimmed)) && 
       u.pass === trimmedPass
     );
+
+    // 2. Nếu chưa tìm thấy hoặc mật khẩu không khớp, truy vấn cơ sở dữ liệu MinIO NAS mới nhất tức thì
+    if (!found) {
+      try {
+        const info = await getLatestNASDatabaseInfo();
+        const snapshot = await fetchDatabaseFromNAS();
+        if (snapshot && Array.isArray(snapshot.users) && snapshot.users.length > 0) {
+          applyRemoteSnapshot(snapshot, info?.eTag, info?.lastModified);
+          currentUsers = deduplicateUsers(snapshot.users);
+          found = currentUsers.find(u => 
+            (u.username.toLowerCase() === trimmed || 
+             (u.email && u.email.toLowerCase() === trimmed) ||
+             (u.id && u.id.toLowerCase() === trimmed)) && 
+            u.pass === trimmedPass
+          );
+        }
+      } catch (err) {
+        console.warn('Lỗi kiểm tra người dùng trực tuyến từ NAS:', err);
+      }
+    }
+
     if (found) {
       setActiveUserState(found);
       saveActiveUser(found);
