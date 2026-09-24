@@ -6,19 +6,16 @@ import {
   LogIn, 
   AlertCircle,
   Eye,
-  EyeOff,
-  ChevronDown,
-  ChevronUp
+  EyeOff
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { login, users } = useDocument();
+  const { login } = useDocument();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [showDemoAccounts, setShowDemoAccounts] = useState(false);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,12 +30,6 @@ export const LoginPage: React.FC = () => {
     if (!result.success) {
       setErrorMsg(result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
     }
-  };
-
-  const handleQuickLogin = (uName: string, uPass: string) => {
-    setUsername(uName);
-    setPassword(uPass);
-    login(uName, uPass);
   };
 
   return (
@@ -147,48 +138,6 @@ export const LoginPage: React.FC = () => {
               <span>Đăng Nhập Vào Hệ Thống</span>
             </button>
           </form>
-
-          {/* Quick Demo Accounts Toggle */}
-          <div className="mt-6 pt-4 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => setShowDemoAccounts(!showDemoAccounts)}
-              className="w-full flex items-center justify-between text-xs font-bold text-indigo-700 hover:text-indigo-900 py-1.5 px-2 rounded-xl hover:bg-indigo-50/60 transition-colors cursor-pointer"
-            >
-              <span>Chọn tài khoản mẫu đăng nhập nhanh</span>
-              {showDemoAccounts ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </button>
-
-            {showDemoAccounts && (
-              <div className="mt-2.5 space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {users.map(u => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => handleQuickLogin(u.username, u.pass)}
-                    className="w-full text-left p-2.5 rounded-xl bg-slate-50/80 hover:bg-indigo-50/80 border border-slate-200 hover:border-indigo-300 transition-colors flex items-center justify-between group cursor-pointer"
-                  >
-                    <div>
-                      <div className="text-xs font-bold text-slate-800 group-hover:text-indigo-700 flex items-center gap-1.5">
-                        {u.name}
-                        {u.secondaryPositions && u.secondaryPositions.length > 0 && (
-                          <span className="text-[9.5px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-full font-bold">
-                            Kiêm 2 ban
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">
-                        @{u.username} • {u.roleTitle} ({u.department})
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                      Đăng nhập →
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
         </div>
 
