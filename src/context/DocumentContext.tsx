@@ -70,7 +70,7 @@ import {
   canUserPerformManagerApproval,
   isSameDepartment
 } from '../lib/permissions';
-import { sendDeviceNotification } from '../lib/pwaService';
+import { sendDeviceNotification, updateAppBadge } from '../lib/pwaService';
 
 
 interface DocumentContextType {
@@ -2321,6 +2321,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const unreadNotificationCount = useMemo(() => {
     return userNotifications.filter(n => !n.read).length;
   }, [userNotifications]);
+
+  // Đồng bộ số thông báo lên Icon App ngoài màn hình chính (App Badging API)
+  useEffect(() => {
+    updateAppBadge(unreadNotificationCount);
+  }, [unreadNotificationCount]);
 
   const markAllNotificationsAsRead = () => {
     const userNotifIds = new Set(userNotifications.map(n => n.id));

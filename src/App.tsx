@@ -127,17 +127,17 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans overflow-x-hidden max-w-full w-full relative">
       {/* Top Header - Fixed & Sticky */}
       <Header onOpenDrawer={() => setIsMobileDrawerOpen(true)} />
 
       {/* Main Layout: Fixed Compact Sidebar (w-60) on Left + Scrollable Content on Right (pl-0 on mobile, pl-60 on desktop) */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex min-w-0 max-w-full">
         {/* Left Fixed Sidebar (Hidden on mobile < md) */}
         <Sidebar />
 
         {/* Right Main Content Area */}
-        <main className="flex-1 pl-0 md:pl-60 min-w-0 pb-20 md:pb-8">
+        <main className="flex-1 pl-0 md:pl-60 min-w-0 max-w-full overflow-x-hidden pb-24 md:pb-8">
           <div className="p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in">
             {renderContent()}
           </div>

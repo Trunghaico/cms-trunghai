@@ -112,8 +112,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDrawer }) => {
   if (!activeUser) return null;
 
   return (
-    <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-xl border-b border-slate-200/80 shadow-xs transition-all select-none">
-      <div className="flex items-center justify-between px-3 sm:px-4 lg:px-7 h-15 sm:h-16">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-xs transition-all select-none pt-safe">
+      <div className="flex items-center justify-between px-3 sm:px-4 lg:px-7 h-14 sm:h-16">
 
         {/* Left: Mobile Hamburger & Brand Logo & Title */}
         <div className="flex items-center gap-2 sm:gap-3">
@@ -134,12 +134,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDrawer }) => {
             className="flex items-center gap-2.5 sm:gap-3 group cursor-pointer"
           >
             {/* Logo Image */}
-            <div className="h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center p-1 bg-white border border-slate-200/90 rounded-xl shadow-xs group-hover:border-indigo-400 transition-all duration-300">
-              <img src="/logo.png" alt="Trung Hải Logo" className="h-6 sm:h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
+            <div className="h-8 w-8 sm:h-10 sm:w-10 flex items-center justify-center p-1 bg-white border border-slate-200/90 rounded-xl shadow-xs group-hover:border-indigo-400 transition-all duration-300">
+              <img src="/logo.png" alt="Trung Hải Logo" className="h-5.5 sm:h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
             </div>
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-extrabold text-sm sm:text-base tracking-wider bg-gradient-to-r from-brand-blue via-indigo-600 to-indigo-800 bg-clip-text text-transparent uppercase transition-colors">
+                <span className="font-extrabold text-xs sm:text-base tracking-wider bg-gradient-to-r from-brand-blue via-indigo-600 to-indigo-800 bg-clip-text text-transparent uppercase transition-colors">
                   TRUNG HAI
                 </span>
                 <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.2 sm:py-0.5 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full border border-indigo-200/60 shadow-xs flex items-center gap-1">
@@ -199,9 +199,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDrawer }) => {
         {/* Right: NAS Auto-Sync, Notifications & User Profile with Logout */}
         <div className="flex items-center gap-2 sm:gap-3">
 
-          {/* NAS Synology MinIO Live Auto-Backup & Sync Indicator (Chỉ Quản trị viên mới được thấy) */}
+          {/* NAS Synology MinIO Live Auto-Backup & Sync Indicator (Ẩn trên mobile, hiện từ màn hình md) */}
           {activeUser?.role === 'ADMIN' && (
-            <div className="relative" ref={nasMenuRef}>
+            <div className="relative hidden md:block" ref={nasMenuRef}>
               <button
                 onClick={() => setIsNASMenuOpen(!isNASMenuOpen)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer select-none ${isNASSyncing

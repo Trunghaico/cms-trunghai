@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useDocument } from '../../context/DocumentContext';
-import { 
-  Lock, 
-  User as UserIcon, 
-  LogIn, 
+import {
+  Lock,
+  User as UserIcon,
+  LogIn,
   AlertCircle,
   Eye,
   EyeOff
@@ -33,7 +33,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen w-full flex items-center justify-center p-4 selection:bg-indigo-500 selection:text-white relative overflow-hidden"
       style={{
         background: 'radial-gradient(ellipse at 50% 20%, #1e1b4b 0%, #0f172a 50%, #020617 100%)'
@@ -45,17 +45,17 @@ export const LoginPage: React.FC = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-[440px] relative z-10 animate-fade-in">
-        
+
         {/* Main Login Card with Glassmorphism */}
         <div className="bg-white/95 backdrop-blur-2xl rounded-3xl border border-slate-200/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5),0_0_40px_rgba(99,102,241,0.15)] px-7 py-9 sm:px-9 sm:py-10">
-          
+
           {/* Logo with rounded container */}
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-white border border-slate-200/80 rounded-2xl shadow-xs hover:border-indigo-400 hover:shadow-[0_0_20px_rgba(99,102,241,0.25)] transition-all">
-              <img 
-                src="/logo.png" 
-                alt="TRUNG HAI" 
-                className="h-14 w-auto object-contain" 
+              <img
+                src="/logo.png"
+                alt="TRUNG HAI"
+                className="h-14 w-auto object-contain"
               />
             </div>
           </div>
@@ -66,7 +66,7 @@ export const LoginPage: React.FC = () => {
           </h1>
           <div className="flex justify-center mt-1 mb-6">
             <span className="text-center text-[10px] font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100 uppercase tracking-wider">
-              E-Approval Workflow AI • Trung Hải Corp
+              E-Approval Workflow • Trung Hải Corp
             </span>
           </div>
 
@@ -80,7 +80,7 @@ export const LoginPage: React.FC = () => {
 
           {/* Form */}
           <form onSubmit={handleLoginSubmit} className="space-y-4">
-            
+
             {/* Username / Code / Email */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">

@@ -39,7 +39,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenDrawer }
   }, [documents, activeUser]);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] px-2 py-1 flex items-center justify-around select-none">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-2xl border-t border-slate-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] px-2 pt-1.5 pb-[max(env(safe-area-inset-bottom,0px),10px)] flex items-center justify-around select-none">
       
       {/* 1. Trang chủ */}
       <button

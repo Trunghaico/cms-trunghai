@@ -97,16 +97,22 @@ self.addEventListener('push', (event) => {
       { action: 'open', title: '👁️ Xem chi tiết' },
       { action: 'dismiss', title: 'Đóng' }
     ]
-  };
-
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title, options).then(() => {
+      if ('setAppBadge' in self.navigator) {
+        self.navigator.setAppBadge().catch(() => {});
+      }
+    })
   );
 });
 
 // Notification Click Event - Open or Focus App Window
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  if ('clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge().catch(() => {});
+  }
 
   if (event.action === 'dismiss') return;
 

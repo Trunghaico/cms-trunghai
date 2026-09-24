@@ -117,3 +117,19 @@ export const isMobileOrTabletDevice = (): boolean => {
     (navigator.maxTouchPoints && navigator.maxTouchPoints > 2)
   );
 };
+
+// 7. Cập nhật số thông báo trên Icon App ngoài màn hình chính (App Badging API)
+export const updateAppBadge = (count: number) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if ('setAppBadge' in navigator) {
+      if (count > 0) {
+        navigator.setAppBadge(count).catch(() => {});
+      } else {
+        navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.warn('[PWA] updateAppBadge error:', e);
+  }
+};
