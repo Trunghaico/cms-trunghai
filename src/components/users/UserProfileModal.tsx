@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { uploadFileToNAS } from '../../lib/nasStorageService';
+import { compressAndCropAvatar } from '../../lib/imageUtils';
 
 // Bộ sưu tập avatar phong cách công sở chuyên nghiệp có sẵn
 const PRESET_AVATARS = [
@@ -118,7 +119,7 @@ export const UserProfileModal: React.FC = () => {
     setSuccessMessage('');
   };
 
-  // Avatar Upload Handler
+  // Avatar Upload Handler: Tự động nén, tải lên và lưu trực tiếp vào Database
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
@@ -128,40 +129,86 @@ export const UserProfileModal: React.FC = () => {
       return;
     }
 
-    // Check size < 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage('Dung lượng ảnh đại diện không được vượt quá 5MB.');
+    // Check size < 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('Dung lượng ảnh đại diện không được vượt quá 10MB.');
       return;
     }
 
     setIsUploadingAvatar(true);
     setErrorMessage('');
+    setSuccessMessage('');
 
     try {
-      // 1. Đọc file thành Data URL để hiển thị tức thì và lưu trữ an toàn
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUrl = event.target?.result as string;
-        if (dataUrl) {
-          setAvatarUrl(dataUrl);
-        }
-        
-        // 2. Thử tải lên NAS Storage nếu có kết nối
-        try {
-          const nasRes = await uploadFileToNAS(file);
-          if (nasRes && nasRes.url) {
-            setAvatarUrl(nasRes.url);
-          }
-        } catch {
-          // Fallback dataUrl đã được set
-        }
+      // 1. Tự động cắt vuông và nén ảnh siêu nhẹ (< 30KB) để hiển thị tức thì và chống đầy LocalStorage
+      const { blob, dataUrl } = await compressAndCropAvatar(file, 256, 0.85);
+      
+      // Hiển thị ngay ảnh preview
+      setAvatarUrl(dataUrl);
 
-        setIsUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
-    } catch {
+      let finalAvatarUrl = dataUrl;
+
+      // 2. Thử tải lên MinIO NAS Storage nếu có kết nối
+      try {
+        const customFileName = `avatar_${activeUser.username}_${Date.now()}.webp`;
+        const nasRes = await uploadFileToNAS(blob, customFileName);
+        if (nasRes && nasRes.url) {
+          finalAvatarUrl = nasRes.url;
+          setAvatarUrl(finalAvatarUrl);
+        }
+      } catch (nasErr) {
+        console.warn('Tải ảnh đại diện qua NAS gặp lỗi, lưu trữ cục bộ tối ưu:', nasErr);
+      }
+
+      // 3. TỰ ĐỘNG LƯU TRỰC TIẾP VÀO DATABASE & LOCALSTORAGE
+      const res = updateMyProfile({ avatar: finalAvatarUrl });
+      if (res.success) {
+        setSuccessMessage('Đã tải lên và tự động lưu ảnh đại diện vào cơ sở dữ liệu thành công!');
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 3500);
+      } else {
+        setErrorMessage(res.message || 'Lỗi khi tự động lưu ảnh vào cơ sở dữ liệu.');
+      }
+    } catch (err: any) {
+      console.error('Lỗi khi xử lý ảnh đại diện:', err);
+      setErrorMessage(err.message || 'Lỗi khi xử lý file ảnh. Vui lòng thử lại.');
+    } finally {
       setIsUploadingAvatar(false);
-      setErrorMessage('Lỗi khi đọc file ảnh. Vui lòng thử lại.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Chọn nhanh Avatar có sẵn và tự động lưu vào Database
+  const handleSelectPresetAvatar = (preset: string) => {
+    setAvatarUrl(preset);
+    setErrorMessage('');
+    const res = updateMyProfile({ avatar: preset });
+    if (res.success) {
+      setSuccessMessage('Đã tự động lưu ảnh đại diện vào cơ sở dữ liệu!');
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } else {
+      setErrorMessage(res.message || 'Lỗi khi cập nhật ảnh đại diện.');
+    }
+  };
+
+  // Khôi phục avatar mặc định và tự động lưu vào Database
+  const handleResetDefaultAvatar = () => {
+    const defaultUrl = `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`;
+    setAvatarUrl(defaultUrl);
+    setErrorMessage('');
+    const res = updateMyProfile({ avatar: defaultUrl });
+    if (res.success) {
+      setSuccessMessage('Đã khôi phục ảnh đại diện mặc định và tự động lưu vào cơ sở dữ liệu!');
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } else {
+      setErrorMessage(res.message || 'Lỗi khi khôi phục ảnh đại diện.');
     }
   };
 
@@ -426,9 +473,15 @@ export const UserProfileModal: React.FC = () => {
               
               {/* Avatar Section */}
               <div className="p-5 bg-gradient-to-br from-slate-50 to-indigo-50/30 border border-slate-200/80 rounded-2xl space-y-4 shadow-2xs">
-                <span className="block font-bold text-slate-800 text-xs uppercase tracking-wider">
-                  Ảnh Đại Diện (Avatar)
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="block font-bold text-slate-800 text-xs uppercase tracking-wider">
+                    Ảnh Đại Diện (Avatar)
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full shadow-2xs">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Tự động lưu vào Database</span>
+                  </span>
+                </div>
 
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
                   {/* Current Avatar Preview */}
@@ -440,11 +493,18 @@ export const UserProfileModal: React.FC = () => {
                     />
                     <button
                       type="button"
+                      disabled={isUploadingAvatar}
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 bg-slate-950/60 rounded-full text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[10px] font-bold backdrop-blur-xs"
+                      className="absolute inset-0 bg-slate-950/60 rounded-full text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[10px] font-bold backdrop-blur-xs disabled:cursor-not-allowed"
                     >
-                      <Camera className="h-5 w-5 mb-0.5" />
-                      <span>Đổi ảnh</span>
+                      {isUploadingAvatar ? (
+                        <RefreshCw className="h-5 w-5 mb-0.5 animate-spin" />
+                      ) : (
+                        <>
+                          <Camera className="h-5 w-5 mb-0.5" />
+                          <span>Đổi ảnh</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
@@ -462,12 +522,12 @@ export const UserProfileModal: React.FC = () => {
                         type="button"
                         disabled={isUploadingAvatar}
                         onClick={() => fileInputRef.current?.click()}
-                        className="px-4 py-2 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-brand-blue-dark hover:to-indigo-700 text-white font-bold rounded-xl shadow-glow-blue transition-all flex items-center gap-1.5 cursor-pointer text-xs"
+                        className="px-4 py-2 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-brand-blue-dark hover:to-indigo-700 text-white font-bold rounded-xl shadow-glow-blue transition-all flex items-center gap-1.5 cursor-pointer text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {isUploadingAvatar ? (
                           <>
                             <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            <span>Đang tải ảnh...</span>
+                            <span>Đang nén & Lưu vào DB...</span>
                           </>
                         ) : (
                           <>
@@ -479,14 +539,15 @@ export const UserProfileModal: React.FC = () => {
 
                       <button
                         type="button"
-                        onClick={() => setAvatarUrl(`https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`)}
-                        className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl border border-slate-300 transition-colors text-xs"
+                        disabled={isUploadingAvatar}
+                        onClick={handleResetDefaultAvatar}
+                        className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl border border-slate-300 transition-colors text-xs cursor-pointer disabled:opacity-60"
                       >
                         Khôi phục ảnh mặc định
                       </button>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Hỗ trợ định dạng JPG, PNG, WEBP dung lượng tối đa 5MB. Ảnh sẽ được tự động lưu trữ an toàn và đồng bộ.
+                      Hỗ trợ định dạng JPG, PNG, WEBP. Ảnh được tự động nén tối ưu và lưu vĩnh viễn vào Database không bị mất khi cập nhật dữ liệu.
                     </p>
                   </div>
                 </div>
@@ -503,8 +564,9 @@ export const UserProfileModal: React.FC = () => {
                       <button
                         key={idx}
                         type="button"
-                        onClick={() => setAvatarUrl(preset)}
-                        className={`relative rounded-full overflow-hidden aspect-square border-2 transition-transform hover:scale-110 cursor-pointer shadow-xs ${
+                        disabled={isUploadingAvatar}
+                        onClick={() => handleSelectPresetAvatar(preset)}
+                        className={`relative rounded-full overflow-hidden aspect-square border-2 transition-transform hover:scale-110 cursor-pointer shadow-xs disabled:opacity-60 ${
                           avatarUrl === preset ? 'border-brand-blue ring-2 ring-brand-blue/50 scale-105' : 'border-slate-200 hover:border-slate-400'
                         }`}
                       >

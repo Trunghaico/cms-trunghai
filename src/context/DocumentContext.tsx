@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog, WorkflowTemplate, WorkflowStep, OverdueAction } from '../types';
-import { 
-  loadDocuments, 
-  saveDocuments, 
-  loadNotifications, 
-  saveNotifications, 
-  loadActiveUser, 
+import {
+  loadDocuments,
+  saveDocuments,
+  loadNotifications,
+  saveNotifications,
+  loadActiveUser,
   saveActiveUser,
-  loadUsers, 
+  loadUsers,
   saveUsers,
   loadDepartments,
   saveDepartments,
@@ -56,8 +56,8 @@ import {
   DatabaseSnapshot
 } from '../lib/nasStorageService';
 import { USERS, WORKFLOW_TEMPLATES } from '../lib/initialData';
-import { 
-  hasPermission as checkHasPermission, 
+import {
+  hasPermission as checkHasPermission,
   hasAnyPermission as checkHasAnyPermission,
   hasAllPermissions as checkHasAllPermissions,
   ROLE_PRESET_PERMISSIONS,
@@ -86,7 +86,7 @@ interface DocumentContextType {
   updateUser: (userId: string, userData: Partial<User>) => { success: boolean; message?: string };
   deleteUser: (userId: string) => { success: boolean; message?: string };
   registerUser?: (userData: { name: string; username: string; pass: string; roleTitle: string; department: string; role?: UserRole; permissions?: PermissionId[]; secondaryPositions?: UserPosition[] }) => { success: boolean; message?: string };
-  
+
   // User Profile & Password Management
   isProfileModalOpen: boolean;
   setIsProfileModalOpen: (open: boolean) => void;
@@ -146,7 +146,7 @@ interface DocumentContextType {
   setSelectedDocument: (doc: DocumentItem | null) => void;
   isCreateModalOpen: boolean;
   setIsCreateModalOpen: (open: boolean) => void;
-  
+
   // Actions
   createDocument: (docData: Omit<DocumentItem, 'id' | 'createdAt' | 'updatedAt' | 'auditLogs'>) => DocumentItem;
   performInternalCheck: (documentId: string, comment: string, signatureImage?: string) => void;
@@ -155,7 +155,7 @@ interface DocumentContextType {
   requestAdditionalInfo: (documentId: string, note: string) => void;
   returnOverdueDocument: (documentId: string, reason: string) => { success: boolean; message?: string };
   resubmitDocument: (
-    documentId: string, 
+    documentId: string,
     data: {
       title?: string;
       amount?: number;
@@ -168,7 +168,7 @@ interface DocumentContextType {
   ) => { success: boolean; message?: string };
   deleteDocument: (documentId: string) => void;
   resetToSampleData: () => void;
-  
+
   // Computed stats
   stats: {
     total: number;
@@ -205,7 +205,7 @@ const calculateStateFingerprint = (
   notifs: NotificationItem[]
 ): string => {
   const dSig = (docs || []).map(d => `${d.id}:${d.status}:${d.updatedAt || d.createdAt}:${d.currentStepIndex}:${(d.steps || []).map(s => s.status).join(',')}`).join(';');
-  const uSig = (usrs || []).map(u => `${u.id}:${u.pass}:${u.role}:${u.department}:${u.name}:${u.currentMobileSessionId || ''}:${u.currentWebSessionId || ''}`).join(';');
+  const uSig = (usrs || []).map(u => `${u.id}:${u.pass}:${u.role}:${u.department}:${u.name}:${u.avatar || ''}:${u.email || ''}:${u.signatureUrl || ''}:${u.currentMobileSessionId || ''}:${u.currentWebSessionId || ''}`).join(';');
   const dpSig = (depts || []).map(d => `${d.id}:${d.name}:${d.defaultSlaHours}`).join(';');
   const jSig = (jobs || []).map(j => `${j.id}:${j.name}`).join(';');
   const pSig = (presets || []).map(p => `${p.id}:${p.name}`).join(';');
@@ -243,7 +243,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const lastSyncETagRef = React.useRef<string | null>(localStorage.getItem('trunghai_last_nas_etag'));
   const lastSyncServerTimeRef = React.useRef<string | null>(localStorage.getItem('trunghai_last_nas_sync'));
   const lastSavedFingerprintRef = React.useRef<string>('');
-  
+
   // Auto Backup Configuration
   const [autoBackupConfig, setAutoBackupConfigState] = useState<AutoBackupConfig>(() => loadAutoBackupConfig());
   const [autoBackupCountdown, setAutoBackupCountdown] = useState<number>(() => autoBackupConfig.intervalMinutes * 60);
@@ -303,8 +303,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!activeUser) return;
     const localSessionId = localStorage.getItem('trunghai_active_session_id');
     const platform = getPlatformType();
-    const remoteUser = latestUsers.find(u => 
-      u.id === activeUser.id || 
+    const remoteUser = latestUsers.find(u =>
+      u.id === activeUser.id ||
       (u.username && u.username.toLowerCase() === activeUser.username.toLowerCase())
     );
 
@@ -443,9 +443,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (activeUser) {
         const prevIds = new Set(prevNotifs.map(n => n.id));
         const docMap = new Map(cleanDocs.map(d => [d.id.toLowerCase(), d]));
-        const brandNew = cleanNotifs.filter(n => 
-          !prevIds.has(n.id) && 
-          !n.read && 
+        const brandNew = cleanNotifs.filter(n =>
+          !prevIds.has(n.id) &&
+          !n.read &&
           canUserReceiveNotification(activeUser, n, docMap.get(n.documentId?.toLowerCase() || ''))
         );
         brandNew.forEach(n => {
@@ -468,13 +468,16 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return updated || null;
     });
 
-    // Cập nhật activeUser nếu thông tin role / phòng ban / quyền của tài khoản thay đổi
+    // Cập nhật activeUser nếu thông tin role / phòng ban / quyền / avatar / email / chữ ký thay đổi
     if (activeUser) {
       const updatedActive = cleanUsers.find(u => u.id === activeUser.id || (u.username && u.username.toLowerCase() === activeUser.username.toLowerCase()));
       if (updatedActive && (
-        updatedActive.role !== activeUser.role || 
+        updatedActive.role !== activeUser.role ||
         updatedActive.department !== activeUser.department ||
         updatedActive.name !== activeUser.name ||
+        updatedActive.avatar !== activeUser.avatar ||
+        updatedActive.email !== activeUser.email ||
+        updatedActive.signatureUrl !== activeUser.signatureUrl ||
         JSON.stringify(updatedActive.permissions) !== JSON.stringify(activeUser.permissions)
       )) {
         setActiveUserState(updatedActive);
@@ -853,9 +856,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       applyRemoteSnapshot(snapshot);
       setIsNASSyncing(false);
       setNasSyncStatus('synced');
-      return { 
-        success: true, 
-        message: `Khôi phục thành công ${snapshot.documents?.length || 0} hồ sơ, ${snapshot.users?.length || 0} tài khoản từ NAS (${new Date(snapshot.savedAt).toLocaleString('vi-VN')}).` 
+      return {
+        success: true,
+        message: `Khôi phục thành công ${snapshot.documents?.length || 0} hồ sơ, ${snapshot.users?.length || 0} tài khoản từ NAS (${new Date(snapshot.savedAt).toLocaleString('vi-VN')}).`
       };
     } catch (e: any) {
       setIsNASSyncing(false);
@@ -1038,10 +1041,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // 1. Kiểm tra nhanh trong danh sách người dùng hiện có trong bộ nhớ
     let currentUsers = users;
-    let found = currentUsers.find(u => 
-      (u.username.toLowerCase() === trimmed || 
-       (u.email && u.email.toLowerCase() === trimmed) ||
-       (u.id && u.id.toLowerCase() === trimmed)) && 
+    let found = currentUsers.find(u =>
+      (u.username.toLowerCase() === trimmed ||
+        (u.email && u.email.toLowerCase() === trimmed) ||
+        (u.id && u.id.toLowerCase() === trimmed)) &&
       u.pass === trimmedPass
     );
 
@@ -1053,10 +1056,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (snapshot && Array.isArray(snapshot.users) && snapshot.users.length > 0) {
           applyRemoteSnapshot(snapshot, info?.eTag, info?.lastModified);
           currentUsers = deduplicateUsers(snapshot.users);
-          found = currentUsers.find(u => 
-            (u.username.toLowerCase() === trimmed || 
-             (u.email && u.email.toLowerCase() === trimmed) ||
-             (u.id && u.id.toLowerCase() === trimmed)) && 
+          found = currentUsers.find(u =>
+            (u.username.toLowerCase() === trimmed ||
+              (u.email && u.email.toLowerCase() === trimmed) ||
+              (u.id && u.id.toLowerCase() === trimmed)) &&
             u.pass === trimmedPass
           );
         }
@@ -1121,13 +1124,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return checkHasAllPermissions(activeUser, permissionIds);
   }, [activeUser]);
 
-  const createUser = (userData: { 
-    name: string; 
-    username: string; 
-    pass: string; 
-    roleTitle: string; 
-    department: string; 
-    role?: UserRole; 
+  const createUser = (userData: {
+    name: string;
+    username: string;
+    pass: string;
+    roleTitle: string;
+    department: string;
+    role?: UserRole;
     permissions?: PermissionId[];
     secondaryPositions?: UserPosition[];
   }): { success: boolean; message?: string } => {
@@ -1240,12 +1243,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return { success: true };
   };
 
-  const registerUser = (userData: { 
-    name: string; 
-    username: string; 
-    pass: string; 
-    roleTitle: string; 
-    department: string; 
+  const registerUser = (userData: {
+    name: string;
+    username: string;
+    pass: string;
+    roleTitle: string;
+    department: string;
     role?: UserRole;
     permissions?: PermissionId[];
     secondaryPositions?: UserPosition[];
@@ -1757,7 +1760,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     persistStateToDatabase({
       notifications: updated,
       actionDescription: 'Đánh dấu đã đọc thông báo'
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   const createDocument = (docData: Omit<DocumentItem, 'id' | 'createdAt' | 'updatedAt' | 'auditLogs'>): DocumentItem => {
@@ -1779,7 +1782,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       return step;
     });
-    
+
     const newDoc: DocumentItem = {
       ...docData,
       id: newDocId,
@@ -1877,8 +1880,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       actorName: activeUser.name,
       actorTitle: activeUser.roleTitle,
       timestamp: now,
-      comment: comment 
-        ? `[Kiểm tra nội bộ]: ${comment}` 
+      comment: comment
+        ? `[Kiểm tra nội bộ]: ${comment}`
         : `Đã kiểm tra nội bộ hồ sơ tại ${curStep.department}, chuyển cấp Quản lý ban phê duyệt`,
       previousStatus: targetDoc.status,
       newStatus: targetDoc.status,
@@ -2319,7 +2322,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const resubmitDocument = (
-    documentId: string, 
+    documentId: string,
     data: {
       title?: string;
       amount?: number;
@@ -2342,7 +2345,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const isContinuing = data.resubmitMode === 'CONTINUE_FROM_CURRENT';
     const targetStepIndex = isContinuing ? targetDocToResubmit.currentStepIndex : 0;
-    const targetStatus: DocumentStatus = isContinuing 
+    const targetStatus: DocumentStatus = isContinuing
       ? (targetDocToResubmit.currentStepIndex === 0 ? 'PENDING' : 'IN_PROGRESS')
       : 'PENDING';
 
@@ -2369,7 +2372,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const targetApprover = updatedSteps[targetStepIndex];
     const approverNameDisplay = targetApprover?.approverName || targetApprover?.approverTitle || targetApprover?.department || 'Cấp phê duyệt';
-    const modeDescription = isContinuing 
+    const modeDescription = isContinuing
       ? `Duyệt tiếp tục từ Bước ${targetStepIndex + 1} (${approverNameDisplay})`
       : `Trình duyệt lại từ Bước 1 (${updatedSteps[0]?.approverName || updatedSteps[0]?.approverTitle || updatedSteps[0]?.department})`;
 
@@ -2439,9 +2442,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       actionDescription: `Gửi lại hồ sơ bổ sung ${targetDocToResubmit.code}`
     }).catch(e => console.warn('Lỗi persist NAS khi gửi lại hồ sơ:', e));
 
-    return { 
-      success: true, 
-      message: 'Đã bổ sung và gửi lại hồ sơ thành công!' 
+    return {
+      success: true,
+      message: 'Đã bổ sung và gửi lại hồ sơ thành công!'
     };
   };
 
@@ -2521,7 +2524,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     persistStateToDatabase({
       notifications: updated,
       actionDescription: 'Đánh dấu tất cả thông báo đã đọc'
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   // Tính toán số liệu thống kê dựa trên các hồ sơ người dùng có quyền thấy
@@ -2533,7 +2536,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const rejected = accessibleDocuments.filter(d => d.status === 'REJECTED').length;
     const additionalReq = accessibleDocuments.filter(d => d.status === 'ADDITIONAL_REQ').length;
     const urgentCount = accessibleDocuments.filter(d => (d.priority === 'URGENT' || d.priority === 'VERY_URGENT') && d.status !== 'APPROVED').length;
-    
+
     // Đếm số hồ sơ cần người dùng hiện tại duyệt (chỉ tính hồ sơ trình đúng phòng ban/người dùng)
     const myPendingApprovalsCount = activeUser ? accessibleDocuments.filter(doc => {
       if (doc.status === 'APPROVED' || doc.status === 'REJECTED' || doc.status === 'ADDITIONAL_REQ') return false;

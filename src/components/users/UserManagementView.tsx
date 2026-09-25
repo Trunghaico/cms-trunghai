@@ -450,9 +450,14 @@ export const UserManagementView: React.FC = () => {
                         {idx + 1}
                       </td>
 
-                      {/* 2. Họ và tên (No Avatar) */}
+                      {/* 2. Họ và tên kèm Avatar */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=3e4095&color=fff`}
+                            alt={user.name}
+                            className="w-7 h-7 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0 ring-1 ring-slate-100"
+                          />
                           <span className="font-bold text-slate-900">{user.name}</span>
                           {isCurrentLoggedUser && (
                             <span className="text-[9px] font-bold text-brand-blue bg-blue-50 border border-brand-blue/30 px-2 py-0.5 rounded-full">
