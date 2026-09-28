@@ -1842,12 +1842,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updatedNotifs = [newNotif, ...notifications];
       setNotifications(updatedNotifs);
       saveNotifications(updatedNotifs);
-      sendDeviceNotification({
-        title: newNotif.title,
-        body: newNotif.message,
-        documentId: newNotif.documentId,
-        type: newNotif.type
-      });
+      if (canUserReceiveNotification(activeUser, newNotif, newDoc)) {
+        sendDeviceNotification({
+          title: newNotif.title,
+          body: newNotif.message,
+          documentId: newNotif.documentId,
+          type: newNotif.type
+        });
+      }
     }
 
     persistStateToDatabase({
@@ -1929,12 +1931,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedNotifs = [checkNotif, ...notifications];
     setNotifications(updatedNotifs);
     saveNotifications(updatedNotifs);
-    sendDeviceNotification({
-      title: checkNotif.title,
-      body: checkNotif.message,
-      documentId: checkNotif.documentId,
-      type: checkNotif.type
-    });
+    if (canUserReceiveNotification(activeUser, checkNotif, targetDoc)) {
+      sendDeviceNotification({
+        title: checkNotif.title,
+        body: checkNotif.message,
+        documentId: checkNotif.documentId,
+        type: checkNotif.type
+      });
+    }
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2044,12 +2048,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         recipientIds: [targetDoc.creatorId, ...(targetDoc.ccUsers?.map(c => c.id) || [])],
       };
       addedNotifs = [doneNotif];
-      sendDeviceNotification({
-        title: doneNotif.title,
-        body: doneNotif.message,
-        documentId: doneNotif.documentId,
-        type: doneNotif.type
-      });
+      if (canUserReceiveNotification(activeUser, doneNotif, updatedDoc)) {
+        sendDeviceNotification({
+          title: doneNotif.title,
+          body: doneNotif.message,
+          documentId: doneNotif.documentId,
+          type: doneNotif.type
+        });
+      }
     } else {
       const nextApprover = updatedSteps[newStepIdx];
       const nextNotifTitle = 'Hồ sơ mới cần xử lý';
@@ -2088,12 +2094,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ];
 
       addedNotifs.forEach(n => {
-        sendDeviceNotification({
-          title: n.title,
-          body: n.message,
-          documentId: n.documentId,
-          type: n.type
-        });
+        if (canUserReceiveNotification(activeUser, n, updatedDoc)) {
+          sendDeviceNotification({
+            title: n.title,
+            body: n.message,
+            documentId: n.documentId,
+            type: n.type
+          });
+        }
       });
     }
 
@@ -2164,12 +2172,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedNotifs = [slaNotif, ...notifications];
     setNotifications(updatedNotifs);
     saveNotifications(updatedNotifs);
-    sendDeviceNotification({
-      title: slaNotif.title,
-      body: slaNotif.message,
-      documentId: slaNotif.documentId,
-      type: slaNotif.type
-    });
+    if (canUserReceiveNotification(activeUser, slaNotif, targetDoc)) {
+      sendDeviceNotification({
+        title: slaNotif.title,
+        body: slaNotif.message,
+        documentId: slaNotif.documentId,
+        type: slaNotif.type
+      });
+    }
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2248,12 +2258,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedNotifs = [rejectNotif, ...notifications];
     setNotifications(updatedNotifs);
     saveNotifications(updatedNotifs);
-    sendDeviceNotification({
-      title: rejectNotif.title,
-      body: rejectNotif.message,
-      documentId: rejectNotif.documentId,
-      type: rejectNotif.type
-    });
+    if (canUserReceiveNotification(activeUser, rejectNotif, targetDoc)) {
+      sendDeviceNotification({
+        title: rejectNotif.title,
+        body: rejectNotif.message,
+        documentId: rejectNotif.documentId,
+        type: rejectNotif.type
+      });
+    }
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2317,12 +2329,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedNotifs = [reqNotif, ...notifications];
     setNotifications(updatedNotifs);
     saveNotifications(updatedNotifs);
-    sendDeviceNotification({
-      title: reqNotif.title,
-      body: reqNotif.message,
-      documentId: reqNotif.documentId,
-      type: reqNotif.type
-    });
+    if (canUserReceiveNotification(activeUser, reqNotif, targetDoc)) {
+      sendDeviceNotification({
+        title: reqNotif.title,
+        body: reqNotif.message,
+        documentId: reqNotif.documentId,
+        type: reqNotif.type
+      });
+    }
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2439,12 +2453,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedNotifs = [resubmitNotif, ...notifications];
     setNotifications(updatedNotifs);
     saveNotifications(updatedNotifs);
-    sendDeviceNotification({
-      title: resubmitNotif.title,
-      body: resubmitNotif.message,
-      documentId: resubmitNotif.documentId,
-      type: resubmitNotif.type
-    });
+    if (canUserReceiveNotification(activeUser, resubmitNotif, targetDocToResubmit)) {
+      sendDeviceNotification({
+        title: resubmitNotif.title,
+        body: resubmitNotif.message,
+        documentId: resubmitNotif.documentId,
+        type: resubmitNotif.type
+      });
+    }
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2581,12 +2597,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       updatedNotifs = [newNotif, ...notifications];
       setNotifications(updatedNotifs);
       saveNotifications(updatedNotifs);
-      sendDeviceNotification({
-        title: newNotif.title,
-        body: newNotif.message,
-        documentId: newNotif.documentId,
-        type: newNotif.type
-      });
+      if (canUserReceiveNotification(activeUser, newNotif, targetDoc)) {
+        sendDeviceNotification({
+          title: newNotif.title,
+          body: newNotif.message,
+          documentId: newNotif.documentId,
+          type: newNotif.type
+        });
+      }
     }
 
     persistStateToDatabase({

@@ -649,7 +649,20 @@ export function canUserReceiveNotification(
     return false;
   }
 
-  // 2. Người được phân quyền theo dõi toàn bộ hồ sơ (Ban Giám Đốc, Admin) nhận được thông báo
+  // 2. Đối với thông báo thảo luận/chat trên hồ sơ (COMMENT):
+  // Chỉ báo tin nhắn của người khác hoặc khi được tag tên / là người tham gia liên quan (người lập, người duyệt bước hiện tại, Cc)
+  // Tuyệt đối KHÔNG tự báo tin nhắn của chính mình và KHÔNG thông báo tràn lan
+  if (notif.type === 'COMMENT') {
+    if (notif.recipientIds && notif.recipientIds.includes(user.id)) {
+      return true;
+    }
+    if (notif.recipientId && notif.recipientId === user.id) {
+      return true;
+    }
+    return false;
+  }
+
+  // 3. Người được phân quyền theo dõi toàn bộ hồ sơ (Ban Giám Đốc, Admin) nhận được thông báo chung
   if (canUserOverseeAllDocuments(user)) {
     return true;
   }
