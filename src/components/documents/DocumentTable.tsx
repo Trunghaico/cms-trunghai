@@ -17,7 +17,8 @@ import {
   ArrowUpDown,
   Plus,
   FileSignature,
-  RotateCcw
+  RotateCcw,
+  MessageSquare
 } from 'lucide-react';
 
 interface DocumentTableProps {
@@ -326,7 +327,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                       <h4 className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-2 hover:text-indigo-600 transition-colors leading-snug">
                         {doc.title}
                       </h4>
-                      <div className="flex items-center gap-2 mt-1 text-[10.5px] text-slate-500">
+                      <div className="flex items-center gap-2 mt-1 text-[10.5px] text-slate-500 flex-wrap">
                         <span className="bg-slate-100 px-2 py-0.5 rounded-full font-medium truncate max-w-[140px]">
                           {doc.category}
                         </span>
@@ -335,6 +336,12 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                             • {formatCurrency(doc.amount)}
                           </span>
                         ) : null}
+                        {doc.comments && doc.comments.length > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                            <MessageSquare className="w-3 h-3 text-indigo-600" />
+                            <span>{doc.comments.length} thảo luận</span>
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -489,10 +496,23 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                         >
                           {doc.title}
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-full">
                             {doc.category}
                           </span>
+                          {doc.comments && doc.comments.length > 0 && (
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDocument(doc);
+                              }}
+                              className="inline-flex items-center gap-1 text-[9.5px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200 transition-colors cursor-pointer"
+                              title={`${doc.comments.length} ý kiến trao đổi / thảo luận`}
+                            >
+                              <MessageSquare className="w-3 h-3 text-indigo-600" />
+                              <span>{doc.comments.length} trao đổi</span>
+                            </span>
+                          )}
                           {doc.priority === 'VERY_URGENT' && (
                             <span className="px-2 py-0.5 bg-brand-red text-white text-[9px] font-bold rounded-full flex items-center gap-0.5 shadow-2xs">
                               <Flame className="h-2.5 w-2.5" />
