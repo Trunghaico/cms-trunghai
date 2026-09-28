@@ -4,7 +4,7 @@ import { Clock, CheckCircle2, AlertTriangle, FileText, Building2, Zap, ArrowRigh
 import { formatDate } from '../../lib/storage';
 
 export const WorkflowSLAChart: React.FC = () => {
-  const { documents, stats, setSelectedDocument, departments: systemDepts } = useDocument();
+  const { documents, stats, setSelectedDocument, departments: systemDepts, setActiveTab, hasPermission, activeUser } = useDocument();
 
   // 1. Thống kê tỷ lệ BPM toàn hệ thống
   const total = stats.total || 1;
@@ -282,9 +282,21 @@ export const WorkflowSLAChart: React.FC = () => {
 
                   <div className="shrink-0 text-right">
                     {hasOverdue ? (
-                      <span className="px-2.5 py-0.5 bg-red-100 text-red-800 font-bold text-[10px] rounded-full border border-red-300 animate-pulse">
-                        ⚠️ Trễ {item.overdueCount} hồ sơ
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (hasPermission('report.sla') || activeUser?.role === 'ADMIN') {
+                            setActiveTab('report-sla');
+                          } else {
+                            setActiveTab('all-documents');
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-800 font-bold text-[10.5px] rounded-full border border-red-300 animate-pulse transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs hover:shadow-xs active:scale-95"
+                        title={`Xem chi tiết ${item.overdueCount} hồ sơ quá hạn của ${item.deptName}`}
+                      >
+                        <span>⚠️ Trễ {item.overdueCount} hồ sơ</span>
+                        <span className="text-[10px]">→</span>
+                      </button>
                     ) : (
                       <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-full border border-emerald-200">
                         ✓ Đúng hạn 100%
