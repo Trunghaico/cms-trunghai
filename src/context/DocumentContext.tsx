@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog, WorkflowTemplate, WorkflowStep, OverdueAction } from '../types';
+import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog, WorkflowTemplate, WorkflowStep, OverdueAction, DocumentComment, DocumentCommentAttachment } from '../types';
 import {
   loadDocuments,
   saveDocuments,
@@ -167,6 +167,16 @@ interface DocumentContextType {
     }
   ) => { success: boolean; message?: string };
   deleteDocument: (documentId: string) => void;
+  addDocumentComment: (
+    documentId: string,
+    content: string,
+    attachments?: DocumentCommentAttachment[],
+    mentions?: { id: string; name: string }[]
+  ) => { success: boolean; comment?: DocumentComment; message?: string };
+  deleteDocumentComment: (
+    documentId: string,
+    commentId: string
+  ) => { success: boolean; message?: string };
   resetToSampleData: () => void;
 
   // Computed stats
@@ -2473,6 +2483,158 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }).catch(e => console.warn('Lỗi đồng bộ xóa hồ sơ lên NAS:', e));
   };
 
+  const addDocumentComment = (
+    documentId: string,
+    content: string,
+    attachments?: DocumentCommentAttachment[],
+    mentions?: { id: string; name: string }[]
+  ): { success: boolean; comment?: DocumentComment; message?: string } => {
+    if (!activeUser) {
+      return { success: false, message: 'Vui lòng đăng nhập để gửi thảo luận.' };
+    }
+    const targetDoc = documents.find(d => d.id === documentId);
+    if (!targetDoc) {
+      return { success: false, message: 'Không tìm thấy hồ sơ.' };
+    }
+
+    const trimmedContent = content.trim();
+    if (!trimmedContent && (!attachments || attachments.length === 0)) {
+      return { success: false, message: 'Nội dung tin nhắn không được để trống.' };
+    }
+
+    const now = new Date().toISOString();
+    const newComment: DocumentComment = {
+      id: `cmt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      documentId,
+      senderId: activeUser.id,
+      senderName: activeUser.name,
+      senderAvatar: activeUser.avatar,
+      senderTitle: activeUser.roleTitle,
+      senderDepartment: activeUser.department,
+      content: trimmedContent,
+      mentions: mentions || [],
+      attachments: attachments || [],
+      createdAt: now
+    };
+
+    const updatedComments = [...(targetDoc.comments || []), newComment];
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      comments: updatedComments,
+      updatedAt: now
+    };
+
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
+
+    if (selectedDocument?.id === documentId) {
+      setSelectedDocument(updatedDoc);
+    }
+
+    // Thu thập danh sách người nhận thông báo
+    const notifRecipientIds = new Set<string>();
+
+    // 1. Những người được @mention
+    if (mentions && mentions.length > 0) {
+      mentions.forEach(m => {
+        if (m.id !== activeUser.id) notifRecipientIds.add(m.id);
+      });
+    }
+
+    // 2. Người lập hồ sơ (nếu không phải người gửi)
+    if (targetDoc.creatorId && targetDoc.creatorId !== activeUser.id) {
+      notifRecipientIds.add(targetDoc.creatorId);
+    }
+
+    // 3. Người duyệt ở bước hiện tại (nếu có approverId cụ thể và không phải người gửi)
+    const curStep = targetDoc.steps[targetDoc.currentStepIndex];
+    if (curStep?.approverId && curStep.approverId !== activeUser.id) {
+      notifRecipientIds.add(curStep.approverId);
+    }
+
+    // 4. Cc users
+    if (targetDoc.ccUsers && Array.isArray(targetDoc.ccUsers)) {
+      targetDoc.ccUsers.forEach(u => {
+        if (u.id !== activeUser.id) notifRecipientIds.add(u.id);
+      });
+    }
+
+    let updatedNotifs = notifications;
+    if (notifRecipientIds.size > 0) {
+      const isMention = mentions && mentions.length > 0;
+      const snippet = trimmedContent.length > 60 ? `${trimmedContent.substring(0, 60)}...` : trimmedContent;
+      const newNotif: NotificationItem = {
+        id: `notif-${Date.now()}`,
+        title: isMention 
+          ? `${activeUser.name} đã nhắc đến bạn trong hồ sơ ${targetDoc.code}` 
+          : `Thảo luận mới trên hồ sơ ${targetDoc.code}`,
+        message: `${activeUser.name}: "${snippet || 'Đã gửi tệp đính kèm'}"`,
+        documentId: targetDoc.id,
+        documentCode: targetDoc.code,
+        type: 'COMMENT',
+        read: false,
+        createdAt: now,
+        actorId: activeUser.id,
+        recipientIds: Array.from(notifRecipientIds),
+      };
+      updatedNotifs = [newNotif, ...notifications];
+      setNotifications(updatedNotifs);
+      saveNotifications(updatedNotifs);
+      sendDeviceNotification({
+        title: newNotif.title,
+        body: newNotif.message,
+        documentId: newNotif.documentId,
+        type: newNotif.type
+      });
+    }
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      notifications: updatedNotifs,
+      actionDescription: `${activeUser.name} gửi thảo luận trên hồ sơ ${targetDoc.code}`
+    }).catch(e => console.warn('Lỗi persist NAS khi gửi thảo luận:', e));
+
+    return { success: true, comment: newComment };
+  };
+
+  const deleteDocumentComment = (
+    documentId: string,
+    commentId: string
+  ): { success: boolean; message?: string } => {
+    if (!activeUser) return { success: false, message: 'Chưa đăng nhập.' };
+    const targetDoc = documents.find(d => d.id === documentId);
+    if (!targetDoc) return { success: false, message: 'Không tìm thấy hồ sơ.' };
+
+    const cmt = targetDoc.comments?.find(c => c.id === commentId);
+    if (!cmt) return { success: false, message: 'Không tìm thấy bình luận.' };
+
+    if (cmt.senderId !== activeUser.id && activeUser.role !== 'ADMIN') {
+      return { success: false, message: 'Bạn không có quyền xóa tin nhắn của người khác.' };
+    }
+
+    const updatedComments = (targetDoc.comments || []).filter(c => c.id !== commentId);
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      comments: updatedComments
+    };
+
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+    setDocuments(updatedDocs);
+    saveDocuments(updatedDocs);
+
+    if (selectedDocument?.id === documentId) {
+      setSelectedDocument(updatedDoc);
+    }
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      actionDescription: `Xóa bình luận trên hồ sơ ${targetDoc.code}`
+    }).catch(e => console.warn('Lỗi persist NAS khi xóa bình luận:', e));
+
+    return { success: true };
+  };
+
   const resetToSampleData = () => {
     localStorage.removeItem('trunghai_documents_v1');
     localStorage.removeItem('trunghai_notifications_v1');
@@ -2627,6 +2789,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         returnOverdueDocument,
         resubmitDocument,
         deleteDocument,
+        addDocumentComment,
+        deleteDocumentComment,
         resetToSampleData,
         stats,
         isNASSyncing,

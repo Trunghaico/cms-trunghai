@@ -171,6 +171,28 @@ export interface AuditLog {
   newStatus?: DocumentStatus;
 }
 
+export interface DocumentCommentAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type: 'image' | 'file';
+  size: number;
+}
+
+export interface DocumentComment {
+  id: string;
+  documentId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  senderTitle?: string;
+  senderDepartment?: string;
+  content: string;
+  mentions?: { id: string; name: string }[];
+  attachments?: DocumentCommentAttachment[];
+  createdAt: string;
+}
+
 export interface DocumentItem {
   id: string;
   code: string;                 // Số hiệu: e.g. HD-2026/TH-089, TTr-042/KT
@@ -193,6 +215,7 @@ export interface DocumentItem {
   attachments: Attachment[];
   steps: ApprovalStep[];        // Danh sách người xét duyệt các bước
   ccUsers?: { id: string; name: string; roleTitle: string; department?: string; avatar?: string }[]; // Người theo dõi (Cc)
+  comments?: DocumentComment[]; // Trao đổi, thảo luận trực tiếp trên hồ sơ
   currentStepIndex: number;
   auditLogs: AuditLog[];
   signedPdfUrl?: string;
@@ -208,7 +231,7 @@ export interface NotificationItem {
   message: string;
   documentId: string;
   documentCode: string;
-  type: 'INFO' | 'ACTION_REQUIRED' | 'APPROVED' | 'REJECTED' | 'SLA_WARNING' | 'SLA_VIOLATION';
+  type: 'INFO' | 'ACTION_REQUIRED' | 'APPROVED' | 'REJECTED' | 'SLA_WARNING' | 'SLA_VIOLATION' | 'COMMENT';
   read: boolean;
   createdAt: string;
   actorId?: string;           // ID người thực hiện hành động (để người thực hiện không tự nhận thông báo của chính mình)

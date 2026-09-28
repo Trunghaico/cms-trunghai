@@ -273,6 +273,32 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
         previousStatus: 'IN_PROGRESS',
         newStatus: 'IN_PROGRESS',
       }
+    ],
+    comments: [
+      {
+        id: 'cmt-101',
+        documentId: 'doc-001',
+        senderId: 'user-tuan',
+        senderName: 'Đặng Minh Tuấn',
+        senderAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+        senderTitle: 'Trưởng BP Pháp chế',
+        senderDepartment: 'Ban Pháp chế & Kiểm soát',
+        content: '@Nguyễn Văn Long Nhờ bạn rà soát lại điều khoản bảo lãnh thực hiện hợp đồng 5% xem đã có cam kết phát hành thư bảo lãnh ngân hàng gốc chưa nhé.',
+        mentions: [{ id: 'user-long', name: 'Nguyễn Văn Long' }],
+        createdAt: '2026-09-17T11:15:00+07:00'
+      },
+      {
+        id: 'cmt-102',
+        documentId: 'doc-001',
+        senderId: 'user-long',
+        senderName: 'Nguyễn Văn Long',
+        senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        senderTitle: 'Chuyên viên Dự án & Hợp đồng',
+        senderDepartment: 'Phòng Kỹ thuật & Dự án',
+        content: '@Đặng Minh Tuấn Em đã đính kèm bản cam kết phát hành thư bảo lãnh từ Vietcombank của nhà thầu vào tệp đính kèm số 3 rồi ạ. Anh duyệt giúp em nhé!',
+        mentions: [{ id: 'user-tuan', name: 'Đặng Minh Tuấn' }],
+        createdAt: '2026-09-17T11:40:00+07:00'
+      }
     ]
   },
   {

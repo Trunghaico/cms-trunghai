@@ -35,6 +35,7 @@ import { DigitalSignaturePad } from './DigitalSignaturePad';
 import { formatCurrency, formatDate } from '../../lib/storage';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { ResubmitDocumentModal } from './ResubmitDocumentModal';
+import { DocumentCommentThread } from './DocumentCommentThread';
 import { Attachment } from '../../types';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
 import { isUserApproverForStep, canUserOverseeAllDocuments, canUserPerformInternalCheck, canUserPerformManagerApproval } from '../../lib/permissions';
@@ -53,7 +54,7 @@ export const DocumentDetailModal: React.FC = () => {
     hasPermission 
   } = useDocument();
 
-  const [activeTab, setActiveTab] = useState<'DETAILS' | 'ATTACHMENTS' | 'AUDIT'>('DETAILS');
+  const [activeTab, setActiveTab] = useState<'DETAILS' | 'ATTACHMENTS' | 'COMMENTS' | 'AUDIT'>('DETAILS');
   const [approvalAction, setApprovalAction] = useState<'NONE' | 'APPROVE' | 'INTERNAL_CHECK' | 'REJECT' | 'REQUEST_INFO'>('NONE');
   const [commentText, setCommentText] = useState('');
   const [signatureData, setSignatureData] = useState<string>('STAMP_OFFICIAL');
@@ -275,6 +276,22 @@ export const DocumentDetailModal: React.FC = () => {
               <span className="px-2 py-0.5 text-[10px] bg-slate-200 text-slate-700 rounded-full font-bold">
                 {selectedDocument.attachments.length}
               </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('COMMENTS')}
+              className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+                activeTab === 'COMMENTS'
+                  ? 'border-brand-blue text-brand-blue font-bold bg-white shadow-xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span>Thảo luận & Trao đổi</span>
+              {selectedDocument.comments && selectedDocument.comments.length > 0 && (
+                <span className="px-2 py-0.5 text-[10px] bg-indigo-100 text-indigo-800 rounded-full font-extrabold">
+                  {selectedDocument.comments.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('AUDIT')}
@@ -849,6 +866,13 @@ export const DocumentDetailModal: React.FC = () => {
                   onClose={() => setPreviewAttachment(null)}
                 />
               )}
+            </div>
+          )}
+
+          {/* Comments & Discussion Tab */}
+          {activeTab === 'COMMENTS' && (
+            <div className="space-y-4">
+              <DocumentCommentThread document={selectedDocument} />
             </div>
           )}
 
