@@ -112,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDrawer }) => {
   if (!activeUser) return null;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-200/80 shadow-xs transition-all select-none pt-safe">
+    <header className="fixed top-0 left-0 right-0 z-30 bg-white border-b border-slate-200 shadow-xs transition-all select-none pt-safe">
       <div className="flex items-center justify-between px-3 sm:px-4 lg:px-7 h-14 sm:h-16">
 
         {/* Left: Mobile Hamburger & Brand Logo & Title */}
