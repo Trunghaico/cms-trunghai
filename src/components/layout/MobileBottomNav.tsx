@@ -110,7 +110,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenDrawer }
                 className="w-13.5 h-13.5 rounded-full bg-gradient-to-b from-blue-400 via-blue-600 to-indigo-700 text-white shadow-[0_6px_18px_rgba(37,99,235,0.4)] flex items-center justify-center active:scale-95 transition-transform cursor-pointer border-[3px] border-white"
                 title="Khởi tạo hồ sơ trình ký mới"
               >
-                <Plus className="h-7 w-7 stroke-[2.8] text-white" />
+                <Plus className="h-8 w-8 stroke-[3] text-white" />
               </button>
               <span className="text-[10.5px] font-bold text-slate-700 mt-1 tracking-tight leading-tight">
                 Trình ký
