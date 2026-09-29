@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDocument } from '../../context/DocumentContext';
 import { 
   Clock, 
@@ -30,6 +30,7 @@ export const SLAReportView: React.FC = () => {
   const [isOverdueModalOpen, setIsOverdueModalOpen] = useState(false);
   const [overdueModalDept, setOverdueModalDept] = useState<string | null>(null);
   const [modalSearchTerm, setModalSearchTerm] = useState('');
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   // 1. Tính toán thống kê SLA theo từng phòng ban
   const departmentMetrics = useMemo(() => {
@@ -669,27 +670,37 @@ export const SLAReportView: React.FC = () => {
       {/* 3. MODAL POPUP: XEM TRỰC TIẾP DANH SÁCH HỒ SƠ QUÁ HẠN KHI BẤM VÀO SỐ LƯỢNG */}
       {/* ========================================================================= */}
       {isOverdueModalOpen && overdueModalDept && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fade-in">
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fade-in"
+          onMouseDown={(e) => {
+            mouseDownTargetRef.current = e.target;
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) {
+              handleCloseOverdueModal();
+            }
+          }}
+        >
           <div 
             className="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
-            <div className="px-5 py-4 bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-between shrink-0 shadow-md">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2.5 bg-white/20 backdrop-blur-md rounded-2xl shrink-0 shadow-xs">
-                  <ShieldAlert className="w-6 h-6 text-amber-300 animate-pulse" />
+            {/* Compact Modal Header */}
+            <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-between shrink-0 shadow-md">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-1.5 bg-white/20 backdrop-blur-md rounded-xl shrink-0 shadow-xs">
+                  <ShieldAlert className="w-4 h-4 text-amber-300 animate-pulse" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm sm:text-base font-black tracking-tight truncate">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h3 className="text-xs sm:text-sm font-bold tracking-tight truncate leading-tight">
                       Hồ Sơ Quá Hạn SLA: {overdueModalDept === 'ALL' ? 'Toàn Bộ Phòng Ban' : overdueModalDept}
                     </h3>
-                    <span className="px-2.5 py-0.5 bg-white text-red-700 font-extrabold text-[11px] rounded-full shadow-2xs">
+                    <span className="px-2 py-0.5 bg-white text-red-700 font-extrabold text-[10.5px] rounded-full shadow-2xs">
                       {modalOverdueDocs.length} hồ sơ trễ hạn
                     </span>
                   </div>
-                  <p className="text-[11px] text-red-100 mt-0.5 truncate">
+                  <p className="text-[10px] sm:text-[10.5px] text-red-100 mt-0.5 truncate leading-tight">
                     {currentModalDeptInfo 
                       ? `Quy định chuẩn: SLA ${currentModalDeptInfo.defaultSlaHours}h | Bấm vào từng hồ sơ để xem chi tiết, ký duyệt hoặc chỉ đạo xử lý` 
                       : 'Các hồ sơ đang bị ách tắc vượt quá thời hạn cam kết SLA trong toàn hệ thống'}
@@ -700,15 +711,15 @@ export const SLAReportView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleCloseOverdueModal}
-                className="p-2 bg-white/10 hover:bg-white/25 text-white rounded-xl transition-all cursor-pointer shrink-0 ml-2"
+                className="p-1.5 bg-white/10 hover:bg-white/25 text-white rounded-lg transition-all cursor-pointer shrink-0 ml-2"
                 title="Đóng (ESC)"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Sub-bar: Search & Quick Jump */}
-            <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
+            {/* Compact Modal Sub-bar: Search & Quick Jump */}
+            <div className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
               <div className="relative flex-1">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -732,7 +743,7 @@ export const SLAReportView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleFilterAndScroll(overdueModalDept)}
-                className="text-xs font-bold text-slate-700 hover:text-brand-blue bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                className="text-[11.5px] font-bold text-slate-700 hover:text-brand-blue bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
               >
                 <ArrowDown className="w-3.5 h-3.5 text-brand-blue" />
                 <span>Xem trên bảng dưới trang</span>
@@ -740,7 +751,7 @@ export const SLAReportView: React.FC = () => {
             </div>
 
             {/* Modal Body: Overdue Dossiers List */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-2.5 custom-scrollbar">
               {modalOverdueDocs.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 space-y-2">
                   <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
@@ -750,7 +761,7 @@ export const SLAReportView: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {modalOverdueDocs.map((doc, idx) => {
                     const currentStep = doc.steps[doc.currentStepIndex];
                     const deadlineTime = currentStep?.deadline ? new Date(currentStep.deadline).getTime() : 0;
@@ -762,15 +773,15 @@ export const SLAReportView: React.FC = () => {
                     return (
                       <div
                         key={doc.id}
-                        className="p-3.5 sm:p-4 bg-white hover:bg-red-50/30 border border-red-200 rounded-2xl shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-3.5 group hover:border-red-300"
+                        className="p-3 sm:p-3.5 bg-white hover:bg-red-50/30 border border-red-200 rounded-2xl shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 group hover:border-red-300"
                       >
                         {/* Info Left */}
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono font-bold text-xs text-brand-blue bg-blue-100/80 px-2 py-0.5 rounded-md">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-bold text-[11px] text-brand-blue bg-blue-100/80 px-2 py-0.5 rounded-md">
                               {doc.code}
                             </span>
-                            <span className="px-2.5 py-0.5 bg-red-100 text-red-800 font-bold text-[10.5px] rounded-full border border-red-300 animate-pulse inline-flex items-center gap-1">
+                            <span className="px-2 py-0.5 bg-red-100 text-red-800 font-bold text-[10px] rounded-full border border-red-300 animate-pulse inline-flex items-center gap-1">
                               <span>⚠️</span>
                               <span>{overdueText}</span>
                             </span>
@@ -783,14 +794,14 @@ export const SLAReportView: React.FC = () => {
 
                           <h4 
                             onClick={() => handleSelectDoc(doc)}
-                            className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-brand-blue transition-colors cursor-pointer leading-snug line-clamp-2"
+                            className="font-bold text-xs sm:text-[13px] text-slate-900 group-hover:text-brand-blue transition-colors cursor-pointer leading-snug line-clamp-2"
                             title={doc.title}
                           >
                             {doc.title}
                           </h4>
 
                           {/* Step & Bottleneck Meta */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-3 text-[11px] text-slate-600 pt-1 border-t border-slate-100">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-2 text-[10.5px] text-slate-600 pt-1 border-t border-slate-100">
                             <div>
                               <span className="text-slate-400">Người lập: </span>
                               <strong className="text-slate-800">{doc.creatorName}</strong> ({doc.department})
@@ -811,7 +822,7 @@ export const SLAReportView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleSelectDoc(doc)}
-                            className="w-full md:w-auto px-4 py-2 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-indigo-600 hover:to-brand-blue text-white font-bold text-xs rounded-xl shadow-glow-blue transition-all cursor-pointer flex items-center justify-center gap-1.5 transform hover:scale-102 active:scale-98"
+                            className="w-full md:w-auto px-3.5 py-1.5 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-indigo-600 hover:to-brand-blue text-white font-bold text-xs rounded-xl shadow-glow-blue transition-all cursor-pointer flex items-center justify-center gap-1.5 transform hover:scale-102 active:scale-98"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             <span>Xem Chi Tiết & Chỉ Đạo</span>
@@ -824,9 +835,9 @@ export const SLAReportView: React.FC = () => {
               )}
             </div>
 
-            {/* Modal Footer */}
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
-              <span className="text-xs text-slate-500 font-medium">
+            {/* Compact Modal Footer */}
+            <div className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <span className="text-[11.5px] text-slate-500 font-medium">
                 Hiển thị <strong>{modalOverdueDocs.length}</strong> hồ sơ quá hạn
               </span>
 
@@ -834,7 +845,7 @@ export const SLAReportView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleCloseOverdueModal}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                 >
                   Đóng
                 </button>
