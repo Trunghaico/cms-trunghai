@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
   FileText, 
@@ -64,6 +64,7 @@ export const DocumentDetailModal: React.FC = () => {
   const [isClosing, setIsClosing] = useState(false);
   const [returnOverdueReason, setReturnOverdueReason] = useState('');
   const [isReturningOverdue, setIsReturningOverdue] = useState(false);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   if (!selectedDocument || !activeUser) return null;
 
@@ -188,8 +189,13 @@ export const DocumentDetailModal: React.FC = () => {
       className={`fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto ${
         isClosing ? 'animate-backdrop-out pointer-events-none' : 'animate-backdrop-in'
       }`}
+      onMouseDown={(e) => {
+        mouseDownTargetRef.current = e.target;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+        if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) {
+          handleClose();
+        }
       }}
     >
       <div 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   X, 
   Trash2, 
@@ -52,6 +52,7 @@ export const ResubmitDocumentModal: React.FC<ResubmitDocumentModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   // Tìm yêu cầu bổ sung gần nhất từ lịch sử xử lý (Audit Logs)
   const latestRequestInfoLog = useMemo(() => {
@@ -145,8 +146,13 @@ export const ResubmitDocumentModal: React.FC<ResubmitDocumentModalProps> = ({
     <>
       <div 
         className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-backdrop-in"
+        onMouseDown={(e) => {
+          mouseDownTargetRef.current = e.target;
+        }}
         onClick={(e) => {
-          if (e.target === e.currentTarget && !isSubmitting) onClose();
+          if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget && !isSubmitting) {
+            onClose();
+          }
         }}
       >
         <div className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200/80 flex flex-col max-h-[94vh] overflow-hidden animate-modal-in">

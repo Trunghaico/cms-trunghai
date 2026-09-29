@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { 
@@ -67,6 +67,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
   const [description, setDescription] = useState('');
   const [selectedPermissions, setSelectedPermissions] = useState<PermissionId[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   // Set initial selected preset when opening
   useEffect(() => {
@@ -249,8 +250,11 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
           className="fixed inset-0 z-[999999] bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+          onMouseDown={(e) => {
+            mouseDownTargetRef.current = e.target;
+          }}
           onClick={(e) => {
-            if (e.target === e.currentTarget) onClose();
+            if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) onClose();
           }}
         >
           <motion.div 

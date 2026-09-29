@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocument } from '../../context/DocumentContext';
@@ -77,6 +77,7 @@ export const UserManagementView: React.FC = () => {
   const [isQuickSavePresetOpen, setIsQuickSavePresetOpen] = useState(false);
   const [quickPresetName, setQuickPresetName] = useState('');
   const [quickSaveMsg, setQuickSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -588,8 +589,11 @@ export const UserManagementView: React.FC = () => {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
               className="fixed inset-0 z-[99999] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden"
+              onMouseDown={(e) => {
+                mouseDownTargetRef.current = e.target;
+              }}
               onClick={(e) => {
-                if (e.target === e.currentTarget) setInspectingUser(null);
+                if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) setInspectingUser(null);
               }}
             >
               <motion.div
@@ -699,8 +703,11 @@ export const UserManagementView: React.FC = () => {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
               className="fixed inset-0 z-[99999] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden"
+              onMouseDown={(e) => {
+                mouseDownTargetRef.current = e.target;
+              }}
               onClick={(e) => {
-                if (e.target === e.currentTarget) handleCloseModal();
+                if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) handleCloseModal();
               }}
             >
               <motion.form

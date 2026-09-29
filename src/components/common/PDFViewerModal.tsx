@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -39,6 +39,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isClosing, setIsClosing] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -122,8 +123,13 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         isClosing ? 'animate-backdrop-out pointer-events-none' : 'animate-backdrop-in'
       }`}
       style={{ zIndex: 99999 }}
+      onMouseDown={(e) => {
+        mouseDownTargetRef.current = e.target;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+        if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) {
+          handleClose();
+        }
       }}
     >
       <div 

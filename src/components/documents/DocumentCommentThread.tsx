@@ -42,6 +42,7 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const imgMouseDownTargetRef = useRef<EventTarget | null>(null);
 
   const comments = doc.comments || [];
 
@@ -769,7 +770,14 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
       {previewImage && (
         <div 
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setPreviewImage(null)}
+          onMouseDown={(e) => {
+            imgMouseDownTargetRef.current = e.target;
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && imgMouseDownTargetRef.current === e.currentTarget) {
+              setPreviewImage(null);
+            }
+          }}
         >
           <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
             <img
