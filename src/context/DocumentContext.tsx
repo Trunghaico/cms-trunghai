@@ -2519,6 +2519,18 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const now = new Date().toISOString();
+
+    // 1. Thu thập danh sách mention (cả danh sách truyền vào lẫn quét từ nội dung text @Tên)
+    const effectiveMentions: { id: string; name: string }[] = mentions ? [...mentions] : [];
+    users.forEach(u => {
+      if (
+        (trimmedContent.includes(`@${u.name}`) || trimmedContent.includes(`@${u.username}`)) &&
+        !effectiveMentions.some(m => m.id === u.id)
+      ) {
+        effectiveMentions.push({ id: u.id, name: u.name });
+      }
+    });
+
     const newComment: DocumentComment = {
       id: `cmt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       documentId,
@@ -2528,7 +2540,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       senderTitle: activeUser.roleTitle,
       senderDepartment: activeUser.department,
       content: trimmedContent,
-      mentions: mentions || [],
+      mentions: effectiveMentions,
       attachments: attachments || [],
       createdAt: now
     };
@@ -2551,10 +2563,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Thu thập danh sách người nhận thông báo
     const notifRecipientIds = new Set<string>();
 
-    // 1. Những người được @mention
-    if (mentions && mentions.length > 0) {
-      mentions.forEach(m => {
-        if (m.id !== activeUser.id) notifRecipientIds.add(m.id);
+    // 1. Những người được @mention trực tiếp
+    if (effectiveMentions.length > 0) {
+      effectiveMentions.forEach(m => {
+        if (m.id && m.id !== activeUser.id) notifRecipientIds.add(m.id);
       });
     }
 
@@ -2563,22 +2575,28 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       notifRecipientIds.add(targetDoc.creatorId);
     }
 
-    // 3. Người duyệt ở bước hiện tại (nếu có approverId cụ thể và không phải người gửi)
-    const curStep = targetDoc.steps[targetDoc.currentStepIndex];
-    if (curStep?.approverId && curStep.approverId !== activeUser.id) {
-      notifRecipientIds.add(curStep.approverId);
-    }
+    // 3. Người duyệt ở TẤT CẢ các bước trong hồ sơ (nếu không phải người gửi)
+    targetDoc.steps.forEach(step => {
+      if (step.approverId && step.approverId !== activeUser.id) {
+        notifRecipientIds.add(step.approverId);
+      }
+      users.forEach(u => {
+        if (u.id !== activeUser.id && isUserApproverForStep(u, step)) {
+          notifRecipientIds.add(u.id);
+        }
+      });
+    });
 
-    // 4. Cc users
+    // 4. Người theo dõi (Cc)
     if (targetDoc.ccUsers && Array.isArray(targetDoc.ccUsers)) {
       targetDoc.ccUsers.forEach(u => {
-        if (u.id !== activeUser.id) notifRecipientIds.add(u.id);
+        if (u.id && u.id !== activeUser.id) notifRecipientIds.add(u.id);
       });
     }
 
     let updatedNotifs = notifications;
     if (notifRecipientIds.size > 0) {
-      const isMention = mentions && mentions.length > 0;
+      const isMention = effectiveMentions.length > 0;
       const snippet = trimmedContent.length > 60 ? `${trimmedContent.substring(0, 60)}...` : trimmedContent;
       const newNotif: NotificationItem = {
         id: `notif-${Date.now()}`,

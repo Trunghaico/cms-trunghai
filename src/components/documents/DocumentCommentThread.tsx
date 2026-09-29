@@ -56,7 +56,7 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
 
   // Tập hợp danh sách người tham gia trong hồ sơ để ưu tiên gợi ý tag @
   const participants = React.useMemo(() => {
-    const list: { id: string; name: string; roleTitle?: string; department?: string; avatar?: string }[] = [];
+    const list: { id: string; name: string; roleTitle?: string; department?: string; avatar?: string; isRelated: boolean }[] = [];
     const seen = new Set<string>();
 
     // 1. Người lập
@@ -68,7 +68,8 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
         name: doc.creatorName,
         roleTitle: doc.creatorTitle || u?.roleTitle,
         department: doc.department || u?.department,
-        avatar: u?.avatar
+        avatar: u?.avatar,
+        isRelated: true
       });
     }
 
@@ -79,10 +80,11 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
         const u = users.find(x => x.id === step.approverId);
         list.push({
           id: step.approverId,
-          name: step.approverName,
-          roleTitle: step.approverTitle,
-          department: step.department,
-          avatar: u?.avatar
+          name: step.approverName || u?.name || '',
+          roleTitle: step.approverTitle || u?.roleTitle,
+          department: step.department || u?.department,
+          avatar: u?.avatar,
+          isRelated: true
         });
       }
     });
@@ -96,9 +98,10 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
           list.push({
             id: cc.id,
             name: cc.name,
-            roleTitle: cc.roleTitle,
+            roleTitle: cc.roleTitle || u?.roleTitle,
             department: cc.department || u?.department,
-            avatar: cc.avatar || u?.avatar
+            avatar: cc.avatar || u?.avatar,
+            isRelated: true
           });
         }
       });
@@ -113,7 +116,8 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
           name: u.name,
           roleTitle: u.roleTitle,
           department: u.department,
-          avatar: u.avatar
+          avatar: u.avatar,
+          isRelated: false
         });
       }
     });
@@ -144,8 +148,9 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
 
     if (lastAtIdx !== -1) {
       const query = textBeforeCursor.slice(lastAtIdx + 1);
-      if (!query.includes(' ') && query.length <= 25) {
-        setMentionFilter(query);
+      // Hỗ trợ tìm kiếm cả cụm từ có dấu cách (VD: @Phan Thanh), không xuống dòng, tối đa 30 ký tự
+      if (!query.includes('\n') && query.length <= 30) {
+        setMentionFilter(query.trim());
         setIsMentionMenuOpen(true);
         return;
       }
@@ -160,7 +165,12 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
     const textAfterCursor = messageText.slice(cursor);
     const lastAtIdx = textBeforeCursor.lastIndexOf('@');
 
-    const newTextBefore = textBeforeCursor.slice(0, lastAtIdx) + `@${user.name} `;
+    let newTextBefore = '';
+    if (lastAtIdx !== -1) {
+      newTextBefore = textBeforeCursor.slice(0, lastAtIdx) + `@${user.name} `;
+    } else {
+      newTextBefore = textBeforeCursor + (textBeforeCursor.endsWith(' ') || textBeforeCursor === '' ? '' : ' ') + `@${user.name} `;
+    }
     const finalVal = newTextBefore + textAfterCursor;
 
     setMessageText(finalVal);
@@ -168,9 +178,94 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
       setSelectedMentions(prev => [...prev, user]);
     }
     setIsMentionMenuOpen(false);
+    setMentionFilter('');
     setTimeout(() => {
       textareaRef.current?.focus();
     }, 50);
+  };
+
+  // Hàm render nội dung tin nhắn với highlight đầy đủ cả họ và tên người được tag (@Họ Và Tên)
+  const renderCommentContent = (
+    content: string, 
+    mentions?: { id: string; name: string }[], 
+    isMe?: boolean
+  ) => {
+    if (!content) return null;
+
+    // Thu thập danh sách tên nhân sự khả dĩ để nhận diện chính xác
+    const nameSet = new Set<string>();
+    if (mentions && Array.isArray(mentions)) {
+      mentions.forEach(m => {
+        if (m.name && m.name.trim()) nameSet.add(m.name.trim());
+      });
+    }
+    users.forEach(u => {
+      if (u.name && u.name.trim()) nameSet.add(u.name.trim());
+    });
+
+    // Sắp xếp tên theo độ dài giảm dần để tên dài nhất được match trước
+    const sortedNames = Array.from(nameSet).sort((a, b) => b.length - a.length);
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    let mentionRegex: RegExp;
+    if (sortedNames.length > 0) {
+      const namesPattern = sortedNames.map(escapeRegex).join('|');
+      mentionRegex = new RegExp(`(@(?:${namesPattern})|@[\\p{L}\\p{N}_\\-\\.]+)(?=[\\s,.:;!?)]|$)`, 'gu');
+    } else {
+      mentionRegex = /(@[\p{L}\\p{N}_\\-\\.]+)(?=[\\s,.:;!?)]|$)/gu;
+    }
+
+    const parts: { text: string; isMention: boolean }[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+      const matchStart = match.index;
+      const matchEnd = match.index + match[0].length;
+
+      if (matchStart > lastIndex) {
+        parts.push({
+          text: content.slice(lastIndex, matchStart),
+          isMention: false
+        });
+      }
+
+      parts.push({
+        text: match[0],
+        isMention: true
+      });
+
+      lastIndex = matchEnd;
+    }
+
+    if (lastIndex < content.length) {
+      parts.push({
+        text: content.slice(lastIndex),
+        isMention: false
+      });
+    }
+
+    return (
+      <div className="whitespace-pre-wrap font-normal select-text leading-relaxed">
+        {parts.map((part, idx) => {
+          if (part.isMention) {
+            return (
+              <span
+                key={idx}
+                className={`inline-flex items-center font-bold px-1.5 py-0.5 rounded-lg mx-0.5 text-[11.5px] tracking-tight ${
+                  isMe
+                    ? 'bg-white/25 text-white underline decoration-white/50 shadow-2xs'
+                    : 'bg-indigo-100 text-indigo-900 border border-indigo-200/90 shadow-2xs'
+                }`}
+              >
+                {part.text}
+              </span>
+            );
+          }
+          return <React.Fragment key={idx}>{part.text}</React.Fragment>;
+        })}
+      </div>
+    );
   };
 
   // Hỗ trợ Paste ảnh chụp màn hình từ Clipboard (Ctrl + V)
@@ -280,11 +375,22 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
     if (!messageText.trim() && pendingAttachments.length === 0) return;
     if (!activeUser) return;
 
+    // Tự động phát hiện thêm bất kỳ @Tên nào có trong nội dung tin nhắn nếu người dùng gõ tay
+    const allMentions = [...selectedMentions];
+    users.forEach(u => {
+      if (
+        (messageText.includes(`@${u.name}`) || messageText.includes(`@${u.username}`)) &&
+        !allMentions.some(m => m.id === u.id)
+      ) {
+        allMentions.push({ id: u.id, name: u.name });
+      }
+    });
+
     addDocumentComment(
       doc.id,
       messageText,
       pendingAttachments,
-      selectedMentions
+      allMentions
     );
 
     setMessageText('');
@@ -338,7 +444,7 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
 
         {/* Participants Avatars Stack */}
         <div className="flex items-center -space-x-1.5 shrink-0 hidden sm:flex" title="Nhân sự tham gia theo dõi hồ sơ">
-          {participants.slice(0, 5).map((p, idx) => (
+          {participants.filter(p => p.isRelated).slice(0, 5).map((p) => (
             <div
               key={p.id}
               className="w-7 h-7 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center font-bold text-[10px] text-indigo-700 shadow-2xs overflow-hidden"
@@ -351,9 +457,9 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
               )}
             </div>
           ))}
-          {participants.length > 5 && (
+          {participants.filter(p => p.isRelated).length > 5 && (
             <span className="w-7 h-7 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-600">
-              +{participants.length - 5}
+              +{participants.filter(p => p.isRelated).length - 5}
             </span>
           )}
         </div>
@@ -439,26 +545,8 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
                         : 'bg-white text-slate-800 border border-slate-200/90 rounded-tl-xs'
                     }`}
                   >
-                    {/* Text with @mention highlighting */}
-                    <div className="whitespace-pre-wrap font-normal select-text">
-                      {cmt.content.split(' ').map((word, wIdx) => {
-                        if (word.startsWith('@')) {
-                          return (
-                            <span
-                              key={wIdx}
-                              className={`font-bold px-1.5 py-0.5 rounded-md mx-0.5 ${
-                                isMe 
-                                  ? 'bg-white/20 text-white underline' 
-                                  : 'bg-indigo-100 text-indigo-900 border border-indigo-200'
-                              }`}
-                            >
-                              {word}{' '}
-                            </span>
-                          );
-                        }
-                        return word + ' ';
-                      })}
-                    </div>
+                    {/* Text with complete full-name @mention highlighting */}
+                    {renderCommentContent(cmt.content, cmt.mentions, isMe)}
 
                     {/* Image Attachments */}
                     {cmt.attachments && cmt.attachments.length > 0 && (
@@ -537,32 +625,43 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
 
       {/* Mention Auto-complete Menu */}
       {isMentionMenuOpen && (
-        <div className="px-3 py-2 bg-white border-t border-slate-200 shadow-lg max-h-40 overflow-y-auto custom-scrollbar shrink-0 animate-scale-up">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            Nhắc tên đồng nghiệp (@Mention)
-          </p>
+        <div className="px-3 py-2 bg-white border-t border-slate-200 shadow-lg max-h-48 overflow-y-auto custom-scrollbar shrink-0 animate-scale-up">
+          <div className="flex items-center justify-between pb-1.5 mb-1 border-b border-slate-100">
+            <p className="text-[10.5px] font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1">
+              <AtSign className="w-3 h-3 text-indigo-600" />
+              <span>Nhắc tên đồng nghiệp (@Mention)</span>
+            </p>
+            <span className="text-[10px] text-slate-400">Gõ tên hoặc chọn bên dưới</span>
+          </div>
           <div className="space-y-1">
             {filteredParticipants.length === 0 ? (
-              <p className="text-xs text-slate-400 py-1">Không tìm thấy nhân sự phù hợp.</p>
+              <p className="text-xs text-slate-400 py-2 text-center">Không tìm thấy nhân sự phù hợp.</p>
             ) : (
               filteredParticipants.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => handleSelectMention(p)}
-                  className="w-full flex items-center justify-between p-1.5 hover:bg-indigo-50 rounded-xl transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center justify-between p-1.5 hover:bg-indigo-50 rounded-xl transition-colors text-left cursor-pointer group"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
-                      {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full object-cover rounded-full" /> : p.name.charAt(0)}
+                    <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0 overflow-hidden">
+                      {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" /> : p.name.charAt(0)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-700">{p.name}</p>
+                        {p.isRelated && (
+                          <span className="text-[9px] px-1.5 py-0.2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-semibold shrink-0">
+                            Trong hồ sơ
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-500 truncate">{p.roleTitle || p.department}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-brand-blue bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                    Chọn
+                  <span className="text-[10px] font-bold text-brand-blue bg-blue-50 group-hover:bg-indigo-600 group-hover:text-white px-2 py-0.5 rounded-full border border-blue-200 group-hover:border-indigo-600 transition-colors">
+                    Tag @
                   </span>
                 </button>
               ))

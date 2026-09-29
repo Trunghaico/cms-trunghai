@@ -650,14 +650,23 @@ export function canUserReceiveNotification(
   }
 
   // 2. Đối với thông báo thảo luận/chat trên hồ sơ (COMMENT):
-  // Chỉ báo tin nhắn của người khác hoặc khi được tag tên / là người tham gia liên quan (người lập, người duyệt bước hiện tại, Cc)
-  // Tuyệt đối KHÔNG tự báo tin nhắn của chính mình và KHÔNG thông báo tràn lan
+  // Chỉ báo tin nhắn cho những ai thực sự liên quan đến hồ sơ (người lập, người duyệt ở các bước, người theo dõi Cc) hoặc người được @tag tên trực tiếp
+  // Tuyệt đối KHÔNG tự báo tin nhắn của chính mình và KHÔNG thông báo tràn lan cho người không liên quan
   if (notif.type === 'COMMENT') {
     if (notif.recipientIds && notif.recipientIds.includes(user.id)) {
       return true;
     }
     if (notif.recipientId && notif.recipientId === user.id) {
       return true;
+    }
+    // Nếu có đối tượng hồ sơ, kiểm tra vai trò liên quan thực tế trong hồ sơ
+    if (doc) {
+      const isCreator = doc.creatorId === user.id;
+      const isCc = !!(doc.ccUsers && doc.ccUsers.some(cc => cc.id === user.id));
+      const isApprover = isUserApproverForDoc(user, doc);
+      if (isCreator || isCc || isApprover) {
+        return true;
+      }
     }
     return false;
   }
