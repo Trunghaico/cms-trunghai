@@ -40,127 +40,124 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenDrawer }
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 select-none pointer-events-auto">
       
-      {/* Curved Container Wrapper */}
-      <div className="relative bg-white/98 backdrop-blur-2xl rounded-t-[26px] shadow-[0_-6px_25px_rgba(0,0,0,0.08)] border-t border-slate-200/80 px-2 pt-2 pb-[max(env(safe-area-inset-bottom,0px),8px)]">
+      {/* Curved Container Wrapper with Top Shadow */}
+      <div className="relative bg-white/98 backdrop-blur-2xl rounded-t-[28px] shadow-[0_-5px_22px_rgba(0,0,0,0.07)] border-t border-slate-200/70 px-2 pt-2 pb-[max(env(safe-area-inset-bottom,0px),10px)]">
         
-        {/* Seamless Center Arch Dome (Curved wave rising behind center button) */}
+        {/* Seamless Center Arch Dome (Bo theo góc vòm ôm trọn nút tròn Trình Ký) */}
         {canCreate && (
-          <div className="absolute -top-[19px] left-1/2 -translate-x-1/2 w-28 h-5 pointer-events-none overflow-visible">
+          <div className="absolute -top-[27px] left-1/2 -translate-x-1/2 w-36 h-7 pointer-events-none overflow-visible z-0">
             <svg 
-              className="w-full h-full text-white fill-current filter drop-shadow-[0_-3px_4px_rgba(0,0,0,0.04)]"
-              viewBox="0 0 112 20" 
+              className="w-full h-full text-white fill-current filter drop-shadow-[0_-3px_5px_rgba(0,0,0,0.04)]"
+              viewBox="0 0 144 28" 
               fill="none"
               preserveAspectRatio="none"
             >
-              <path d="M 0 20 C 22 20 28 0 56 0 C 84 0 90 20 112 20 Z" />
+              <path d="M 0 28 C 30 28 42 0 72 0 C 102 0 114 28 144 28 Z" />
             </svg>
           </div>
         )}
 
-        {/* 5 Navigation Items Grid / Flex */}
-        <div className="flex items-end justify-around relative z-10 min-h-[52px]">
+        {/* 5 Navigation Items Grid */}
+        <div className="grid grid-cols-5 items-end relative z-10 min-h-[50px]">
           
           {/* 1. Tổng quan (Trang chủ) */}
           <button
             type="button"
             onClick={() => setActiveTab('dashboard')}
-            className={`flex flex-1 flex-col items-center justify-center py-1 transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center py-1 transition-all cursor-pointer ${
               activeTab === 'dashboard' 
-                ? 'text-brand-blue font-bold' 
+                ? 'text-blue-600 font-bold' 
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <div className="relative p-1">
+            <div className="h-6 flex items-center justify-center">
               <LayoutDashboard className={`h-5 w-5 transition-transform ${activeTab === 'dashboard' ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'}`} />
             </div>
-            <span className={`text-[10px] tracking-tight leading-tight mt-0.5 ${activeTab === 'dashboard' ? 'font-bold' : 'font-medium'}`}>
+            <span className={`text-[10.5px] tracking-tight leading-tight mt-1 ${activeTab === 'dashboard' ? 'font-bold' : 'font-medium'}`}>
               Tổng quan
             </span>
           </button>
 
-          {/* 2. Chờ duyệt */}
+          {/* 2. Chờ duyệt (Thanh toán / Chờ xử lý) */}
           <button
             type="button"
             onClick={() => setActiveTab('pending-approvals')}
-            className={`relative flex flex-1 flex-col items-center justify-center py-1 transition-all cursor-pointer ${
+            className={`relative flex flex-col items-center justify-center py-1 transition-all cursor-pointer ${
               activeTab === 'pending-approvals' 
-                ? 'text-brand-blue font-bold' 
+                ? 'text-blue-600 font-bold' 
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <div className="relative p-1">
+            <div className="h-6 flex items-center justify-center relative">
               <CheckSquare className={`h-5 w-5 transition-transform ${activeTab === 'pending-approvals' ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'}`} />
               {pendingMyApprovalCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center text-[9px] font-black text-white bg-brand-red rounded-full shadow-md animate-bounce">
+                <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 px-1 items-center justify-center text-[9px] font-black text-white bg-brand-red rounded-full shadow-md animate-bounce">
                   {pendingMyApprovalCount}
                 </span>
               )}
             </div>
-            <span className={`text-[10px] tracking-tight leading-tight mt-0.5 ${activeTab === 'pending-approvals' ? 'font-bold' : 'font-medium'}`}>
+            <span className={`text-[10.5px] tracking-tight leading-tight mt-1 ${activeTab === 'pending-approvals' ? 'font-bold' : 'font-medium'}`}>
               Chờ duyệt
             </span>
           </button>
 
-          {/* 3. Nút Nổi Bật Ở Giữa: Trình Ký (+ Form) */}
+          {/* 3. Nút Nổi Bật Ở Giữa: Trình Ký (Bo tròn theo vòm trên) */}
           {canCreate ? (
-            <div className="-mt-8 flex-1 flex flex-col items-center justify-center relative z-20">
+            <div className="flex flex-col items-center justify-center relative -top-6 z-20">
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(true)}
-                className="w-13.5 h-13.5 rounded-full bg-gradient-to-tr from-brand-blue via-indigo-600 to-blue-500 text-white shadow-[0_8px_20px_rgba(37,99,235,0.4)] flex items-center justify-center active:scale-95 transition-transform cursor-pointer border-[3.5px] border-white ring-1 ring-blue-500/10"
+                className="w-13.5 h-13.5 rounded-full bg-gradient-to-b from-blue-400 via-blue-600 to-indigo-700 text-white shadow-[0_6px_18px_rgba(37,99,235,0.4)] flex items-center justify-center active:scale-95 transition-transform cursor-pointer border-[3px] border-white"
                 title="Khởi tạo hồ sơ trình ký mới"
               >
-                <Plus className="h-6.5 w-6.5 stroke-[2.8] text-white" />
+                <Plus className="h-7 w-7 stroke-[2.8] text-white" />
               </button>
-              <span className="text-[10px] font-extrabold text-brand-blue mt-1 tracking-tight leading-tight uppercase">
-                Trình Ký
+              <span className="text-[10.5px] font-bold text-slate-700 mt-1 tracking-tight leading-tight">
+                Trình ký
               </span>
             </div>
           ) : (
-            <div className="w-10" />
+            <div className="h-6" />
           )}
 
-          {/* 4. Hồ sơ của tôi */}
+          {/* 4. Hồ sơ của tôi (Ưu đãi / Hồ sơ tôi) */}
           <button
             type="button"
             onClick={() => setActiveTab('my-documents')}
-            className={`flex flex-1 flex-col items-center justify-center py-1 transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center py-1 transition-all cursor-pointer ${
               activeTab === 'my-documents' 
-                ? 'text-brand-blue font-bold' 
+                ? 'text-blue-600 font-bold' 
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <div className="relative p-1">
+            <div className="h-6 flex items-center justify-center">
               <FolderGit2 className={`h-5 w-5 transition-transform ${activeTab === 'my-documents' ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'}`} />
             </div>
-            <span className={`text-[10px] tracking-tight leading-tight mt-0.5 ${activeTab === 'my-documents' ? 'font-bold' : 'font-medium'}`}>
+            <span className={`text-[10.5px] tracking-tight leading-tight mt-1 ${activeTab === 'my-documents' ? 'font-bold' : 'font-medium'}`}>
               Hồ sơ tôi
             </span>
           </button>
 
-          {/* 5. Menu mở rộng Drawer (Tất cả) */}
+          {/* 5. Menu mở rộng Drawer (Tài khoản / Tất cả) */}
           <button
             type="button"
             onClick={onOpenDrawer}
-            className="relative flex flex-1 flex-col items-center justify-center py-1 text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
+            className="relative flex flex-col items-center justify-center py-1 text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
           >
-            <div className="relative p-1">
+            <div className="h-6 flex items-center justify-center relative">
               <Menu className="h-5 w-5 stroke-[1.8]" />
               {unreadNotificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center text-[9px] font-black text-white bg-brand-red rounded-full shadow-md animate-bounce">
+                <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 px-1 items-center justify-center text-[9px] font-black text-white bg-brand-red rounded-full shadow-md animate-bounce">
                   {unreadNotificationCount}
                 </span>
               )}
             </div>
-            <span className="text-[10px] tracking-tight leading-tight mt-0.5 font-medium">
+            <span className="text-[10.5px] tracking-tight leading-tight mt-1 font-medium">
               Tất cả
             </span>
           </button>
 
         </div>
-
-        {/* Bottom Home Indicator Bar (Mô phỏng thanh gạt đáy màn hình) */}
-        <div className="w-32 h-1 bg-slate-900/80 rounded-full mx-auto mt-2 opacity-80" />
 
       </div>
 
