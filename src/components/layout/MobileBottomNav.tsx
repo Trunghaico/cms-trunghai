@@ -40,19 +40,19 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenDrawer }
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 select-none pointer-events-auto">
       
-      {/* Curved Container Wrapper with Top Shadow */}
-      <div className="relative bg-white/98 backdrop-blur-2xl rounded-t-[28px] shadow-[0_-5px_22px_rgba(0,0,0,0.07)] border-t border-slate-200/70 px-2 pt-2 pb-[max(env(safe-area-inset-bottom,0px),10px)]">
+      {/* Curved Container Wrapper with Top Shadow (Solid 100% Opaque White) */}
+      <div className="relative bg-white rounded-t-[28px] shadow-[0_-5px_22px_rgba(0,0,0,0.07)] border-t border-slate-200/70 px-2 pt-2 pb-[max(env(safe-area-inset-bottom,0px),10px)]">
         
         {/* Seamless Center Arch Dome (Bo theo góc vòm ôm trọn nút tròn Trình Ký) */}
         {canCreate && (
           <div className="absolute -top-[27px] left-1/2 -translate-x-1/2 w-36 h-7 pointer-events-none overflow-visible z-0">
             <svg 
-              className="w-full h-full text-white fill-current filter drop-shadow-[0_-3px_5px_rgba(0,0,0,0.04)]"
+              className="w-full h-full text-white fill-white filter drop-shadow-[0_-3px_5px_rgba(0,0,0,0.04)]"
               viewBox="0 0 144 28" 
-              fill="none"
+              fill="#ffffff"
               preserveAspectRatio="none"
             >
-              <path d="M 0 28 C 30 28 42 0 72 0 C 102 0 114 28 144 28 Z" />
+              <path d="M 0 28 C 30 28 42 0 72 0 C 102 0 114 28 144 28 Z" fill="#ffffff" />
             </svg>
           </div>
         )}
