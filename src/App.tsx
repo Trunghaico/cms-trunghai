@@ -128,11 +128,11 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans overflow-x-hidden max-w-full w-full relative">
-      {/* Top Header - Fixed & Sticky */}
+      {/* Top Header - Fixed & Pinned at Top */}
       <Header onOpenDrawer={() => setIsMobileDrawerOpen(true)} />
 
-      {/* Main Layout: Fixed Compact Sidebar (w-60) on Left + Scrollable Content on Right (pl-0 on mobile, pl-60 on desktop) */}
-      <div className="flex-1 flex min-w-0 max-w-full">
+      {/* Main Layout: Fixed Compact Sidebar (w-60) on Left + Scrollable Content on Right (pt-14 sm:pt-16 for Fixed Header) */}
+      <div className="flex-1 flex min-w-0 max-w-full pt-14 sm:pt-16">
         {/* Left Fixed Sidebar (Hidden on mobile < md) */}
         <Sidebar />
 
