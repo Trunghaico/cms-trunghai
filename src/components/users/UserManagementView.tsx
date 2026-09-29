@@ -605,17 +605,17 @@ export const UserManagementView: React.FC = () => {
                 className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[85vh]"
               >
 
-                {/* Modal Header */}
-                <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 shadow-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/10 rounded-xl">
-                      <ShieldCheck className="h-5 w-5 text-amber-300" />
+                {/* Compact Modal Header */}
+                <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-white/10 rounded-xl">
+                      <ShieldCheck className="h-4 w-4 text-amber-300" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-xs sm:text-sm text-white">
+                      <h3 className="font-bold text-xs sm:text-sm text-white leading-tight">
                         Quyền hạn: {inspectingUser.name}
                       </h3>
-                      <p className="text-[10px] text-blue-200/80">
+                      <p className="text-[10px] text-blue-200/80 leading-tight mt-0.5">
                         @{inspectingUser.username} • {inspectingUser.roleTitle} ({inspectingUser.department})
                         {inspectingUser.secondaryPositions && inspectingUser.secondaryPositions.length > 0 && (
                           <span className="text-amber-300"> • Kiêm: {inspectingUser.secondaryPositions.map(s => `${s.roleTitle} (${s.department})`).join(', ')}</span>
@@ -626,15 +626,15 @@ export const UserManagementView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setInspectingUser(null)}
-                    className="text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                    className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
                 {/* Modal Body */}
-                <div className="p-5 overflow-y-auto space-y-3.5 flex-1 text-xs custom-scrollbar">
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100 rounded-xl text-xs font-semibold text-slate-700">
+                <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1 text-xs custom-scrollbar">
+                  <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100 rounded-xl text-xs font-semibold text-slate-700">
                     <span>Số quyền được cấp:</span>
                     <span className="font-mono font-bold text-brand-blue bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
                       {(inspectingUser.permissions || []).length} / {ALL_PERMISSIONS.length} quyền
@@ -645,7 +645,7 @@ export const UserManagementView: React.FC = () => {
                     const catPerms = ALL_PERMISSIONS.filter(p => p.category === cat.id);
                     return (
                       <div key={cat.id} className="border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
-                        <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 font-bold text-[11px] text-slate-800">
+                        <div className="px-3.5 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2 font-bold text-[11px] text-slate-800">
                           {getCategoryIcon(cat.iconName)}
                           <span>{cat.name}</span>
                         </div>
@@ -655,7 +655,7 @@ export const UserManagementView: React.FC = () => {
                             return (
                               <div
                                 key={p.id}
-                                className={`px-2.5 py-2 rounded-xl border text-[11px] flex items-center justify-between transition-all ${isGranted
+                                className={`px-2.5 py-1.5 rounded-xl border text-[11px] flex items-center justify-between transition-all ${isGranted
                                     ? 'bg-blue-50/60 border-brand-blue/30 text-brand-blue font-semibold'
                                     : 'bg-slate-50 border-slate-200 text-slate-400 opacity-50'
                                   }`}
@@ -675,12 +675,12 @@ export const UserManagementView: React.FC = () => {
                   })}
                 </div>
 
-                {/* Modal Footer */}
-                <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0 rounded-b-3xl">
+                {/* Compact Modal Footer */}
+                <div className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0 rounded-b-3xl">
                   <button
                     type="button"
                     onClick={() => setInspectingUser(null)}
-                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
                   >
                     Đóng
                   </button>
@@ -720,27 +720,27 @@ export const UserManagementView: React.FC = () => {
                 className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[90vh] my-auto"
               >
 
-                {/* Modal Header */}
-                <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 shadow-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/10 rounded-xl">
-                      <ShieldCheck className="h-5 w-5 text-amber-300" />
+                {/* Compact Modal Header */}
+                <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-white/10 rounded-xl">
+                      <ShieldCheck className="h-4 w-4 text-amber-300" />
                     </div>
-                    <h3 className="font-bold text-sm text-white">
+                    <h3 className="font-bold text-xs sm:text-sm text-white leading-tight">
                       {editingUser ? 'Chỉnh Sửa Quyền & Tài Khoản' : 'Thêm Người Dùng Mới'}
                     </h3>
                   </div>
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                    className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
                 {/* Modal Body Form */}
-                <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 text-xs custom-scrollbar">
                   {errorMsg && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 flex items-start gap-2 shadow-xs">
                       <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -1157,25 +1157,25 @@ export const UserManagementView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Permanent Modal Footer */}
-                <div className="px-6 py-3.5 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between shrink-0 rounded-b-3xl">
+                {/* Compact Modal Footer */}
+                <div className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between shrink-0 rounded-b-3xl">
                   <div className="text-[11px] text-slate-600 font-medium">
                     Đã chọn: <span className="font-bold text-brand-blue font-mono bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">{selectedPermissions.length}</span> / {ALL_PERMISSIONS.length} quyền
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={handleCloseModal}
-                      className="px-4 py-2 bg-white text-slate-600 border border-slate-300 rounded-xl font-semibold text-xs hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer active:scale-95"
+                      className="px-3.5 py-1.5 bg-white text-slate-600 border border-slate-300 rounded-xl font-semibold text-xs hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer active:scale-95"
                     >
                       Hủy
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-brand-blue-dark hover:to-indigo-700 active:scale-[0.98] text-white font-bold text-xs tracking-wide rounded-xl shadow-glow-blue transition-all cursor-pointer flex items-center gap-1.5"
+                      className="px-4 py-1.5 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-brand-blue-dark hover:to-indigo-700 active:scale-[0.98] text-white font-bold text-xs tracking-wide rounded-xl shadow-glow-blue transition-all cursor-pointer flex items-center gap-1.5"
                     >
-                      <Check className="h-4 w-4" />
+                      <Check className="h-3.5 w-3.5" />
                       <span>{editingUser ? 'Lưu Cập Nhật' : 'Tạo Người Dùng'}</span>
                     </button>
                   </div>

@@ -204,65 +204,66 @@ export const DocumentDetailModal: React.FC = () => {
         }`}
       >
         
-        {/* Header Bar */}
-        <div className="px-6 py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 relative overflow-hidden">
+        {/* Compact Header Bar */}
+        <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 relative overflow-hidden border-b border-indigo-900/40">
           <div className="absolute top-0 right-1/4 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center gap-3.5 relative z-10">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-brand-blue to-cyan-500 flex items-center justify-center shadow-glow-blue border border-white/20">
-              <FileCheck2 className="h-5 w-5 text-white" />
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 relative z-10 mr-2">
+            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-brand-blue to-cyan-500 flex items-center justify-center shadow-xs border border-white/20 shrink-0">
+              <FileCheck2 className="h-4 w-4 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono font-black text-xs bg-brand-red px-2.5 py-0.5 rounded-full text-white shadow-xs">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-mono font-black text-[11px] bg-brand-red px-2 py-0.2 rounded-full text-white shadow-2xs">
                   {selectedDocument.code}
                 </span>
-                <span className="text-xs text-blue-200/90 font-semibold px-2 py-0.5 bg-white/10 rounded-full">
+                <span className="text-[11px] text-blue-200/90 font-medium px-2 py-0.2 bg-white/10 rounded-full truncate max-w-[150px]">
                   {selectedDocument.category}
                 </span>
                 {selectedDocument.priority === 'VERY_URGENT' && (
-                  <span className="text-[10px] font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-glow-amber">
-                    <Flame className="h-3 w-3" />
+                  <span className="text-[9.5px] font-bold bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 shadow-glow-amber shrink-0">
+                    <Flame className="h-2.5 w-2.5" />
                     Hỏa tốc
                   </span>
                 )}
                 {isCurrentStepOverdue && (
-                  <span className="text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-glow-red animate-pulse">
-                    <AlertTriangle className="h-3 w-3" />
+                  <span className="text-[9.5px] font-bold bg-red-500 text-white px-1.5 py-0.2 rounded-full flex items-center gap-0.5 shadow-glow-red animate-pulse shrink-0">
+                    <AlertTriangle className="h-2.5 w-2.5" />
                     Quá hạn SLA ({currentStep?.department})
                   </span>
                 )}
               </div>
-              <h2 className="text-sm sm:text-base font-bold text-white mt-1.5 line-clamp-1">
+              <h2 className="text-xs sm:text-sm font-bold text-white mt-0.5 truncate leading-tight">
                 {selectedDocument.title}
               </h2>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 relative z-10">
+          <div className="flex items-center gap-1 relative z-10 shrink-0">
             <button
               type="button"
               onClick={handlePrint}
               title="In phiếu trình ký"
-              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
             >
-              <Printer className="h-5 w-5" />
+              <Printer className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={handleClose}
-              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              title="Đóng (Esc)"
+              className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Navigation Sub-Tabs */}
-        <div className="flex items-center justify-between px-6 bg-slate-50/90 border-b border-slate-200/80 text-xs font-semibold shrink-0 gap-2 flex-wrap pt-2">
-          <div className="flex gap-2">
+        {/* Compact Navigation Sub-Tabs */}
+        <div className="flex items-center justify-between px-4 sm:px-5 bg-slate-50/90 border-b border-slate-200/80 text-xs font-semibold shrink-0 gap-2 flex-wrap pt-1">
+          <div className="flex gap-1 sm:gap-1.5 overflow-x-auto custom-scrollbar">
             <button
               onClick={() => setActiveTab('DETAILS')}
-              className={`px-4 py-2.5 rounded-t-xl border-b-2 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 sm:py-2 text-[11.5px] rounded-t-lg border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'DETAILS'
                   ? 'border-brand-blue text-brand-blue font-bold bg-white shadow-xs'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -272,49 +273,49 @@ export const DocumentDetailModal: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('ATTACHMENTS')}
-              className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 sm:py-2 text-[11.5px] rounded-t-lg border-b-2 flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'ATTACHMENTS'
                   ? 'border-brand-blue text-brand-blue font-bold bg-white shadow-xs'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
               <span>Hồ sơ scan & Đính kèm (DMS)</span>
-              <span className="px-2 py-0.5 text-[10px] bg-slate-200 text-slate-700 rounded-full font-bold">
+              <span className="px-1.5 py-0.2 text-[9.5px] bg-slate-200 text-slate-700 rounded-full font-bold">
                 {selectedDocument.attachments.length}
               </span>
             </button>
             <button
               onClick={() => setActiveTab('COMMENTS')}
-              className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 sm:py-2 text-[11.5px] rounded-t-lg border-b-2 flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'COMMENTS'
                   ? 'border-brand-blue text-brand-blue font-bold bg-white shadow-xs'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
-              <MessageSquare className="h-3.5 w-3.5" />
+              <MessageSquare className="h-3 w-3" />
               <span>Thảo luận & Trao đổi</span>
               {selectedDocument.comments && selectedDocument.comments.length > 0 && (
-                <span className="px-2 py-0.5 text-[10px] bg-indigo-100 text-indigo-800 rounded-full font-extrabold">
+                <span className="px-1.5 py-0.2 text-[9.5px] bg-indigo-100 text-indigo-800 rounded-full font-extrabold">
                   {selectedDocument.comments.length}
                 </span>
               )}
             </button>
             <button
               onClick={() => setActiveTab('AUDIT')}
-              className={`px-4 py-2.5 rounded-t-xl border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 sm:py-2 text-[11.5px] rounded-t-lg border-b-2 flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'AUDIT'
                   ? 'border-brand-blue text-brand-blue font-bold bg-white shadow-xs'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
-              <History className="h-3.5 w-3.5" />
+              <History className="h-3 w-3" />
               <span>Nhật ký xử lý</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2 pb-2">
-            <span className="text-[11px] text-slate-500">Trạng thái:</span>
-            <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
+          <div className="flex items-center gap-1.5 pb-1">
+            <span className="text-[10.5px] text-slate-500 hidden sm:inline">Trạng thái:</span>
+            <span className={`px-2 py-0.5 text-[10.5px] font-bold rounded-full ${
               selectedDocument.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
               selectedDocument.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
               selectedDocument.status === 'ADDITIONAL_REQ' ? 'bg-amber-100 text-amber-900' :
@@ -330,7 +331,7 @@ export const DocumentDetailModal: React.FC = () => {
         </div>
 
         {/* Body Content (Scrollable) */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar text-xs text-slate-800">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 flex-1 custom-scrollbar text-xs text-slate-800">
           
           {activeTab === 'DETAILS' && (
             <div className="space-y-6">
@@ -936,19 +937,20 @@ export const DocumentDetailModal: React.FC = () => {
 
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3.5 bg-slate-50/90 border-t border-slate-200/80 flex items-center justify-between shrink-0 rounded-b-3xl">
-          <div className="text-[11px] text-slate-500 flex items-center gap-2">
-            <span>Mã hệ thống: <span className="font-mono font-bold text-slate-700">{selectedDocument.id}</span></span>
+        {/* Compact Footer */}
+        <div className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between shrink-0 rounded-b-3xl text-xs">
+          <div className="text-[10.5px] text-slate-500 flex items-center gap-1.5">
+            <span className="hidden sm:inline">Mã hệ thống:</span>
+            <span className="font-mono font-bold text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded text-[10px]">{selectedDocument.id}</span>
             {canUserResubmit && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
-                <AlertTriangle className="h-3 w-3" />
-                Cần bạn bổ sung hồ sơ
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.2 rounded-full">
+                <AlertTriangle className="h-2.5 w-2.5" />
+                Cần bổ sung
               </span>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {canDelete && (
               <button
                 type="button"
@@ -957,9 +959,9 @@ export const DocumentDetailModal: React.FC = () => {
                     deleteDocument(selectedDocument.id);
                   }
                 }}
-                className="px-3.5 py-2 text-xs font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:text-red-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-2.5 py-1.5 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:text-red-800 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3 w-3" />
                 <span>Xóa Hồ Sơ</span>
               </button>
             )}
@@ -967,16 +969,16 @@ export const DocumentDetailModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsResubmitModalOpen(true)}
-                className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 rounded-xl shadow transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 text-[11px] font-bold text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 rounded-lg shadow-xs transition-all flex items-center gap-1 cursor-pointer"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
+                <RotateCcw className="h-3 w-3" />
                 <span>Bổ Sung & Gửi Lại</span>
               </button>
             )}
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 text-[11.5px] font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
             >
               Đóng
             </button>

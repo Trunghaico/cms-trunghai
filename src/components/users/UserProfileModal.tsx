@@ -367,36 +367,37 @@ export const UserProfileModal: React.FC = () => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-hidden">
       <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slide-down transition-all">
         
-        {/* Header Bar */}
-        <div className="px-6 py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between border-b border-indigo-900/40 shrink-0 relative overflow-hidden">
+        {/* Compact Header Bar */}
+        <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between border-b border-indigo-900/40 shrink-0 relative overflow-hidden">
           <div className="absolute top-0 right-1/4 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center gap-3.5 relative z-10">
-            <div className="p-2.5 bg-gradient-to-tr from-amber-500 to-amber-300 rounded-2xl text-slate-950 shadow-glow-amber">
-              <UserIcon className="h-5 w-5" />
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-2 relative z-10">
+            <div className="p-2 bg-gradient-to-tr from-amber-500 to-amber-300 rounded-xl text-slate-950 shadow-xs shrink-0">
+              <UserIcon className="h-4 w-4" />
             </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-bold tracking-tight text-white flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xs sm:text-sm font-bold tracking-tight text-white flex items-center gap-1.5 leading-tight truncate">
                 <span>Thiết Lập Tài Khoản Cá Nhân</span>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 bg-amber-400/90 text-slate-950 rounded-full shadow-xs">
+                <span className="text-[9.5px] font-bold px-2 py-0.2 bg-amber-400/90 text-slate-950 rounded-full shadow-2xs">
                   @{activeUser.username}
                 </span>
               </h2>
-              <p className="text-[11px] text-blue-200/80 mt-0.5">
-                Tự đổi ảnh đại diện (Avatar), cập nhật mật khẩu và chữ ký số cá nhân
+              <p className="text-[10.5px] text-blue-200/80 mt-0.5 truncate">
+                Tự đổi ảnh đại diện (Avatar), mật khẩu và chữ ký số
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer relative z-10"
+            className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer relative z-10"
+            title="Đóng (Esc)"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200/80 bg-slate-50/90 px-6 pt-3 gap-2 text-xs shrink-0">
+        {/* Compact Tab Navigation */}
+        <div className="flex border-b border-slate-200/80 bg-slate-50/90 px-4 sm:px-5 pt-1.5 gap-1 sm:gap-2 text-xs shrink-0 overflow-x-auto custom-scrollbar">
           <button
             type="button"
             onClick={() => {
@@ -404,13 +405,13 @@ export const UserProfileModal: React.FC = () => {
               setErrorMessage('');
               setSuccessMessage('');
             }}
-            className={`px-4 py-2.5 font-bold flex items-center gap-2 border-b-2 rounded-t-xl transition-all cursor-pointer ${
+            className={`px-3 py-1.5 sm:py-2 text-[11.5px] font-bold flex items-center gap-1.5 border-b-2 rounded-t-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'PROFILE'
                 ? 'border-brand-blue text-brand-blue bg-white shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Camera className="h-4 w-4" />
+            <Camera className="h-3.5 w-3.5" />
             <span>Ảnh Đại Diện & Thông Tin</span>
           </button>
 
@@ -421,13 +422,13 @@ export const UserProfileModal: React.FC = () => {
               setErrorMessage('');
               setSuccessMessage('');
             }}
-            className={`px-4 py-2.5 font-bold flex items-center gap-2 border-b-2 rounded-t-xl transition-all cursor-pointer ${
+            className={`px-3 py-1.5 sm:py-2 text-[11.5px] font-bold flex items-center gap-1.5 border-b-2 rounded-t-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'PASSWORD'
                 ? 'border-brand-blue text-brand-blue bg-white shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <KeyRound className="h-4 w-4" />
+            <KeyRound className="h-3.5 w-3.5" />
             <span>Đổi Mật Khẩu</span>
           </button>
 
@@ -438,13 +439,13 @@ export const UserProfileModal: React.FC = () => {
               setErrorMessage('');
               setSuccessMessage('');
             }}
-            className={`px-4 py-2.5 font-bold flex items-center gap-2 border-b-2 rounded-t-xl transition-all cursor-pointer ${
+            className={`px-3 py-1.5 sm:py-2 text-[11.5px] font-bold flex items-center gap-1.5 border-b-2 rounded-t-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'SIGNATURE'
                 ? 'border-brand-blue text-brand-blue bg-white shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <PenTool className="h-4 w-4" />
+            <PenTool className="h-3.5 w-3.5" />
             <span>Chữ Ký Số</span>
           </button>
         </div>
@@ -660,22 +661,22 @@ export const UserProfileModal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200/80">
+              {/* Compact Submit Button */}
+              <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-200/80">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg border border-slate-300 transition-colors cursor-pointer"
                 >
                   Đóng
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2.5 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-brand-blue-dark hover:to-indigo-700 text-white font-bold rounded-xl shadow-glow-blue transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-1.5 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-brand-blue-dark hover:to-indigo-700 text-white font-bold text-xs rounded-lg shadow-glow-blue transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Check className="h-4 w-4" />
-                  <span>{isSubmitting ? 'Đang Lưu...' : 'Lưu Thay Đổi Thông Tin'}</span>
+                  <Check className="h-3.5 w-3.5" />
+                  <span>{isSubmitting ? 'Đang Lưu...' : 'Lưu Thay Đổi'}</span>
                 </button>
               </div>
 
@@ -798,22 +799,22 @@ export const UserProfileModal: React.FC = () => {
 
               </div>
 
-              {/* Submit Button */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200/80">
+              {/* Compact Submit Button */}
+              <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-200/80">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg border border-slate-300 transition-colors cursor-pointer"
                 >
                   Hủy Bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || (confirmPass.length > 0 && newPass !== confirmPass)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-glow-emerald transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-lg shadow-glow-emerald transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  <Lock className="h-4 w-4" />
-                  <span>{isSubmitting ? 'Đang Lưu...' : 'Xác Nhận Đổi Mật Khẩu'}</span>
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>{isSubmitting ? 'Đang Lưu...' : 'Đổi Mật Khẩu'}</span>
                 </button>
               </div>
 

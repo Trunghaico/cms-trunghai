@@ -265,17 +265,17 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[92vh] my-auto"
           >
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-gradient-to-r from-brand-navy to-slate-900 text-white flex items-center justify-between shrink-0 shadow-xs border-b border-navy-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/10 rounded-xl text-amber-300">
-                  <Sliders className="h-5 w-5" />
+            {/* Compact Modal Header */}
+            <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-brand-navy to-slate-900 text-white flex items-center justify-between shrink-0 shadow-xs border-b border-navy-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-white/10 rounded-xl text-amber-300">
+                  <Sliders className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm sm:text-base leading-tight">
+                  <h3 className="font-bold text-xs sm:text-sm leading-tight text-white">
                     Cấu Hình & Quản Lý Mẫu Phân Quyền (Permission Presets)
                   </h3>
-                  <p className="text-[11px] text-blue-100 mt-0.5">
+                  <p className="text-[10px] sm:text-[10.5px] text-blue-100 mt-0.5 leading-tight">
                     Thiết lập danh sách quyền hạn cho từng mẫu để chọn nhanh chính xác khi thêm người dùng mới
                   </p>
                 </div>
@@ -283,9 +283,9 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
               <button 
                 type="button"
                 onClick={onClose}
-                className="text-white/80 hover:text-white p-1.5 transition-colors cursor-pointer rounded-full hover:bg-white/10"
+                className="text-white/80 hover:text-white p-1.5 transition-colors cursor-pointer rounded-lg hover:bg-white/10"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -419,7 +419,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                 <form onSubmit={handleSave} className="flex-1 flex flex-col min-h-0">
                   
                   {/* Preset Basic Info Header */}
-                  <div className="p-4 border-b border-slate-200/80 bg-slate-50/70 shrink-0 space-y-3">
+                  <div className="px-4 py-2.5 border-b border-slate-200/80 bg-slate-50/70 shrink-0 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-amber-500" />
@@ -431,7 +431,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                         <button
                           type="button"
                           onClick={handleApplyPresetToForm}
-                          className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-all shadow-glow-emerald active:scale-98"
+                          className="px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-all shadow-glow-emerald active:scale-98"
                         >
                           <Check className="h-3.5 w-3.5" />
                           <span>Áp dụng mẫu này vào người dùng</span>
@@ -439,9 +439,9 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
                           Tên mẫu phân quyền <span className="text-brand-red">*</span>
                         </label>
                         <input
@@ -450,18 +450,18 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder="VD: Kế toán viên, Thủ kho..."
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
                           Thẩm quyền ký duyệt liên quan <span className="text-brand-red">*</span>
                         </label>
                         <select
                           value={role}
                           onChange={(e) => setRole(e.target.value as UserRole)}
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer"
                         >
                           <option value="STAFF">Chuyên viên (Lập hồ sơ)</option>
                           <option value="DEPT_HEAD">Trưởng phòng (Duyệt cấp phòng)</option>
@@ -474,7 +474,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
                           Chức vụ gợi ý
                         </label>
                         <input
@@ -482,13 +482,13 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                           value={roleTitle}
                           onChange={(e) => setRoleTitle(e.target.value)}
                           placeholder="VD: Nhân viên mua hàng"
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      <label className="block text-[11px] font-medium text-slate-600 mb-0.5">
                         Mô tả / Ghi chú mục đích sử dụng mẫu
                       </label>
                       <input
@@ -496,19 +496,19 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="VD: Dành cho nhân sự phụ trách lập phiếu đề xuất vật tư và theo dõi kho"
-                        className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-blue/30 text-slate-600"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-blue/30 text-slate-600"
                       />
                     </div>
                   </div>
 
                   {/* Permissions Selection Toolbar */}
-                  <div className="px-4 py-2.5 bg-slate-100/80 border-b border-slate-200/80 flex items-center justify-between shrink-0">
+                  <div className="px-4 py-2 bg-slate-100/80 border-b border-slate-200/80 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4 text-brand-blue" />
                       <span className="font-bold text-xs text-slate-800">
                         Tick chọn phân quyền chi tiết cho mẫu
                       </span>
-                      <span className="px-2.5 py-0.5 bg-blue-50 text-brand-blue border border-brand-blue/30 rounded-full font-mono font-bold text-[10.5px]">
+                      <span className="px-2 py-0.5 bg-blue-50 text-brand-blue border border-brand-blue/30 rounded-full font-mono font-bold text-[10px]">
                         {selectedPermissions.length} / {ALL_PERMISSIONS.length} quyền được cấp
                       </span>
                     </div>
@@ -517,14 +517,14 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                       <button
                         type="button"
                         onClick={selectAll}
-                        className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-brand-blue border border-brand-blue/30 rounded-lg text-[11px] font-semibold cursor-pointer active:scale-95 transition-all"
+                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-brand-blue border border-brand-blue/30 rounded-lg text-[11px] font-semibold cursor-pointer active:scale-95 transition-all"
                       >
                         Chọn tất cả
                       </button>
                       <button
                         type="button"
                         onClick={clearAll}
-                        className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-600 border border-slate-300 rounded-lg text-[11px] font-semibold cursor-pointer active:scale-95 transition-all"
+                        className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-600 border border-slate-300 rounded-lg text-[11px] font-semibold cursor-pointer active:scale-95 transition-all"
                       >
                         Bỏ tất cả
                       </button>
@@ -601,8 +601,8 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                     })}
                   </div>
 
-                  {/* Footer Actions */}
-                  <div className="p-3.5 border-t border-slate-200/80 bg-white flex items-center justify-between shrink-0">
+                  {/* Compact Footer Actions */}
+                  <div className="px-4 py-2 sm:py-2.5 border-t border-slate-200/80 bg-white flex items-center justify-between shrink-0">
                     <div>
                       {activePreset && !activePreset.isSystem && !isCreatingNew && (
                         <button
@@ -620,14 +620,14 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
                       <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                        className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
                       >
                         Đóng
                       </button>
 
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-gradient-to-r from-brand-blue to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-glow-blue active:scale-98 flex items-center gap-1.5"
+                        className="px-3.5 py-1.5 bg-gradient-to-r from-brand-blue to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-glow-blue active:scale-98 flex items-center gap-1.5"
                       >
                         <ShieldCheck className="h-4 w-4 text-amber-300" />
                         <span>{isCreatingNew ? '💾 Lưu mẫu mới' : '💾 Lưu cấu hình mẫu'}</span>

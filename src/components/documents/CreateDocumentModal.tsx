@@ -683,15 +683,15 @@ export const CreateDocumentModal: React.FC = () => {
         }`}
       >
         
-        {/* Modal Header */}
-        <div className="px-4 sm:px-6 py-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex items-center justify-between border-b border-indigo-900/60 shadow-xs shrink-0">
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="p-2 bg-white/10 rounded-xl shadow-xs shrink-0">
-              <FileText className="h-5 w-5 text-cyan-300" />
+        {/* Compact Modal Header */}
+        <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex items-center justify-between border-b border-indigo-900/60 shadow-xs shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+            <div className="p-1.5 bg-white/10 rounded-lg shadow-xs shrink-0">
+              <FileText className="h-4 w-4 text-cyan-300" />
             </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-bold tracking-tight">Khởi Tạo Hồ Sơ Trình Ký</h2>
-              <p className="text-[10.5px] sm:text-[11px] text-indigo-200">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xs sm:text-sm font-bold tracking-tight leading-tight truncate">Khởi Tạo Hồ Sơ Trình Ký</h2>
+              <p className="text-[10px] sm:text-[10.5px] text-indigo-200 truncate">
                 Thiết lập thông tin và cấu hình người / phòng ban phê duyệt
               </p>
             </div>
@@ -699,14 +699,15 @@ export const CreateDocumentModal: React.FC = () => {
           <button
             type="button"
             onClick={handleClose}
-            className="text-white/80 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+            className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            title="Đóng (Esc)"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Modal Body Form */}
-        <form id="create-document-form" onSubmit={handleSubmit} className="p-3.5 sm:p-6 space-y-4 text-xs text-slate-800 flex-1 overflow-y-auto overflow-x-hidden max-w-full">
+        <form id="create-document-form" onSubmit={handleSubmit} className="p-3.5 sm:p-5 space-y-3.5 text-xs text-slate-800 flex-1 overflow-y-auto overflow-x-hidden max-w-full">
           
           {errorMsg && (
             <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 flex items-center gap-2 rounded-xl text-xs">
@@ -1466,12 +1467,12 @@ export const CreateDocumentModal: React.FC = () => {
 
         </form>
 
-        {/* Fixed Form Actions Footer (Always visible) */}
-        <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-200/80 flex items-center justify-end gap-3 shrink-0 pb-[max(env(safe-area-inset-bottom,0px),12px)]">
+        {/* Compact Form Actions Footer */}
+        <div className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 pb-[max(env(safe-area-inset-bottom,0px),10px)]">
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-xl font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-semibold text-xs hover:bg-slate-100 transition-colors cursor-pointer"
           >
             Hủy
           </button>
@@ -1479,7 +1480,7 @@ export const CreateDocumentModal: React.FC = () => {
             type="submit"
             form="create-document-form"
             disabled={isSubmitting}
-            className="px-6 py-2 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white font-bold uppercase tracking-wider rounded-xl shadow-glow-red transition-all cursor-pointer active:scale-98"
+            className="px-5 py-1.5 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-glow-red transition-all cursor-pointer active:scale-98"
           >
             Gửi Trình Ký
           </button>
