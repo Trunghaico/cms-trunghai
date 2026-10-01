@@ -24,7 +24,11 @@ import {
   Server,
   Zap,
   ShieldCheck,
-  Activity
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { DepartmentItem, JobTitleItem, PermissionPreset, OverdueAction } from '../../types';
@@ -116,6 +120,56 @@ export const SystemSettingsView: React.FC = () => {
   const [isLoadingBackups, setIsLoadingBackups] = useState(false);
   const [testUploadMsg, setTestUploadMsg] = useState<{ url: string; size: number } | null>(null);
   const [isUploadingTest, setIsUploadingTest] = useState(false);
+  const [backupCurrentPage, setBackupCurrentPage] = useState(1);
+  const [backupPageSize, setBackupPageSize] = useState(15);
+  const [backupSearchTerm, setBackupSearchTerm] = useState('');
+
+  // Tự động chuyển về trang 1 khi lọc hoặc đổi cỡ trang
+  useEffect(() => {
+    setBackupCurrentPage(1);
+  }, [backupSearchTerm, backupPageSize]);
+
+  const filteredBackups = useMemo(() => {
+    if (!backupSearchTerm.trim()) return backups;
+    const term = backupSearchTerm.toLowerCase().trim();
+    return backups.filter(b => 
+      b.fileName.toLowerCase().includes(term) || 
+      b.key.toLowerCase().includes(term) ||
+      new Date(b.lastModified).toLocaleString('vi-VN').toLowerCase().includes(term)
+    );
+  }, [backups, backupSearchTerm]);
+
+  const totalBackupItems = filteredBackups.length;
+  const totalBackupPages = Math.max(1, Math.ceil(totalBackupItems / backupPageSize));
+
+  useEffect(() => {
+    if (backupCurrentPage > totalBackupPages) {
+      setBackupCurrentPage(totalBackupPages);
+    }
+  }, [totalBackupPages, backupCurrentPage]);
+
+  const backupStartIndex = (backupCurrentPage - 1) * backupPageSize;
+  const backupEndIndex = Math.min(backupStartIndex + backupPageSize, totalBackupItems);
+
+  const paginatedBackups = useMemo(() => {
+    return filteredBackups.slice(backupStartIndex, backupStartIndex + backupPageSize);
+  }, [filteredBackups, backupStartIndex, backupPageSize]);
+
+  const getBackupPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalBackupPages <= 7) {
+      for (let i = 1; i <= totalBackupPages; i++) pages.push(i);
+    } else {
+      if (backupCurrentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalBackupPages);
+      } else if (backupCurrentPage >= totalBackupPages - 2) {
+        pages.push(1, '...', totalBackupPages - 3, totalBackupPages - 2, totalBackupPages - 1, totalBackupPages);
+      } else {
+        pages.push(1, '...', backupCurrentPage - 1, backupCurrentPage, backupCurrentPage + 1, '...', totalBackupPages);
+      }
+    }
+    return pages;
+  };
   
   // Department Modal State
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
@@ -1293,19 +1347,31 @@ export const SystemSettingsView: React.FC = () => {
 
             {/* 4. Historical Backups on NAS Table */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
                   <Database className="w-4 h-4 text-purple-600" />
                   <span>Lịch Sử Các Bản Sao Lưu Database Trên MinIO NAS ({backups.length})</span>
                 </div>
-                <button
-                  onClick={handleLoadBackups}
-                  disabled={isLoadingBackups}
-                  className="flex items-center gap-1 text-xs text-brand-blue font-semibold hover:underline cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBackups ? 'animate-spin' : ''}`} />
-                  <span>Làm mới danh sách</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={backupSearchTerm}
+                      onChange={(e) => setBackupSearchTerm(e.target.value)}
+                      placeholder="Tìm theo tên file, thời gian..."
+                      className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-blue font-medium w-48 sm:w-64"
+                    />
+                  </div>
+                  <button
+                    onClick={handleLoadBackups}
+                    disabled={isLoadingBackups}
+                    className="flex items-center gap-1 text-xs text-brand-blue font-semibold hover:underline cursor-pointer shrink-0"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBackups ? 'animate-spin' : ''}`} />
+                    <span>Làm mới danh sách</span>
+                  </button>
+                </div>
               </div>
 
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
@@ -1320,16 +1386,16 @@ export const SystemSettingsView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                    {backups.length === 0 ? (
+                    {paginatedBackups.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="py-8 text-center text-slate-400">
-                          {isLoadingBackups ? 'Đang tải danh sách bản sao lưu từ NAS...' : 'Chưa có bản sao lưu lịch sử nào. Nhấn "Sao Lưu Lên NAS" để tạo bản snapshot đầu tiên!'}
+                          {isLoadingBackups ? 'Đang tải danh sách bản sao lưu từ NAS...' : 'Chưa có bản sao lưu lịch sử nào phù hợp.'}
                         </td>
                       </tr>
                     ) : (
-                      backups.map((b, idx) => (
+                      paginatedBackups.map((b, idx) => (
                         <tr key={b.key} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-4 text-center font-mono text-slate-400">{idx + 1}</td>
+                          <td className="py-3 px-4 text-center font-mono text-slate-400">{backupStartIndex + idx + 1}</td>
                           <td className="py-3 px-4">
                             <span className="font-mono font-bold text-brand-blue">{b.fileName}</span>
                             <div className="text-[10px] text-slate-400 font-mono">{b.key}</div>
@@ -1354,6 +1420,111 @@ export const SystemSettingsView: React.FC = () => {
                     )}
                   </tbody>
                 </table>
+
+                {/* Pagination Footer */}
+                <div className="px-4 sm:px-6 py-3.5 bg-slate-50/90 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                  {/* Summary & Page size selector */}
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                    <span>
+                      Hiển thị <strong className="text-slate-900">{totalBackupItems === 0 ? 0 : backupStartIndex + 1}</strong> - <strong className="text-slate-900">{backupEndIndex}</strong> trên <strong className="text-slate-900">{totalBackupItems}</strong> bản sao lưu
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-400 hidden sm:inline">|</span>
+                      <span className="text-slate-500">Mỗi trang:</span>
+                      <select
+                        value={backupPageSize}
+                        onChange={(e) => {
+                          setBackupPageSize(Number(e.target.value));
+                          setBackupCurrentPage(1);
+                        }}
+                        className="bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg px-2 py-1 focus:outline-none focus:border-brand-blue cursor-pointer shadow-2xs"
+                      >
+                        <option value={15}>15 bản</option>
+                        <option value={25}>25 bản</option>
+                        <option value={50}>50 bản</option>
+                        <option value={100}>100 bản</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Pagination Navigation Controls */}
+                  {totalBackupPages > 1 && (
+                    <div className="flex items-center gap-1 w-full sm:w-auto justify-center sm:justify-end">
+                      {/* First page */}
+                      <button
+                        onClick={() => setBackupCurrentPage(1)}
+                        disabled={backupCurrentPage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                        title="Trang đầu tiên"
+                      >
+                        <ChevronsLeft className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Prev page */}
+                      <button
+                        onClick={() => setBackupCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={backupCurrentPage === 1}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none text-xs font-medium transition-colors cursor-pointer"
+                        title="Trang trước"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Trước</span>
+                      </button>
+
+                      {/* Page numbers */}
+                      <div className="flex items-center gap-1">
+                        {getBackupPageNumbers().map((page, idx) => {
+                          if (page === '...') {
+                            return (
+                              <span key={`dots-${idx}`} className="px-1.5 py-1 text-slate-400 font-bold select-none text-xs">
+                                ...
+                              </span>
+                            );
+                          }
+                          const isCurrent = page === backupCurrentPage;
+                          return (
+                            <button
+                              key={`page-${page}`}
+                              onClick={() => setBackupCurrentPage(Number(page))}
+                              className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                                isCurrent
+                                  ? 'bg-brand-blue text-white shadow-xs'
+                                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Next page */}
+                      <button
+                        onClick={() => setBackupCurrentPage(p => Math.min(totalBackupPages, p + 1))}
+                        disabled={backupCurrentPage === totalBackupPages}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none text-xs font-medium transition-colors cursor-pointer"
+                        title="Trang sau"
+                      >
+                        <span className="hidden sm:inline">Sau</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Last page */}
+                      <button
+                        onClick={() => setBackupCurrentPage(totalBackupPages)}
+                        disabled={backupCurrentPage === totalBackupPages}
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                        title="Trang cuối"
+                      >
+                        <ChevronsRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {totalBackupPages <= 1 && (
+                    <span className="font-semibold text-purple-700 text-xs hidden sm:inline">MinIO NAS Snapshots</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
