@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useDocument } from '../../context/DocumentContext';
 import { DocumentFilter } from './DocumentFilter';
 import { DocumentItem } from '../../types';
@@ -18,7 +18,11 @@ import {
   Plus,
   FileSignature,
   RotateCcw,
-  MessageSquare
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 interface DocumentTableProps {
@@ -54,6 +58,10 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'createdAt' | 'code' | 'amount'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Pagination State - Mặc định tối đa 15 hồ sơ / trang theo yêu cầu
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(15);
 
   // Lấy danh sách danh mục & phòng ban duy nhất
   const categories = useMemo(() => Array.from(new Set(documents.map(d => d.category))), [documents]);
@@ -172,6 +180,44 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     });
   }, [documents, filterType, activeUser, statusFilter, priorityFilter, categoryFilter, departmentFilter, searchTerm, globalSearchQuery, sortBy, sortOrder]);
 
+  // Tự động chuyển về trang 1 khi người dùng thay đổi bộ lọc, tìm kiếm hoặc tab
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, statusFilter, priorityFilter, categoryFilter, departmentFilter, searchTerm, globalSearchQuery, sortBy, sortOrder, pageSize]);
+
+  const totalItems = filteredDocuments.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  // Đảm bảo currentPage luôn hợp lệ khi danh sách hồ sơ thay đổi
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+  const paginatedDocuments = useMemo(() => {
+    return filteredDocuments.slice(startIndex, startIndex + pageSize);
+  }, [filteredDocuments, startIndex, pageSize]);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
+
   const toggleSort = (field: 'createdAt' | 'code' | 'amount') => {
     if (sortBy === field) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -283,7 +329,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {filteredDocuments.map((doc) => {
+              {paginatedDocuments.map((doc) => {
                 const currentStep = doc.steps[doc.currentStepIndex];
                 const isApproverForCurrentStep = isUserApproverForStep(activeUser, currentStep);
                 const isMyTurn = doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && doc.status !== 'ADDITIONAL_REQ' && currentStep?.status === 'CURRENT' && isApproverForCurrentStep;
@@ -465,7 +511,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredDocuments.map((doc) => {
+                paginatedDocuments.map((doc) => {
                   const currentStep = doc.steps[doc.currentStepIndex];
                   const isApproverForCurrentStep = isUserApproverForStep(activeUser, currentStep);
                   const isMyTurn = doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && doc.status !== 'ADDITIONAL_REQ' && currentStep?.status === 'CURRENT' && isApproverForCurrentStep;
@@ -636,10 +682,111 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           </table>
         </div>
 
-        {/* Table / Feed Footer */}
-        <div className="px-4 sm:px-5 py-3.5 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-          <span>Hiển thị <strong>{filteredDocuments.length}</strong> trên <strong>{documents.length}</strong> hồ sơ</span>
-          <span className="font-semibold text-indigo-700">Trung Hải E-Approval BPM</span>
+        {/* Table / Feed Footer & Pagination */}
+        <div className="px-4 sm:px-6 py-4 bg-slate-50/90 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+          
+          {/* Summary & Page size selector */}
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <span>
+              Hiển thị <strong className="text-slate-900">{totalItems === 0 ? 0 : startIndex + 1}</strong> - <strong className="text-slate-900">{endIndex}</strong> trên <strong className="text-slate-900">{totalItems}</strong> hồ sơ
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 hidden sm:inline">|</span>
+              <span className="text-slate-500">Mỗi trang:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg px-2.5 py-1 focus:outline-none focus:border-brand-blue cursor-pointer shadow-2xs"
+              >
+                <option value={15}>15 hồ sơ</option>
+                <option value={25}>25 hồ sơ</option>
+                <option value={50}>50 hồ sơ</option>
+                <option value={100}>100 hồ sơ</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Pagination Navigation Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-center sm:justify-end">
+              {/* First page */}
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang đầu tiên"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+
+              {/* Prev page */}
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none text-xs font-medium transition-colors cursor-pointer"
+                title="Trang trước"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Trước</span>
+              </button>
+
+              {/* Page numbers */}
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((page, idx) => {
+                  if (page === '...') {
+                    return (
+                      <span key={`dots-${idx}`} className="px-2 py-1 text-slate-400 font-bold select-none">
+                        ...
+                      </span>
+                    );
+                  }
+                  const isCurrent = page === currentPage;
+                  return (
+                    <button
+                      key={`page-${page}`}
+                      onClick={() => setCurrentPage(Number(page))}
+                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                        isCurrent
+                          ? 'bg-brand-blue text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Next page */}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none text-xs font-medium transition-colors cursor-pointer"
+                title="Trang sau"
+              >
+                <span className="hidden sm:inline">Sau</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              {/* Last page */}
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang cuối"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {totalPages <= 1 && (
+            <span className="font-semibold text-indigo-700 text-xs hidden sm:inline">Trung Hải E-Approval BPM</span>
+          )}
+
         </div>
       </div>
 
