@@ -41,7 +41,9 @@ import {
   deduplicateJobTitles,
   deduplicatePresets,
   deduplicateWorkflowTemplates,
-  formatDate
+  formatDate,
+  exportFullDatabaseJson,
+  importFullDatabaseJson
 } from '../lib/storage';
 import {
   saveDatabaseToNAS,
@@ -109,6 +111,8 @@ interface DocumentContextType {
   testNAS: () => Promise<{ success: boolean; message: string; latencyMs?: number; bucket?: string }>;
   listBackups: () => Promise<NASBackupItem[]>;
   persistStateToDatabase?: (overrides?: any) => Promise<any>;
+  exportDatabaseBackupFile: () => { success: boolean; message: string };
+  importDatabaseBackupFile: (file: File) => Promise<{ success: boolean; message: string }>;
 
   // Settings: Departments, Job Titles & Permission Presets
   departments: DepartmentItem[];
@@ -2765,6 +2769,53 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     window.location.reload();
   };
 
+  const exportDatabaseBackupFile = (): { success: boolean; message: string } => {
+    try {
+      const jsonStr = exportFullDatabaseJson(activeUser?.name || 'admin');
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const d = new Date();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const timestamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+      a.href = url;
+      a.download = `cms_trunghai_full_backup_${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return { success: true, message: 'Đã xuất file sao lưu JSON thành công!' };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Lỗi xuất file sao lưu' };
+    }
+  };
+
+  const importDatabaseBackupFile = async (file: File): Promise<{ success: boolean; message: string }> => {
+    try {
+      const text = await file.text();
+      const result = importFullDatabaseJson(text);
+      if (result.success && result.data) {
+        const db = result.data;
+        if (Array.isArray(db.users)) setUsers(loadUsers());
+        if (Array.isArray(db.departments)) setDepartments(loadDepartments());
+        if (Array.isArray(db.jobTitles)) setJobTitles(loadJobTitles());
+        if (Array.isArray(db.permissionPresets)) setPermissionPresets(loadPermissionPresets());
+        if (Array.isArray(db.workflowTemplates)) setWorkflowTemplates(loadWorkflowTemplates());
+        if (Array.isArray(db.documents)) setDocuments(loadDocuments());
+        if (Array.isArray(db.notifications)) setNotifications(loadNotifications());
+
+        persistStateToDatabase({
+          actionDescription: 'Khôi phục từ file JSON sao lưu'
+        }).catch(() => {});
+
+        return { success: true, message: result.message };
+      }
+      return { success: false, message: result.message };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Lỗi đọc file sao lưu' };
+    }
+  };
+
   // 1. Hồ sơ được phân quyền xem:
   // "Hồ sơ của ai lập thì chỉ có người lập và người phê duyệt với người theo dõi được thấy thôi. Còn lại các tài khoản khác sẽ không thấy của nhau."
   const accessibleDocuments = useMemo(() => {
@@ -2925,6 +2976,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         testNAS,
         listBackups,
         persistStateToDatabase,
+        exportDatabaseBackupFile,
+        importDatabaseBackupFile,
 
         // Profile & Password Management
         isProfileModalOpen,

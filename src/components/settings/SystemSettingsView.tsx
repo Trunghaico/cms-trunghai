@@ -88,6 +88,8 @@ export const SystemSettingsView: React.FC = () => {
     autoBackupConfig,
     autoBackupCountdown,
     updateAutoBackupConfig,
+    exportDatabaseBackupFile,
+    importDatabaseBackupFile,
     hasPermission
   } = useDocument();
 
@@ -357,6 +359,40 @@ export const SystemSettingsView: React.FC = () => {
       handleLoadBackups();
     } else {
       showNotification('error', res.message || 'Lỗi sao lưu lên NAS.');
+    }
+  };
+
+  const [isImportingJson, setIsImportingJson] = useState(false);
+
+  const handleExportJson = () => {
+    const res = exportDatabaseBackupFile();
+    if (res.success) {
+      showNotification('success', res.message);
+    } else {
+      showNotification('error', res.message);
+    }
+  };
+
+  const handleImportJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    if (window.confirm(`Bạn có chắc chắn muốn khôi phục dữ liệu từ file "${file.name}"?\n\nDữ liệu hiện tại trên ứng dụng sẽ được thay thế bằng dữ liệu trong file này.`)) {
+      setIsImportingJson(true);
+      try {
+        const res = await importDatabaseBackupFile(file);
+        if (res.success) {
+          showNotification('success', res.message);
+        } else {
+          showNotification('error', res.message);
+        }
+      } catch (err: any) {
+        showNotification('error', err.message || 'Lỗi khôi phục');
+      } finally {
+        setIsImportingJson(false);
+        e.target.value = '';
+      }
+    } else {
+      e.target.value = '';
     }
   };
 
@@ -1154,7 +1190,7 @@ export const SystemSettingsView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2 font-bold text-slate-900 text-sm mb-2">
                     <Database className="w-4 h-4 text-brand-blue" />
-                    <span>Dung Lượng & Thống Kê Database</span>
+                    <span>Sao Lưu & Đồng Bộ Database</span>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     Đang quản lý <strong>{documents.length}</strong> hồ sơ, <strong>{users.length}</strong> nhân sự, <strong>{departments.length}</strong> phòng ban và <strong>{jobTitles.length}</strong> chức vụ.
@@ -1166,23 +1202,53 @@ export const SystemSettingsView: React.FC = () => {
                 </div>
 
                 <div className="space-y-2 pt-2 border-t border-slate-200">
-                  <button
-                    onClick={handleSyncToNAS}
-                    disabled={isNASSyncing}
-                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    <UploadCloud className={`w-4 h-4 ${isNASSyncing ? 'animate-bounce' : ''}`} />
-                    <span>{isNASSyncing ? 'Đang sao lưu...' : 'Sao Lưu Database Ngay'}</span>
-                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      onClick={handleSyncToNAS}
+                      disabled={isNASSyncing}
+                      className="py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Sao lưu snapshot lên Synology NAS MinIO"
+                    >
+                      <UploadCloud className={`w-3.5 h-3.5 ${isNASSyncing ? 'animate-bounce' : ''}`} />
+                      <span>{isNASSyncing ? 'Đang lưu...' : 'Lưu Lên NAS'}</span>
+                    </button>
 
-                  <button
-                    onClick={() => handleRestoreFromNAS()}
-                    disabled={isNASSyncing}
-                    className="w-full py-2 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                  >
-                    <DownloadCloud className="w-4 h-4 text-brand-blue" />
-                    <span>Khôi Phục Bản Mới Nhất</span>
-                  </button>
+                    <button
+                      onClick={() => handleRestoreFromNAS()}
+                      disabled={isNASSyncing}
+                      className="py-2 px-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Khôi phục database từ snapshot trên NAS"
+                    >
+                      <DownloadCloud className="w-3.5 h-3.5 text-brand-blue" />
+                      <span>Phục Hồi Từ NAS</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-200/80">
+                    <button
+                      onClick={handleExportJson}
+                      className="py-2 px-2.5 bg-blue-50 hover:bg-blue-100 text-brand-blue border border-brand-blue/30 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Tải toàn bộ cơ sở dữ liệu về máy tính dạng file JSON"
+                    >
+                      <DownloadCloud className="w-3.5 h-3.5 text-brand-blue" />
+                      <span>Tải File .JSON</span>
+                    </button>
+
+                    <label
+                      className={`py-2 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${isImportingJson ? 'opacity-50 pointer-events-none' : ''}`}
+                      title="Khôi phục database từ file JSON đã lưu trên máy"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5 text-purple-600" />
+                      <span>{isImportingJson ? 'Đang nạp...' : 'Nạp File .JSON'}</span>
+                      <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={handleImportJson}
+                        disabled={isImportingJson}
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

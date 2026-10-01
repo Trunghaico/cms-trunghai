@@ -662,3 +662,121 @@ export const formatShortDate = (dateStr?: string): string => {
     return dateStr;
   }
 };
+
+/**
+ * Xuất toàn bộ dữ liệu hệ thống ra đối tượng Backup JSON
+ */
+export const exportFullDatabaseJson = (exportedBy?: string): string => {
+  const users = loadUsers();
+  const depts = loadDepartments();
+  const jobs = loadJobTitles();
+  const presets = loadPermissionPresets();
+  const templates = loadWorkflowTemplates();
+  const docs = loadDocuments();
+  const notifs = loadNotifications();
+  const deletedDocs = loadDeletedDocumentIds();
+  const deletedUsers = loadDeletedUserIds();
+  const deletedDepts = loadDeletedDeptIds();
+  const deletedJobs = loadDeletedJobIds();
+  const deletedPresets = loadDeletedPresetIds();
+  const deletedTemplates = loadDeletedWorkflowTemplateIds();
+
+  const backupObject = {
+    system: "CMS Phê Duyệt Văn Bản & Trình Ký Điện Tử - Công Ty TNHH Thiết Bị Khoa Học Kỹ Thuật Trung Hải",
+    company: "Công Ty TNHH Thiết Bị Khoa Học Kỹ Thuật Trung Hải (Trung Hai Science Co., Ltd)",
+    version: "1.0.1",
+    exportedAt: new Date().toISOString(),
+    exportedBy: exportedBy || "admin",
+    summary: {
+      totalUsers: users.length,
+      totalDepartments: depts.length,
+      totalJobTitles: jobs.length,
+      totalPermissionPresets: presets.length,
+      totalWorkflowTemplates: templates.length,
+      totalDocuments: docs.length,
+      totalNotifications: notifs.length,
+    },
+    database: {
+      users,
+      departments: depts,
+      jobTitles: jobs,
+      permissionPresets: presets,
+      workflowTemplates: templates,
+      documents: docs,
+      notifications: notifs,
+      deletedUserIds: deletedUsers,
+      deletedDepartmentIds: deletedDepts,
+      deletedJobTitleIds: deletedJobs,
+      deletedPresetIds: deletedPresets,
+      deletedWorkflowTemplateIds: deletedTemplates,
+      deletedDocumentIds: deletedDocs
+    }
+  };
+
+  return JSON.stringify(backupObject, null, 2);
+};
+
+/**
+ * Nhập và khôi phục toàn bộ database từ đối tượng Backup JSON
+ */
+export const importFullDatabaseJson = (jsonContent: string): { success: boolean; message: string; data?: any } => {
+  try {
+    const parsed = JSON.parse(jsonContent);
+    const db = parsed.database || parsed;
+
+    if (!db || (!db.users && !db.documents)) {
+      return { success: false, message: 'Tệp sao lưu không đúng định dạng cơ sở dữ liệu Trung Hải CMS.' };
+    }
+
+    if (Array.isArray(db.users)) {
+      saveUsers(db.users);
+    }
+    if (Array.isArray(db.departments)) {
+      saveDepartments(db.departments);
+    }
+    if (Array.isArray(db.jobTitles)) {
+      saveJobTitles(db.jobTitles);
+    }
+    if (Array.isArray(db.permissionPresets)) {
+      savePermissionPresets(db.permissionPresets);
+    }
+    if (Array.isArray(db.workflowTemplates)) {
+      saveWorkflowTemplates(db.workflowTemplates);
+    }
+    if (Array.isArray(db.documents)) {
+      saveDocuments(db.documents);
+    }
+    if (Array.isArray(db.notifications)) {
+      saveNotifications(db.notifications);
+    }
+
+    // Khôi phục các danh sách blacklist đã xóa nếu có
+    if (Array.isArray(db.deletedUserIds)) {
+      localStorage.setItem(STORAGE_KEY_DELETED_USERS, JSON.stringify(db.deletedUserIds));
+    }
+    if (Array.isArray(db.deletedDepartmentIds)) {
+      localStorage.setItem(STORAGE_KEY_DELETED_DEPTS, JSON.stringify(db.deletedDepartmentIds));
+    }
+    if (Array.isArray(db.deletedJobTitleIds)) {
+      localStorage.setItem(STORAGE_KEY_DELETED_JOBS, JSON.stringify(db.deletedJobTitleIds));
+    }
+    if (Array.isArray(db.deletedPresetIds)) {
+      localStorage.setItem(STORAGE_KEY_DELETED_PRESETS, JSON.stringify(db.deletedPresetIds));
+    }
+    if (Array.isArray(db.deletedWorkflowTemplateIds)) {
+      localStorage.setItem(STORAGE_KEY_DELETED_WF_TEMPLATES, JSON.stringify(db.deletedWorkflowTemplateIds));
+    }
+    if (Array.isArray(db.deletedDocumentIds)) {
+      localStorage.setItem(STORAGE_KEY_DELETED_DOCS, JSON.stringify(db.deletedDocumentIds));
+    }
+
+    return { 
+      success: true, 
+      message: `Khôi phục thành công! Đã nạp ${db.users?.length || 0} nhân sự, ${db.departments?.length || 0} phòng ban, ${db.documents?.length || 0} hồ sơ.`,
+      data: db
+    };
+  } catch (e: any) {
+    return { success: false, message: `Lỗi đọc file JSON sao lưu: ${e.message || 'Lỗi cú pháp'}` };
+  }
+};
+
