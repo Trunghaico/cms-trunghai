@@ -313,6 +313,32 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveNotifications(notifications);
   }, [notifications]);
 
+  // Lắng nghe BroadcastChannel để đồng bộ tức thời giữa các tab trình duyệt và ứng dụng
+  useEffect(() => {
+    if (!syncBroadcastChannel) return;
+    const handleBroadcast = (e: MessageEvent) => {
+      const data = e.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.type === 'USERS_UPDATED' && Array.isArray(data.users)) {
+        setUsers(deduplicateUsers(data.users));
+      } else if (data.type === 'DEPARTMENTS_UPDATED' && Array.isArray(data.departments)) {
+        setDepartments(deduplicateDepartments(data.departments));
+      } else if (data.type === 'JOB_TITLES_UPDATED' && Array.isArray(data.jobTitles)) {
+        setJobTitles(deduplicateJobTitles(data.jobTitles));
+      } else if (data.type === 'PRESETS_UPDATED' && Array.isArray(data.permissionPresets)) {
+        setPermissionPresets(deduplicatePresets(data.permissionPresets));
+      } else if (data.type === 'WF_UPDATED' && Array.isArray(data.workflowTemplates)) {
+        setWorkflowTemplates(deduplicateWorkflowTemplates(data.workflowTemplates));
+      } else if (data.type === 'DOCUMENTS_UPDATED' && Array.isArray(data.documents)) {
+        setDocuments(deduplicateDocuments(data.documents));
+      }
+    };
+    syncBroadcastChannel.addEventListener('message', handleBroadcast);
+    return () => {
+      syncBroadcastChannel.removeEventListener('message', handleBroadcast);
+    };
+  }, []);
+
   // Kiểm tra tính hợp lệ của phiên đăng nhập (Đơn phiên đăng nhập: khi máy mới đăng nhập thì máy cũ sẽ bị đá ra)
   const validateActiveSession = useCallback((latestUsers: User[]) => {
     if (!activeUser) return;
@@ -1261,6 +1287,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedUsers = [...users, newUser];
     setUsers(updatedUsers);
     saveUsers(updatedUsers);
+    syncBroadcastChannel?.postMessage({ type: 'USERS_UPDATED', users: updatedUsers });
     persistStateToDatabase({
       users: updatedUsers,
       actionDescription: `Thêm nhân sự mới: ${newUser.name}`
@@ -1290,6 +1317,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setUsers(updatedUsers);
     saveUsers(updatedUsers);
+    syncBroadcastChannel?.postMessage({ type: 'USERS_UPDATED', users: updatedUsers });
 
     if (activeUser?.id === userId) {
       const updatedActive = updatedUsers.find(u => u.id === userId);
@@ -1335,6 +1363,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedUsers = deduplicateUsers(filtered);
     setUsers(updatedUsers);
     saveUsers(updatedUsers);
+    syncBroadcastChannel?.postMessage({ type: 'USERS_UPDATED', users: updatedUsers });
     persistStateToDatabase({
       users: updatedUsers,
       actionDescription: `Xóa nhân sự: ${userToDelete?.name || userId}`

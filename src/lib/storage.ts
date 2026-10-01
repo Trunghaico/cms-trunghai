@@ -233,17 +233,11 @@ export const deduplicateUsers = (usersList: User[]): User[] => {
     if (uId) seenIds.add(uId);
     if (uName) seenUsernames.add(uName);
 
-    // Đồng bộ lại quyền chuẩn theo vai trò cho các tài khoản mặc định
+    // Bảo toàn quyền hạn và chức danh kiêm nhiệm chính xác của người dùng
     const defaultPerms = ROLE_PRESET_PERMISSIONS[u.role] || ROLE_PRESET_PERMISSIONS.STAFF;
     let finalPermissions = defaultPerms;
-    if (u.role === 'ADMIN') {
-      finalPermissions = Array.isArray(u.permissions) && u.permissions.length > 0 ? u.permissions : defaultPerms;
-    } else if (Array.isArray(u.permissions) && u.permissions.length > 0) {
-      if (uId.startsWith('user-')) {
-        finalPermissions = defaultPerms;
-      } else {
-        finalPermissions = u.permissions;
-      }
+    if (Array.isArray(u.permissions) && u.permissions.length > 0) {
+      finalPermissions = u.permissions;
     }
 
     result.push({
