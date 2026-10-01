@@ -131,8 +131,8 @@ const AppContent: React.FC = () => {
       {/* Top Header - Fixed & Pinned at Top */}
       <Header onOpenDrawer={() => setIsMobileDrawerOpen(true)} />
 
-      {/* Main Layout: Fixed Compact Sidebar (w-60) on Left + Scrollable Content on Right (pt-14 sm:pt-16 for Fixed Header) */}
-      <div className="flex-1 flex min-w-0 max-w-full pt-14 sm:pt-16">
+      {/* Main Layout: Fixed Compact Sidebar (w-60) on Left + Scrollable Content on Right (Accommodates Fixed Header + Safe Area) */}
+      <div className="flex-1 flex min-w-0 max-w-full pt-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(4rem+env(safe-area-inset-top,0px))]">
         {/* Left Fixed Sidebar (Hidden on mobile < md) */}
         <Sidebar />
 

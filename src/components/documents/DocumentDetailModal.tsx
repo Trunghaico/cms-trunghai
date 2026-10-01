@@ -186,7 +186,7 @@ export const DocumentDetailModal: React.FC = () => {
 
   return (
     <div 
-      className={`fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto ${
+      className={`fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe ${
         isClosing ? 'animate-backdrop-out pointer-events-none' : 'animate-backdrop-in'
       }`}
       onMouseDown={(e) => {
@@ -199,18 +199,23 @@ export const DocumentDetailModal: React.FC = () => {
       }}
     >
       <div 
-        className={`bg-white/95 backdrop-blur-xl rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200/80 flex flex-col max-h-[92vh] overflow-hidden ${
+        className={`bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200/80 flex flex-col h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:h-auto sm:max-h-[92vh] overflow-hidden ${
           isClosing ? 'animate-modal-out' : 'animate-modal-in'
         }`}
       >
         
-        {/* Compact Header Bar */}
-        <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between shrink-0 relative overflow-hidden border-b border-indigo-900/40">
+        {/* Compact Header Bar with Mobile Grab Handle */}
+        <div className="px-4 sm:px-5 pt-2.5 pb-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex flex-col shrink-0 relative overflow-hidden border-b border-indigo-900/40">
           <div className="absolute top-0 right-1/4 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 relative z-10 mr-2">
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-brand-blue to-cyan-500 flex items-center justify-center shadow-xs border border-white/20 shrink-0">
-              <FileCheck2 className="h-4 w-4 text-white" />
-            </div>
+          
+          {/* Mobile Top Grab Bar Indicator */}
+          <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mb-1.5 sm:hidden shrink-0" />
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 relative z-10 mr-2">
+              <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-brand-blue to-cyan-500 flex items-center justify-center shadow-xs border border-white/20 shrink-0">
+                <FileCheck2 className="h-4 w-4 text-white" />
+              </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-mono font-black text-[11px] bg-brand-red px-2 py-0.2 rounded-full text-white shadow-2xs">
@@ -257,6 +262,7 @@ export const DocumentDetailModal: React.FC = () => {
             </button>
           </div>
         </div>
+      </div>
 
         {/* Compact Navigation Sub-Tabs */}
         <div className="flex items-center justify-between px-4 sm:px-5 bg-slate-50/90 border-b border-slate-200/80 text-xs font-semibold shrink-0 gap-2 flex-wrap pt-1">

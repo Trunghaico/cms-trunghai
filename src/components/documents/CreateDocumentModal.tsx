@@ -676,34 +676,39 @@ export const CreateDocumentModal: React.FC = () => {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-0 sm:p-4 overflow-hidden pt-safe pb-safe">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-0 sm:p-4 overflow-hidden pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe">
       <div 
-        className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl h-[94vh] sm:max-h-[92vh] flex flex-col overflow-hidden transition-all duration-200 transform ${
+        className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:h-auto sm:max-h-[92vh] flex flex-col overflow-hidden transition-all duration-200 transform ${
           isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100 animate-slide-down'
         }`}
       >
         
-        {/* Compact Modal Header */}
-        <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex items-center justify-between border-b border-indigo-900/60 shadow-xs shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-            <div className="p-1.5 bg-white/10 rounded-lg shadow-xs shrink-0">
-              <FileText className="h-4 w-4 text-cyan-300" />
+        {/* Compact Modal Header with Mobile Drag Bar Handle */}
+        <div className="px-4 sm:px-5 pt-2.5 pb-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex flex-col border-b border-indigo-900/60 shadow-xs shrink-0">
+          {/* Mobile Top Grab Bar Indicator */}
+          <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mb-1.5 sm:hidden shrink-0" />
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+              <div className="p-1.5 bg-white/10 rounded-lg shadow-xs shrink-0">
+                <FileText className="h-4 w-4 text-cyan-300" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xs sm:text-sm font-bold tracking-tight leading-tight truncate">Khởi Tạo Hồ Sơ Trình Ký</h2>
+                <p className="text-[10px] sm:text-[10.5px] text-indigo-200 truncate">
+                  Thiết lập thông tin và cấu hình người / phòng ban phê duyệt
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xs sm:text-sm font-bold tracking-tight leading-tight truncate">Khởi Tạo Hồ Sơ Trình Ký</h2>
-              <p className="text-[10px] sm:text-[10.5px] text-indigo-200 truncate">
-                Thiết lập thông tin và cấu hình người / phòng ban phê duyệt
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+              title="Đóng (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-            title="Đóng (Esc)"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
         {/* Modal Body Form */}
@@ -850,7 +855,7 @@ export const CreateDocumentModal: React.FC = () => {
                   required
                   value={desiredDeadline}
                   onChange={(e) => setDesiredDeadline(e.target.value)}
-                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all shadow-2xs"
+                  className="w-full max-w-full min-w-0 appearance-none box-border min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all shadow-2xs"
                 />
               </div>
             </div>

@@ -364,36 +364,42 @@ export const UserProfileModal: React.FC = () => {
   const passStrength = getPasswordStrength(newPass);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-hidden">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slide-down transition-all">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-hidden pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe">
+      <div className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden flex flex-col h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:h-auto sm:max-h-[90vh] animate-slide-down transition-all">
         
-        {/* Compact Header Bar */}
-        <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between border-b border-indigo-900/40 shrink-0 relative overflow-hidden">
+        {/* Compact Header Bar with Mobile Grab Handle */}
+        <div className="px-4 sm:px-5 pt-2.5 pb-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex flex-col border-b border-indigo-900/40 shrink-0 relative overflow-hidden">
           <div className="absolute top-0 right-1/4 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-2 relative z-10">
-            <div className="p-2 bg-gradient-to-tr from-amber-500 to-amber-300 rounded-xl text-slate-950 shadow-xs shrink-0">
-              <UserIcon className="h-4 w-4" />
+          
+          {/* Mobile Top Grab Bar Indicator */}
+          <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mb-1.5 sm:hidden shrink-0" />
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-2 relative z-10">
+              <div className="p-2 bg-gradient-to-tr from-amber-500 to-amber-300 rounded-xl text-slate-950 shadow-xs shrink-0">
+                <UserIcon className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xs sm:text-sm font-bold tracking-tight text-white flex items-center gap-1.5 leading-tight truncate">
+                  <span>Thiết Lập Tài Khoản Cá Nhân</span>
+                  <span className="text-[9.5px] font-bold px-2 py-0.2 bg-amber-400/90 text-slate-950 rounded-full shadow-2xs">
+                    @{activeUser.username}
+                  </span>
+                </h2>
+                <p className="text-[10.5px] text-blue-200/80 mt-0.5 truncate">
+                  Tự đổi ảnh đại diện (Avatar), mật khẩu và chữ ký số
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xs sm:text-sm font-bold tracking-tight text-white flex items-center gap-1.5 leading-tight truncate">
-                <span>Thiết Lập Tài Khoản Cá Nhân</span>
-                <span className="text-[9.5px] font-bold px-2 py-0.2 bg-amber-400/90 text-slate-950 rounded-full shadow-2xs">
-                  @{activeUser.username}
-                </span>
-              </h2>
-              <p className="text-[10.5px] text-blue-200/80 mt-0.5 truncate">
-                Tự đổi ảnh đại diện (Avatar), mật khẩu và chữ ký số
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer relative z-10"
+              title="Đóng (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer relative z-10"
-            title="Đóng (Esc)"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
         {/* Compact Tab Navigation */}

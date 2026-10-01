@@ -145,7 +145,7 @@ export const ResubmitDocumentModal: React.FC<ResubmitDocumentModalProps> = ({
   return (
     <>
       <div 
-        className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-backdrop-in"
+        className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe animate-backdrop-in"
         onMouseDown={(e) => {
           mouseDownTargetRef.current = e.target;
         }}
@@ -155,37 +155,43 @@ export const ResubmitDocumentModal: React.FC<ResubmitDocumentModalProps> = ({
           }
         }}
       >
-        <div className="bg-white/95 backdrop-blur-xl rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200/80 flex flex-col max-h-[94vh] overflow-hidden animate-modal-in">
+        <div className="bg-white/95 backdrop-blur-xl rounded-t-3xl sm:rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200/80 flex flex-col h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:h-auto sm:max-h-[94vh] overflow-hidden animate-modal-in">
           
-          {/* Compact Header */}
-          <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-amber-950 to-orange-950 text-white flex items-center justify-between shrink-0 shadow-xs relative overflow-hidden border-b border-amber-900/40">
+          {/* Compact Header with Mobile Grab Handle */}
+          <div className="px-4 sm:px-5 pt-2.5 pb-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-amber-950 to-orange-950 text-white flex flex-col shrink-0 shadow-xs relative overflow-hidden border-b border-amber-900/40">
             <div className="absolute top-0 right-1/4 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-2 relative z-10">
-              <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center border border-white/20 shadow-xs shrink-0">
-                <RotateCcw className="h-4 w-4 text-white animate-spin-once" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-white flex-wrap leading-tight">
-                  <span>Bổ Sung Hồ Sơ & Gửi Lại</span>
-                  <span className="text-[10px] bg-white/20 text-white font-mono px-2 py-0.2 rounded-full border border-white/30">
-                    {doc.code}
-                  </span>
-                </h3>
-                <p className="text-[11px] text-amber-200/80 mt-0.5 truncate">
-                  {doc.title}
-                </p>
-              </div>
-            </div>
+            
+            {/* Mobile Top Grab Bar Indicator */}
+            <div className="w-10 h-1 bg-white/30 rounded-full mx-auto mb-1.5 sm:hidden shrink-0" />
 
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer relative z-10"
-              title="Đóng (Esc)"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-2 relative z-10">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center border border-white/20 shadow-xs shrink-0">
+                  <RotateCcw className="h-4 w-4 text-white animate-spin-once" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-white flex-wrap leading-tight">
+                    <span>Bổ Sung Hồ Sơ & Gửi Lại</span>
+                    <span className="text-[10px] bg-white/20 text-white font-mono px-2 py-0.2 rounded-full border border-white/30">
+                      {doc.code}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-amber-200/80 mt-0.5 truncate">
+                    {doc.title}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer relative z-10"
+                title="Đóng (Esc)"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Form Content */}

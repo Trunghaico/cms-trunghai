@@ -119,7 +119,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
   const modalContent = (
     <div 
-      className={`fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-1 sm:p-2 md:p-3 overflow-hidden ${
+      className={`fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-1 sm:p-2 md:p-3 overflow-hidden pt-[max(env(safe-area-inset-top,0px),8px)] pb-safe ${
         isClosing ? 'animate-backdrop-out pointer-events-none' : 'animate-backdrop-in'
       }`}
       style={{ zIndex: 99999 }}

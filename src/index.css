@@ -62,6 +62,31 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+/* Cross-device normalization for datetime-local, date, time inputs (WebKit Safari / Blink) */
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+}
+
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.4em;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 4px;
+}
+
 /* Ensure inputs, buttons, and monospace elements have crystal clear typography */
 input, select, textarea, button {
   font-family: inherit;
