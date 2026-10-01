@@ -740,7 +740,7 @@ export const CreateDocumentModal: React.FC = () => {
                 <select
                   value={selectedTemplateId}
                   onChange={(e) => handleApplyTemplate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900/95 border border-blue-400/50 hover:border-amber-400 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer shadow-inner"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-900/95 border border-blue-400/50 hover:border-amber-400 rounded-xl text-xs sm:text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer shadow-inner"
                 >
                   <option value="">-- Tự chọn phòng ban / người duyệt --</option>
                   {workflowTemplates.map((tpl) => (
@@ -766,16 +766,19 @@ export const CreateDocumentModal: React.FC = () => {
           </div>
 
           {/* SECTION 1: THÔNG TIN HỒ SƠ */}
-          <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-3 shadow-2xs">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="bg-slate-50/90 p-4 sm:p-5 rounded-2xl border border-slate-200/90 space-y-4 shadow-2xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
+              {/* Loại hồ sơ */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Loại hồ sơ <span className="text-brand-red">*</span>
+                <label className="flex items-center gap-1.5 font-bold text-slate-700 mb-1.5 text-xs sm:text-sm">
+                  <FileText className="w-4 h-4 text-brand-blue shrink-0" />
+                  <span>Loại hồ sơ</span>
+                  <span className="text-brand-red">*</span>
                 </label>
                 <select
                   value={category}
                   onChange={(e) => handleCategoryChange(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue cursor-pointer transition-all"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue cursor-pointer transition-all shadow-2xs"
                 >
                   {availableCategories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -783,26 +786,28 @@ export const CreateDocumentModal: React.FC = () => {
                 </select>
               </div>
 
+              {/* Dự án / Công trình */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Dự án / Công trình
+                <label className="flex items-center gap-1.5 font-bold text-slate-700 mb-1.5 text-xs sm:text-sm">
+                  <FolderKanban className="w-4 h-4 text-brand-blue shrink-0" />
+                  <span>Dự án / Công trình</span>
                 </label>
-                <div className="relative">
-                  <FolderKanban className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={project}
-                    onChange={(e) => setProject(e.target.value)}
-                    placeholder="VD: Dự án Xi măng Nghi Sơn..."
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={project}
+                  onChange={(e) => setProject(e.target.value)}
+                  placeholder="VD: Dự án Xi măng Nghi Sơn..."
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-medium text-slate-800 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all shadow-2xs"
+                />
               </div>
             </div>
 
+            {/* Tên / Trích yếu hồ sơ */}
             <div>
-              <label className="block font-bold text-slate-700 mb-1">
-                Tên / Trích yếu hồ sơ <span className="text-brand-red">*</span>
+              <label className="flex items-center gap-1.5 font-bold text-slate-700 mb-1.5 text-xs sm:text-sm">
+                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>Tên / Trích yếu hồ sơ</span>
+                <span className="text-brand-red">*</span>
               </label>
               <input
                 type="text"
@@ -810,56 +815,55 @@ export const CreateDocumentModal: React.FC = () => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="VD: Tờ trình phê duyệt phương án thi công gói thầu số 02..."
-                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
+                className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-900 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all shadow-2xs"
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
               {/* Phòng ban khởi tạo */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Phòng ban khởi tạo <span className="text-brand-red">*</span>
+                <label className="flex items-center gap-1.5 font-bold text-slate-700 mb-1.5 text-xs sm:text-sm">
+                  <Building2 className="w-4 h-4 text-brand-blue shrink-0" />
+                  <span>Phòng ban khởi tạo</span>
+                  <span className="text-brand-red">*</span>
                 </label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  <select
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue cursor-pointer transition-all"
-                  >
-                    {allDepartments.map(d => (
-                      <option key={d.id} value={d.name}>{d.name} ({d.code})</option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue cursor-pointer transition-all shadow-2xs"
+                >
+                  {allDepartments.map(d => (
+                    <option key={d.id} value={d.name}>{d.name} ({d.code})</option>
+                  ))}
+                </select>
               </div>
 
+              {/* Hạn duyệt mong muốn (Ngày & Giờ) */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Hạn duyệt mong muốn (Ngày & Giờ) <span className="text-brand-red">*</span>
+                <label className="flex items-center gap-1.5 font-bold text-slate-700 mb-1.5 text-xs sm:text-sm">
+                  <Clock className="w-4 h-4 text-brand-blue shrink-0" />
+                  <span>Hạn duyệt mong muốn (Ngày & Giờ)</span>
+                  <span className="text-brand-red">*</span>
                 </label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  <input
-                    type="datetime-local"
-                    required
-                    value={desiredDeadline}
-                    onChange={(e) => setDesiredDeadline(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
-                  />
-                </div>
+                <input
+                  type="datetime-local"
+                  required
+                  value={desiredDeadline}
+                  onChange={(e) => setDesiredDeadline(e.target.value)}
+                  className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all shadow-2xs"
+                />
               </div>
             </div>
 
             {/* Độ khẩn / Mức độ ưu tiên */}
-            <div className="pt-2 border-t border-slate-200">
-              <label className="block font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <span>Độ khẩn / Mức độ ưu tiên</span>
+            <div className="pt-2.5 border-t border-slate-200/90">
+              <label className="block font-bold text-slate-700 mb-2 flex items-center justify-between gap-1.5 flex-wrap">
+                <span className="text-xs sm:text-sm">Độ khẩn / Mức độ ưu tiên</span>
                 <span className="text-slate-400 font-normal text-[11px]">(Phân loại để các ban ưu tiên xét duyệt đúng hạn)</span>
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <label 
-                  className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-2 min-h-[44px] p-2.5 rounded-xl border cursor-pointer transition-all ${
                     priority === 'NORMAL' 
                       ? 'bg-slate-100 border-slate-400 text-slate-900 font-bold shadow-2xs ring-2 ring-slate-400/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -874,11 +878,11 @@ export const CreateDocumentModal: React.FC = () => {
                     className="sr-only" 
                   />
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-xs">Bình thường</span>
+                  <span className="text-xs sm:text-sm">Bình thường</span>
                 </label>
 
                 <label 
-                  className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-2 min-h-[44px] p-2.5 rounded-xl border cursor-pointer transition-all ${
                     priority === 'URGENT' 
                       ? 'bg-amber-50 border-amber-400 text-amber-900 font-bold shadow-2xs ring-2 ring-amber-400/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-amber-50/50'
@@ -893,11 +897,11 @@ export const CreateDocumentModal: React.FC = () => {
                     className="sr-only" 
                   />
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-                  <span className="text-xs">Khẩn (Trong ngày)</span>
+                  <span className="text-xs sm:text-sm">Khẩn (Trong ngày)</span>
                 </label>
 
                 <label 
-                  className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-2 min-h-[44px] p-2.5 rounded-xl border cursor-pointer transition-all ${
                     priority === 'VERY_URGENT' 
                       ? 'bg-red-50 border-brand-red text-brand-red font-bold shadow-2xs ring-2 ring-brand-red/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-red-50/50'
@@ -911,8 +915,8 @@ export const CreateDocumentModal: React.FC = () => {
                     onChange={() => setPriority('VERY_URGENT')}
                     className="sr-only" 
                   />
-                  <Flame className="w-3.5 h-3.5 text-brand-red shrink-0" />
-                  <span className="text-xs font-bold text-brand-red">Hỏa tốc (Xử lý ngay)</span>
+                  <Flame className="w-4 h-4 text-brand-red shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-brand-red">Hỏa tốc (Xử lý ngay)</span>
                 </label>
               </div>
             </div>
@@ -1031,7 +1035,7 @@ export const CreateDocumentModal: React.FC = () => {
                         <select
                           value={currentValue}
                           onChange={(e) => handleChangeStepTarget(idx, e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-300 rounded-xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer truncate shadow-2xs"
+                          className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-300 rounded-xl font-bold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer truncate shadow-2xs"
                         >
                           <optgroup label="🏢 --- PHÒNG BAN XÉT DUYỆT ---">
                             {allDepartments.map(d => {
@@ -1151,7 +1155,7 @@ export const CreateDocumentModal: React.FC = () => {
             {/* Ô tìm kiếm THÊM NHANH */}
             <div className="relative pt-1" ref={approverSearchRef}>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
                   value={approverSearchQuery}
@@ -1161,9 +1165,9 @@ export const CreateDocumentModal: React.FC = () => {
                     setIsApproverDropdownOpen(true);
                   }}
                   placeholder="+ Thêm người hoặc phòng ban duyệt tiếp theo..."
-                  className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue font-medium transition-all"
+                  className="w-full min-h-[44px] pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-white border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue font-medium transition-all shadow-2xs"
                 />
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
 
               {isApproverDropdownOpen && (
@@ -1279,7 +1283,7 @@ export const CreateDocumentModal: React.FC = () => {
 
             <div className="relative" ref={ccSearchRef}>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
                   value={ccSearchQuery}
@@ -1289,9 +1293,9 @@ export const CreateDocumentModal: React.FC = () => {
                     setIsCcDropdownOpen(true);
                   }}
                   placeholder="Gõ tìm nhanh người nhận thông báo tiến độ..."
-                  className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue font-medium transition-all"
+                  className="w-full min-h-[44px] pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue font-medium transition-all shadow-2xs"
                 />
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
 
               {isCcDropdownOpen && (
@@ -1467,22 +1471,33 @@ export const CreateDocumentModal: React.FC = () => {
 
         </form>
 
-        {/* Compact Form Actions Footer */}
-        <div className="px-4 sm:px-5 py-2 sm:py-2.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-end gap-2.5 shrink-0 pb-[max(env(safe-area-inset-bottom,0px),10px)]">
+        {/* Form Actions Footer */}
+        <div className="px-4 sm:px-6 py-3 sm:py-3.5 bg-slate-50/95 backdrop-blur-md border-t border-slate-200/90 flex items-center justify-between sm:justify-end gap-3 shrink-0 pb-[max(env(safe-area-inset-bottom,0px),12px)] shadow-lg">
           <button
             type="button"
             onClick={handleClose}
-            className="px-3.5 py-1.5 bg-white text-slate-700 border border-slate-300 rounded-lg font-semibold text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-initial min-w-[100px] min-h-[44px] py-2.5 px-5 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 border border-slate-300 hover:border-slate-400 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-2xs active:scale-98 flex items-center justify-center gap-1.5"
           >
-            Hủy
+            <X className="w-4 h-4 text-slate-500" />
+            <span>Hủy</span>
           </button>
           <button
             type="submit"
             form="create-document-form"
             disabled={isSubmitting}
-            className="px-5 py-1.5 bg-gradient-to-r from-brand-red to-red-600 hover:from-red-600 hover:to-brand-red text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-glow-red transition-all cursor-pointer active:scale-98"
+            className="flex-1 sm:flex-initial min-w-[160px] min-h-[44px] py-2.5 px-6 sm:px-8 bg-gradient-to-r from-brand-red via-red-600 to-rose-700 hover:from-red-600 hover:to-brand-red text-white font-bold text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-[0_4px_16px_rgba(225,29,72,0.35)] hover:shadow-[0_6px_20px_rgba(225,29,72,0.5)] transition-all cursor-pointer active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Gửi Trình Ký
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin stroke-[2.5]" />
+                <span>Đang Gửi...</span>
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 stroke-[2.5]" />
+                <span>Gửi Trình Ký</span>
+              </>
+            )}
           </button>
         </div>
 
