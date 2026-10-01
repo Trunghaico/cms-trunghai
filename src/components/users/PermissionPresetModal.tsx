@@ -249,7 +249,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-[999999] bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+          className="fixed inset-0 z-[999999] bg-slate-900/75 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe"
           onMouseDown={(e) => {
             mouseDownTargetRef.current = e.target;
           }}
@@ -263,7 +263,7 @@ export const PermissionPresetModal: React.FC<PermissionPresetModalProps> = ({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.94, opacity: 0, y: 15 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[92vh] my-auto"
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:h-auto sm:max-h-[92vh] my-auto"
           >
             {/* Compact Modal Header */}
             <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-brand-navy to-slate-900 text-white flex items-center justify-between shrink-0 shadow-xs border-b border-navy-800">

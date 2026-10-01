@@ -1297,12 +1297,12 @@ export const SystemSettingsView: React.FC = () => {
       {/* MODAL: Thêm / Chỉnh sửa Phòng Ban */}
       <AnimatePresence>
         {isDeptModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe overflow-hidden">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden"
+              className="bg-white rounded-t-3xl sm:rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden max-h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:max-h-[90vh] flex flex-col"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <div className="flex items-center gap-2.5">
@@ -1433,12 +1433,12 @@ export const SystemSettingsView: React.FC = () => {
       {/* MODAL: Thêm / Chỉnh sửa Chức Vụ */}
       <AnimatePresence>
         {isJobModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe overflow-hidden">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden"
+              className="bg-white rounded-t-3xl sm:rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden max-h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:max-h-[90vh] flex flex-col"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
                 <div className="flex items-center gap-2.5">

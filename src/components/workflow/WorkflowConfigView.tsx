@@ -700,8 +700,8 @@ export const WorkflowConfigView: React.FC = () => {
 
       {/* MODAL: ADD / EDIT WORKFLOW TEMPLATE */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe overflow-hidden">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-3xl h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:h-auto sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
             <div className="px-6 py-4 bg-gradient-to-r from-brand-navy to-slate-900 border-b border-navy-800 text-white flex items-center justify-between shrink-0">
