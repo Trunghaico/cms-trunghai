@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useDocument } from '../../context/DocumentContext';
 import { 
   History, 
@@ -12,7 +12,11 @@ import {
   AlertCircle, 
   RotateCcw,
   Zap,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { formatDate } from '../../lib/storage';
 
@@ -20,6 +24,8 @@ export const AuditLogView: React.FC = () => {
   const { documents, setSelectedDocument } = useDocument();
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   // Tổng hợp tất cả audit logs từ toàn bộ hồ sơ
   const allAuditLogs = useMemo(() => {
@@ -79,6 +85,43 @@ export const AuditLogView: React.FC = () => {
       return true;
     });
   }, [allAuditLogs, actionFilter, searchTerm]);
+
+  // Tự động chuyển về trang 1 khi lọc hoặc thay đổi kích thước trang
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, actionFilter, pageSize]);
+
+  const totalItems = filteredLogs.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+  const paginatedLogs = useMemo(() => {
+    return filteredLogs.slice(startIndex, startIndex + pageSize);
+  }, [filteredLogs, startIndex, pageSize]);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
 
   const getActionBadge = (action: string, actorId?: string) => {
     if (actorId === 'SYSTEM_BOT') {
@@ -195,14 +238,14 @@ export const AuditLogView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredLogs.length === 0 ? (
+              {paginatedLogs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-slate-400">
                     Không tìm thấy nhật ký hoạt động nào phù hợp
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => (
+                paginatedLogs.map((log) => (
                   <tr key={log.logId} className="hover:bg-blue-50/30 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
                       {formatDate(log.timestamp)}
@@ -238,6 +281,111 @@ export const AuditLogView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Table Footer & Pagination */}
+        <div className="px-4 sm:px-6 py-4 bg-slate-50/90 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+          {/* Summary & Page size selector */}
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <span>
+              Hiển thị <strong className="text-slate-900">{totalItems === 0 ? 0 : startIndex + 1}</strong> - <strong className="text-slate-900">{endIndex}</strong> trên <strong className="text-slate-900">{totalItems}</strong> nhật ký
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 hidden sm:inline">|</span>
+              <span className="text-slate-500">Mỗi trang:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg px-2.5 py-1 focus:outline-none focus:border-brand-blue cursor-pointer shadow-2xs"
+              >
+                <option value={15}>15 nhật ký</option>
+                <option value={25}>25 nhật ký</option>
+                <option value={50}>50 nhật ký</option>
+                <option value={100}>100 nhật ký</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Pagination Navigation Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-center sm:justify-end">
+              {/* First page */}
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang đầu tiên"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+
+              {/* Prev page */}
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none text-xs font-medium transition-colors cursor-pointer"
+                title="Trang trước"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Trước</span>
+              </button>
+
+              {/* Page numbers */}
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((page, idx) => {
+                  if (page === '...') {
+                    return (
+                      <span key={`dots-${idx}`} className="px-2 py-1 text-slate-400 font-bold select-none">
+                        ...
+                      </span>
+                    );
+                  }
+                  const isCurrent = page === currentPage;
+                  return (
+                    <button
+                      key={`page-${page}`}
+                      onClick={() => setCurrentPage(Number(page))}
+                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                        isCurrent
+                          ? 'bg-brand-blue text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Next page */}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none text-xs font-medium transition-colors cursor-pointer"
+                title="Trang sau"
+              >
+                <span className="hidden sm:inline">Sau</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              {/* Last page */}
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                title="Trang cuối"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {totalPages <= 1 && (
+            <span className="font-semibold text-brand-blue text-xs hidden sm:inline">Trung Hải Audit Trail</span>
+          )}
         </div>
       </div>
 
