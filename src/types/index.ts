@@ -111,6 +111,9 @@ export interface User {
   lastMobileLoginAt?: string;
   currentWebSessionId?: string; // Phiên đăng nhập hoạt động duy nhất trên Trình Duyệt Web (Desktop Web)
   lastWebLoginAt?: string;
+  currentSessionId?: string; // Phiên đăng nhập hoạt động duy nhất hiện tại trên thiết bị mới nhất
+  lastLoginAt?: string; // Thời điểm đăng nhập mới nhất (ISO string)
+  lastLoginPlatform?: 'MOBILE' | 'WEB'; // Nền tảng thiết bị đăng nhập cuối cùng
 }
 
 export interface Attachment {
