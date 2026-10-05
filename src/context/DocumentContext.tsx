@@ -199,14 +199,32 @@ interface DocumentContextType {
   };
 }
 
-// Helper phát hiện loại thiết bị (Điện thoại / Mobile hay Trình duyệt Web / Desktop)
+// Helper phát hiện loại thiết bị (Điện thoại / App hay Trình duyệt Web / Máy tính)
 export const getPlatformType = (): 'MOBILE' | 'WEB' => {
   if (typeof window === 'undefined') return 'WEB';
+
+  // Nếu phiên đăng nhập hiện tại đã có platform lưu trong localStorage, giữ nguyên để tránh bị nhảy platform khi đổi kích thước màn hình
+  const savedPlatform = localStorage.getItem('trunghai_active_session_platform');
+  if (savedPlatform === 'MOBILE' || savedPlatform === 'WEB') {
+    return savedPlatform;
+  }
+
+  // 1. Kiểm tra chế độ PWA Standalone (App độc lập cài trên màn hình điện thoại hoặc máy tính)
+  const isStandalone =
+    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+    (window.navigator as any)?.standalone === true ||
+    (typeof document !== 'undefined' && document.referrer?.includes('android-app://'));
+
+  if (isStandalone) return 'MOBILE';
+
+  // 2. Nhận biết thiết bị di động / máy tính bảng (Mobile / Tablet)
   const ua = (navigator.userAgent || navigator.vendor || (window as any).opera || '').toLowerCase();
-  const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
-  const isTouch = 'ontouchstart' in window || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0);
+  const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isTouch = 'ontouchstart' in window || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1);
   const isSmallScreen = window.innerWidth <= 768;
-  return isMobileUA || (isTouch && isSmallScreen) ? 'MOBILE' : 'WEB';
+
+  return (isMobileUA || (isTouch && isSmallScreen)) ? 'MOBILE' : 'WEB';
 };
 
 // Helper tính toán chữ ký dữ liệu (Fingerprint) để phát hiện sự thay đổi thực sự
@@ -220,7 +238,7 @@ const calculateStateFingerprint = (
   notifs: NotificationItem[]
 ): string => {
   const dSig = (docs || []).map(d => `${d.id}:${d.status}:${d.updatedAt || d.createdAt}:${d.currentStepIndex}:${(d.steps || []).map(s => s.status).join(',')}`).join(';');
-  const uSig = (usrs || []).map(u => `${u.id}:${u.pass}:${u.role}:${u.department}:${u.name}:${u.avatar || ''}:${u.email || ''}:${u.signatureUrl || ''}:${u.currentSessionId || ''}:${u.currentMobileSessionId || ''}:${u.currentWebSessionId || ''}:${u.lastLoginAt || ''}`).join(';');
+  const uSig = (usrs || []).map(u => `${u.id}:${u.pass}:${u.role}:${u.department}:${u.name}:${u.avatar || ''}:${u.email || ''}:${u.signatureUrl || ''}:${u.currentMobileSessionId || ''}:${u.lastMobileLoginAt || ''}:${u.currentWebSessionId || ''}:${u.lastWebLoginAt || ''}`).join(';');
   const dpSig = (depts || []).map(d => `${d.id}:${d.name}:${d.defaultSlaHours}`).join(';');
   const jSig = (jobs || []).map(j => `${j.id}:${j.name}`).join(';');
   const pSig = (presets || []).map(p => `${p.id}:${p.name}`).join(';');
@@ -339,13 +357,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, []);
 
-  // Kiểm tra tính hợp lệ của phiên đăng nhập (Đơn phiên đăng nhập: khi máy mới đăng nhập thì máy cũ sẽ bị đá ra)
+  // Kiểm tra tính hợp lệ của phiên đăng nhập (Đơn phiên đăng nhập riêng biệt theo từng nền tảng: web-với-web, app-với-app)
   const validateActiveSession = useCallback((latestUsers: User[]) => {
     if (!activeUser) return;
     const localSessionId = localStorage.getItem('trunghai_active_session_id');
     const localLoginTimeStr = localStorage.getItem('trunghai_active_session_time');
     const localLoginTime = localLoginTimeStr ? new Date(localLoginTimeStr).getTime() : 0;
     const platform = getPlatformType();
+    const isMobile = platform === 'MOBILE';
 
     const remoteUser = latestUsers.find(u =>
       u.id === activeUser.id ||
@@ -354,19 +373,23 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (!remoteUser) return;
 
+    // Lấy thông tin phiên tương ứng với nền tảng hiện tại (MOBILE/App hoặc WEB)
+    const remoteSessionId = isMobile ? remoteUser.currentMobileSessionId : remoteUser.currentWebSessionId;
+    const remoteLoginTimeStr = isMobile ? remoteUser.lastMobileLoginAt : remoteUser.lastWebLoginAt;
+    const remoteLoginTime = remoteLoginTimeStr ? new Date(remoteLoginTimeStr).getTime() : 0;
+    const expectedPrefix = isMobile ? 'sess_mobile_' : 'sess_web_';
+
     // Nếu chưa có localSessionId trong localStorage (ví dụ phiên cũ được nạp từ localStorage khi khởi động lại app)
     if (!localSessionId) {
-      const existingRemoteSession = remoteUser.currentSessionId || (platform === 'MOBILE' ? remoteUser.currentMobileSessionId : remoteUser.currentWebSessionId);
-      const existingLoginAt = remoteUser.lastLoginAt || (platform === 'MOBILE' ? remoteUser.lastMobileLoginAt : remoteUser.lastWebLoginAt) || new Date().toISOString();
-
-      if (existingRemoteSession) {
-        localStorage.setItem('trunghai_active_session_id', existingRemoteSession);
-        localStorage.setItem('trunghai_active_session_time', existingLoginAt);
+      const isValidRemoteSession = remoteSessionId && remoteSessionId.startsWith(expectedPrefix);
+      if (isValidRemoteSession) {
+        localStorage.setItem('trunghai_active_session_id', remoteSessionId);
+        localStorage.setItem('trunghai_active_session_time', remoteLoginTimeStr || new Date().toISOString());
         localStorage.setItem('trunghai_active_session_platform', platform);
         return;
       }
 
-      // Nếu remote cũng chưa có session ID, thiết lập session ID cho phiên này
+      // Nếu remote cũng chưa có session ID hợp lệ cho nền tảng này, thiết lập session ID độc lập cho phiên này
       const newLocal = `sess_${platform.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const nowIso = new Date().toISOString();
       localStorage.setItem('trunghai_active_session_id', newLocal);
@@ -378,10 +401,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         currentSessionId: newLocal,
         lastLoginAt: nowIso,
         lastLoginPlatform: platform,
-        currentMobileSessionId: newLocal,
-        lastMobileLoginAt: nowIso,
-        currentWebSessionId: newLocal,
-        lastWebLoginAt: nowIso
+        ...(isMobile
+          ? {
+              currentMobileSessionId: newLocal,
+              lastMobileLoginAt: nowIso
+            }
+          : {
+              currentWebSessionId: newLocal,
+              lastWebLoginAt: nowIso
+            })
       };
       const updatedList = latestUsers.map(u => u.id === remoteUser.id ? updatedUser : u);
       setUsers(updatedList);
@@ -391,22 +419,22 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
-    // Lấy thông tin phiên mới nhất từ database máy chủ
-    const remoteSessionId = remoteUser.currentSessionId || (platform === 'MOBILE' ? remoteUser.currentMobileSessionId : remoteUser.currentWebSessionId);
-    const remoteLoginTimeStr = remoteUser.lastLoginAt || (platform === 'MOBILE' ? remoteUser.lastMobileLoginAt : remoteUser.lastWebLoginAt);
-    const remoteLoginTime = remoteLoginTimeStr ? new Date(remoteLoginTimeStr).getTime() : 0;
+    // Bỏ qua nếu remoteSessionId không đúng định dạng tiền tố của nền tảng này (tránh xung đột dữ liệu cũ)
+    if (remoteSessionId && !remoteSessionId.startsWith(expectedPrefix)) {
+      return;
+    }
 
-    // Nếu máy chủ đã ghi nhận session ID khác với thiết bị hiện tại
+    // Nếu máy chủ đã ghi nhận session ID khác với thiết bị hiện tại TRÊN CÙNG NỀN TẢNG NÀY
     if (remoteSessionId && remoteSessionId !== localSessionId) {
       // Chỉ đăng xuất thiết bị hiện tại NẾU phiên trên máy chủ có thời gian đăng nhập MỚI HƠN phiên của thiết bị này
       // (Cách biệt ít nhất 1000ms để tránh sai lệch sai số đồng hồ)
       if (remoteLoginTime > localLoginTime + 1000) {
-        console.warn(`⚠️ Phát hiện tài khoản vừa đăng nhập trên thiết bị khác lúc ${remoteLoginTimeStr}. Đang đăng xuất thiết bị hiện tại...`);
-        const platformName = remoteUser.lastLoginPlatform === 'MOBILE' ? 'Điện thoại / App' : 'Trình duyệt Web / Máy tính';
+        const platformName = isMobile ? 'Điện thoại / App' : 'Trình duyệt Web / Máy tính';
+        console.warn(`⚠️ Phát hiện tài khoản vừa đăng nhập trên [${platformName}] khác lúc ${remoteLoginTimeStr}. Đang đăng xuất thiết bị hiện tại...`);
         const formattedTime = remoteLoginTimeStr ? formatDate(remoteLoginTimeStr) : 'vừa xong';
         localStorage.setItem(
           'trunghai_session_kick_message',
-          `⚠️ Tài khoản của bạn vừa đăng nhập trên một thiết bị khác (${platformName}) lúc ${formattedTime}. Thiết bị này đã tự động đăng xuất để bảo mật.`
+          `⚠️ Tài khoản của bạn vừa đăng nhập trên một ${platformName} khác lúc ${formattedTime}. Thiết bị này đã tự động đăng xuất để bảo mật.`
         );
         localStorage.removeItem('trunghai_active_session_id');
         localStorage.removeItem('trunghai_active_session_time');
@@ -462,6 +490,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const localLoginTimeStr = localStorage.getItem('trunghai_active_session_time');
     const localLoginTime = localLoginTimeStr ? new Date(localLoginTimeStr).getTime() : 0;
     const platform = getPlatformType();
+    const isMobile = platform === 'MOBILE';
 
     if (activeUser && localSessionId) {
       const remoteUser = cleanUsers.find(u =>
@@ -469,11 +498,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         (u.username && u.username.toLowerCase() === activeUser.username.toLowerCase())
       );
       if (remoteUser) {
-        const remoteSessionId = remoteUser.currentSessionId || (platform === 'MOBILE' ? remoteUser.currentMobileSessionId : remoteUser.currentWebSessionId);
-        const remoteLoginTimeStr = remoteUser.lastLoginAt || (platform === 'MOBILE' ? remoteUser.lastMobileLoginAt : remoteUser.lastWebLoginAt);
+        const remoteSessionId = isMobile ? remoteUser.currentMobileSessionId : remoteUser.currentWebSessionId;
+        const remoteLoginTimeStr = isMobile ? remoteUser.lastMobileLoginAt : remoteUser.lastWebLoginAt;
         const remoteLoginTime = remoteLoginTimeStr ? new Date(remoteLoginTimeStr).getTime() : 0;
 
-        // Nếu máy này vừa đăng nhập phiên mới hơn snapshot nhận được từ NAS
+        // Nếu máy này vừa đăng nhập phiên mới hơn snapshot nhận được từ NAS trên cùng nền tảng
         if (remoteSessionId !== localSessionId && localLoginTime >= remoteLoginTime) {
           cleanUsers = cleanUsers.map(u => {
             if (u.id === activeUser.id || (u.username && u.username.toLowerCase() === activeUser.username.toLowerCase())) {
@@ -482,10 +511,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 currentSessionId: localSessionId,
                 lastLoginAt: localLoginTimeStr || new Date().toISOString(),
                 lastLoginPlatform: platform,
-                currentMobileSessionId: localSessionId,
-                lastMobileLoginAt: localLoginTimeStr || new Date().toISOString(),
-                currentWebSessionId: localSessionId,
-                lastWebLoginAt: localLoginTimeStr || new Date().toISOString()
+                ...(isMobile
+                  ? {
+                      currentMobileSessionId: localSessionId,
+                      lastMobileLoginAt: localLoginTimeStr || new Date().toISOString()
+                    }
+                  : {
+                      currentWebSessionId: localSessionId,
+                      lastWebLoginAt: localLoginTimeStr || new Date().toISOString()
+                    })
               };
             }
             return u;
@@ -1153,6 +1187,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (found) {
       const platform = getPlatformType();
+      const isMobile = platform === 'MOBILE';
       const nowIso = new Date().toISOString();
       const newSessionId = `sess_${platform.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
@@ -1167,10 +1202,15 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         currentSessionId: newSessionId,
         lastLoginAt: nowIso,
         lastLoginPlatform: platform,
-        currentMobileSessionId: newSessionId,
-        lastMobileLoginAt: nowIso,
-        currentWebSessionId: newSessionId,
-        lastWebLoginAt: nowIso
+        ...(isMobile
+          ? {
+              currentMobileSessionId: newSessionId,
+              lastMobileLoginAt: nowIso
+            }
+          : {
+              currentWebSessionId: newSessionId,
+              lastWebLoginAt: nowIso
+            })
       };
 
       const updatedUsersList = currentUsers.map(u => u.id === found.id ? updatedUser : u);
@@ -1179,7 +1219,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setActiveUserState(updatedUser);
       saveActiveUser(updatedUser);
 
-      // Đẩy ngay phiên đăng nhập mới lên máy chủ MinIO NAS và chờ hoàn tất để máy cũ bị ngắt phiên
+      // Đẩy ngay phiên đăng nhập mới lên máy chủ MinIO NAS và chờ hoàn tất để máy cũ cùng loại bị ngắt phiên
       try {
         await persistStateToDatabase({
           users: updatedUsersList,
@@ -1189,7 +1229,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           permissionPresets: currentPresets,
           workflowTemplates: currentWfs,
           notifications: currentNotifs,
-          actionDescription: `Đăng nhập [${platform === 'MOBILE' ? 'Điện thoại/App' : 'Web/Máy tính'}] tài khoản: ${found.name}`
+          actionDescription: `Đăng nhập [${isMobile ? 'Điện thoại/App' : 'Web/Máy tính'}] tài khoản: ${found.name}`
         });
       } catch (persistErr) {
         console.warn('Lỗi lưu phiên đăng nhập lên NAS:', persistErr);
@@ -1201,6 +1241,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           type: 'STATE_UPDATED',
           userId: found.id,
           sessionId: newSessionId,
+          platform: platform,
           loginAt: nowIso
         });
       }
@@ -1212,6 +1253,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const logout = () => {
     const currentActive = activeUser;
+    const platform = getPlatformType();
+    const isMobile = platform === 'MOBILE';
+
     localStorage.removeItem('trunghai_active_session_id');
     localStorage.removeItem('trunghai_active_session_time');
     localStorage.removeItem('trunghai_active_session_platform');
@@ -1221,18 +1265,26 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setSelectedDocument(null);
 
     if (currentActive) {
+      const remainingSessionId = isMobile ? currentActive.currentWebSessionId : currentActive.currentMobileSessionId;
       const updatedUser: User = {
         ...currentActive,
-        currentSessionId: undefined,
-        currentMobileSessionId: undefined,
-        currentWebSessionId: undefined
+        currentSessionId: remainingSessionId,
+        ...(isMobile
+          ? {
+              currentMobileSessionId: undefined,
+              lastMobileLoginAt: undefined
+            }
+          : {
+              currentWebSessionId: undefined,
+              lastWebLoginAt: undefined
+            })
       };
       const updatedList = users.map(u => u.id === currentActive.id ? updatedUser : u);
       setUsers(updatedList);
       saveUsers(updatedList);
       persistStateToDatabase({
         users: updatedList,
-        actionDescription: `Đăng xuất tài khoản: ${currentActive.name}`
+        actionDescription: `Đăng xuất [${isMobile ? 'Điện thoại/App' : 'Web/Máy tính'}] tài khoản: ${currentActive.name}`
       }).catch(() => {});
     }
   };
