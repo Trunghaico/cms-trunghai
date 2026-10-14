@@ -99,6 +99,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
 
   // Helper tính thời gian SLA còn lại hoặc quá hạn
   const formatSlaRemaining = (step: ApprovalStep) => {
+    if (documentStatus === 'ADDITIONAL_REQ') return null;
     if (!step.deadline || step.status !== 'CURRENT') return null;
     const now = Date.now();
     const deadline = new Date(step.deadline).getTime();
@@ -230,6 +231,7 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                   <div className="flex items-center justify-between gap-1 flex-wrap">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-2xs ${
                       step.autoApprovedBySystem ? 'bg-purple-100 text-purple-900 border border-purple-200' :
+                      documentStatus === 'ADDITIONAL_REQ' && isCurrent ? 'bg-amber-100 text-amber-900 border border-amber-300' :
                       step.isOverdue && isCurrent ? 'bg-red-100 text-red-900 border border-red-300 animate-pulse' :
                       step.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
                       step.status === 'REJECTED' ? 'bg-red-100 text-red-800' :

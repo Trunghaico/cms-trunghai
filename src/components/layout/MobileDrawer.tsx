@@ -64,11 +64,13 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
 
   // Real-time badge counts
   const badges = useMemo(() => {
-    if (!activeUser) return { myCreated: 0, received: 0, archive: 0, myApproved: 0, pending: 0, all: 0 };
+    if (!activeUser) return { myCreated: 0, myAdditionalReq: 0, received: 0, archive: 0, myApproved: 0, pending: 0, overdueCount: 0, all: 0 };
     
+    const now = Date.now();
     const myCreated = documents.filter(d => d.creatorId === activeUser.id).length;
+    const myAdditionalReq = documents.filter(d => d.creatorId === activeUser.id && d.status === 'ADDITIONAL_REQ').length;
     const received = documents.filter(d =>
-      (d.status === 'PENDING' || d.status === 'IN_PROGRESS' || d.status === 'ADDITIONAL_REQ') &&
+      (d.status === 'PENDING' || d.status === 'IN_PROGRESS') &&
       (d.department?.toLowerCase() === activeUser.department.toLowerCase() ||
         d.steps[d.currentStepIndex]?.department?.toLowerCase() === activeUser.department.toLowerCase())
     ).length;
@@ -85,8 +87,16 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
       if (!currentStep || currentStep.status !== 'CURRENT') return false;
       return isUserApproverForStep(activeUser, currentStep);
     }).length;
+    const overdueCount = documents.filter(d => {
+      if (d.status === 'APPROVED' || d.status === 'REJECTED' || d.status === 'ADDITIONAL_REQ') return false;
+      return d.isOverdue || (
+        d.steps[d.currentStepIndex]?.status === 'CURRENT' &&
+        d.steps[d.currentStepIndex]?.deadline &&
+        now > new Date(d.steps[d.currentStepIndex].deadline!).getTime()
+      );
+    }).length;
 
-    return { myCreated, received, archive, myApproved, pending, all: documents.length };
+    return { myCreated, myAdditionalReq, received, archive, myApproved, pending, overdueCount, all: documents.length };
   }, [documents, activeUser]);
 
   if (!isOpen || !activeUser) return null;
@@ -229,7 +239,13 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                   <FolderGit2 className="h-4 w-4 text-slate-500" />
                   <span>Hồ sơ của tôi</span>
                 </div>
-                <span className="text-[11px] font-bold text-slate-400">{badges.myCreated}</span>
+                {badges.myAdditionalReq > 0 ? (
+                  <span className="px-2 py-0.5 bg-amber-600 text-white font-bold text-[10px] rounded-full animate-pulse shadow-xs">
+                    {badges.myAdditionalReq} bổ sung
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-bold text-slate-400">{badges.myCreated}</span>
+                )}
               </button>
 
               <button
@@ -304,6 +320,11 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                       <Clock className="h-4 w-4 text-amber-600" />
                       <span>Báo cáo tiến độ & SLA</span>
                     </div>
+                    {badges.overdueCount > 0 && (
+                      <span className="px-2 py-0.5 bg-brand-red text-white font-bold text-[10px] rounded-full animate-pulse shadow-xs">
+                        Trễ {badges.overdueCount}
+                      </span>
+                    )}
                   </button>
                 )}
 

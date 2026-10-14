@@ -559,6 +559,7 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     deadline: '2026-09-19T17:00:00+07:00',
     priority: 'NORMAL',
     status: 'ADDITIONAL_REQ',
+    isOverdue: false,
     amount: 320000000,
     description: 'Trình ký hợp đồng nguyên tắc thời hạn 1 năm với đối tác Mitsuoka để giữ mức chiết khấu 8.5% cho tất cả các đơn hàng linh kiện phụ trợ.',
     currentStepIndex: 1,
@@ -601,6 +602,7 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
         comment: 'Đề nghị bổ sung phụ lục danh mục đơn giá cam kết cố định 6 tháng và điều khoản phạt vi phạm giao hàng chậm.',
         decisionDate: '2026-09-17T11:20:00+07:00',
         slaHours: 12,
+        isOverdue: false,
       },
       {
         id: 'step-403',

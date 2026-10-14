@@ -52,6 +52,7 @@ export const Sidebar: React.FC = () => {
     if (!activeUser) {
       return {
         myCreated: 0,
+        myAdditionalReq: 0,
         received: 0,
         archive: 0,
         myApprovedHistory: 0,
@@ -61,9 +62,10 @@ export const Sidebar: React.FC = () => {
     }
     const now = Date.now();
     const myCreated = documents.filter(d => d.creatorId === activeUser.id).length;
+    const myAdditionalReq = documents.filter(d => d.creatorId === activeUser.id && d.status === 'ADDITIONAL_REQ').length;
 
     const received = documents.filter(d =>
-      (d.status === 'PENDING' || d.status === 'IN_PROGRESS' || d.status === 'ADDITIONAL_REQ') &&
+      (d.status === 'PENDING' || d.status === 'IN_PROGRESS') &&
       (d.department?.toLowerCase() === activeUser.department.toLowerCase() ||
         d.steps[d.currentStepIndex]?.department?.toLowerCase() === activeUser.department.toLowerCase())
     ).length;
@@ -77,15 +79,18 @@ export const Sidebar: React.FC = () => {
       ))
     ).length;
 
-    const overdueCount = documents.filter(d =>
-      d.isOverdue ||
-      (d.steps[d.currentStepIndex]?.status === 'CURRENT' &&
+    const overdueCount = documents.filter(d => {
+      if (d.status === 'APPROVED' || d.status === 'REJECTED' || d.status === 'ADDITIONAL_REQ') return false;
+      return d.isOverdue || (
+        d.steps[d.currentStepIndex]?.status === 'CURRENT' &&
         d.steps[d.currentStepIndex]?.deadline &&
-        now > new Date(d.steps[d.currentStepIndex].deadline!).getTime())
-    ).length;
+        now > new Date(d.steps[d.currentStepIndex].deadline!).getTime()
+      );
+    }).length;
 
     return {
       myCreated,
+      myAdditionalReq,
       received,
       archive,
       myApprovedHistory,
@@ -106,8 +111,10 @@ export const Sidebar: React.FC = () => {
       id: 'my-documents',
       label: 'Hồ sơ của tôi',
       icon: FolderGit2,
-      badge: badgeCounts.myCreated > 0 ? badgeCounts.myCreated : null,
-      badgeColor: 'bg-brand-blue text-white',
+      badge: badgeCounts.myAdditionalReq > 0
+        ? `${badgeCounts.myAdditionalReq} cần bổ sung`
+        : (badgeCounts.myCreated > 0 ? badgeCounts.myCreated : null),
+      badgeColor: badgeCounts.myAdditionalReq > 0 ? 'bg-amber-600 text-white font-bold animate-pulse' : 'bg-brand-blue text-white',
     },
     {
       id: 'received-documents',

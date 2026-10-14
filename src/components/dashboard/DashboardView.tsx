@@ -14,7 +14,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   FileSignature,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '../../lib/storage';
 import { isUserApproverForStep } from '../../lib/permissions';
@@ -40,6 +41,11 @@ export const DashboardView: React.FC = () => {
     return isUserApproverForStep(activeUser, currentStep);
   });
 
+  // Hồ sơ của chính người dùng bị cấp duyệt trả về yêu cầu bổ sung
+  const myAdditionalDocs = documents.filter(
+    doc => doc.status === 'ADDITIONAL_REQ' && (doc.creatorId === activeUser.id || activeUser.role === 'ADMIN')
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       
@@ -64,6 +70,8 @@ export const DashboardView: React.FC = () => {
           <p className="text-xs text-slate-300/90 mt-1.5 max-w-xl leading-relaxed">
             {pendingForMe.length > 0 
               ? `Bạn đang có ${pendingForMe.length} hồ sơ cần phê duyệt hoặc ký số điện tử. Vui lòng kiểm tra và xử lý kịp thời hạn SLA.`
+              : myAdditionalDocs.length > 0
+              ? `Bạn có ${myAdditionalDocs.length} hồ sơ được trả về yêu cầu bổ sung/giải trình. Vui lòng hoàn thiện để tiếp tục quy trình.`
               : 'Hiện tại bạn không có hồ sơ nào bị tồn đọng cần phê duyệt. Hệ thống AI đang liên tục giám sát tiến độ luân chuyển!'}
           </p>
         </div>
@@ -76,6 +84,16 @@ export const DashboardView: React.FC = () => {
             >
               <FileSignature className="h-4 w-4" />
               <span>Duyệt Ngay ({pendingForMe.length})</span>
+            </button>
+          )}
+
+          {myAdditionalDocs.length > 0 && (
+            <button
+              onClick={() => setActiveTab('my-documents')}
+              className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-500 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-[0_0_20px_rgba(217,119,6,0.4)] hover:shadow-[0_0_25px_rgba(217,119,6,0.6)] transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 cursor-pointer shrink-0"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>Bổ Sung ({myAdditionalDocs.length})</span>
             </button>
           )}
 
@@ -194,6 +212,82 @@ export const DashboardView: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Danh sách hồ sơ đã trả về cho người lập để bổ sung */}
+      {myAdditionalDocs.length > 0 && (
+        <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-amber-300 shadow-card hover:shadow-elevated transition-shadow duration-200 overflow-hidden">
+          <div className="px-5 py-4 bg-gradient-to-r from-amber-50 to-orange-50/60 border-b border-amber-200 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="p-1.5 bg-amber-100 text-amber-700 rounded-lg">
+                <RotateCcw className="h-4 w-4 text-amber-600" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-amber-950">
+                  Hồ Sơ Cần Bạn Bổ Sung & Giải Trình ({myAdditionalDocs.length})
+                </h3>
+                <p className="text-[11px] text-amber-800">Cấp phê duyệt đã trả hồ sơ về cho bạn để bổ sung thông tin hoặc tài liệu đính kèm.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('my-documents')}
+              className="text-xs font-bold text-amber-800 hover:text-amber-950 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <span>Xem hồ sơ của tôi</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-amber-50/50 text-amber-900 font-semibold border-b border-amber-200/80 uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="px-4 py-3.5">Mã Hồ Sơ / Tiêu Đề</th>
+                  <th className="px-4 py-3.5">Cấp Yêu Cầu Bổ Sung</th>
+                  <th className="px-4 py-3.5">Nội Dung Cần Đáp Ứng</th>
+                  <th className="px-4 py-3.5">Thời Điểm Trả Về</th>
+                  <th className="px-4 py-3.5 text-right">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-100/60">
+                {myAdditionalDocs.map((doc) => {
+                  const reqLog = [...doc.auditLogs].reverse().find(l => l.action === 'REQUEST_INFO');
+                  return (
+                    <tr key={doc.id} className="hover:bg-amber-50/30 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <span 
+                          onClick={() => setSelectedDocument(doc)}
+                          className="font-mono font-bold text-indigo-700 hover:underline cursor-pointer block"
+                        >
+                          {doc.code}
+                        </span>
+                        <span className="font-medium text-slate-800 line-clamp-1">{doc.title}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-700 font-medium">
+                        {reqLog ? `${reqLog.actorName} (${reqLog.actorTitle})` : (doc.steps[doc.currentStepIndex]?.title || 'Cấp phê duyệt')}
+                      </td>
+                      <td className="px-4 py-3.5 text-amber-900 font-medium max-w-xs truncate">
+                        "{reqLog?.comment?.replace(/^Yêu cầu bổ sung tài liệu\/thông tin:\s*/i, '') || doc.description}"
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-500 font-mono text-[11px]">
+                        {formatDate(reqLog?.timestamp || doc.updatedAt)}
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <button
+                          onClick={() => setSelectedDocument(doc)}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 ml-auto cursor-pointer"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Bổ Sung Ngay</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Urgent Action Table: Hồ sơ cần tôi duyệt ngay */}
       {pendingForMe.length > 0 && (

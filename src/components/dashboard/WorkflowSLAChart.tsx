@@ -54,7 +54,7 @@ export const WorkflowSLAChart: React.FC = () => {
           };
         }
 
-        if (step.status === 'CURRENT') {
+        if (step.status === 'CURRENT' && doc.status !== 'ADDITIONAL_REQ') {
           deptMap[dName].totalActive += 1;
           const isOverdue = step.isOverdue || (step.deadline && now > new Date(step.deadline).getTime());
           if (isOverdue) {

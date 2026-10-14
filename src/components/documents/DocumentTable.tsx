@@ -96,7 +96,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         const currentStep = doc.steps[doc.currentStepIndex];
         const isTargetDept = currentStep?.department?.toLowerCase() === activeUser.department.toLowerCase() ||
                              doc.department.toLowerCase() === activeUser.department.toLowerCase();
-        const isNotDone = doc.status === 'PENDING' || doc.status === 'IN_PROGRESS' || doc.status === 'ADDITIONAL_REQ';
+        const isNotDone = doc.status === 'PENDING' || doc.status === 'IN_PROGRESS';
         if (!isTargetDept || !isNotDone) {
           return false;
         }
@@ -408,9 +408,16 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                         />
                       </div>
                       {doc.status !== 'APPROVED' && (
-                        <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                          Đang chờ: <strong className="text-slate-800">{currentStep?.title || currentStep?.department}</strong>
-                        </p>
+                        doc.status === 'ADDITIONAL_REQ' ? (
+                          <p className="text-[10px] text-amber-700 truncate mt-0.5 font-medium flex items-center gap-1">
+                            <RotateCcw className="h-3 w-3 shrink-0 text-amber-600" />
+                            <span>Đang chờ người lập bổ sung: <strong className="text-amber-900">{doc.creatorName}</strong></span>
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                            Đang chờ: <strong className="text-slate-800">{currentStep?.title || currentStep?.department}</strong>
+                          </p>
+                        )
                       )}
                     </div>
 
@@ -590,6 +597,16 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                           <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full w-max border border-emerald-200">
                             ✓ Hoàn tất {doc.steps.length}/{doc.steps.length} bước
                           </div>
+                        ) : doc.status === 'ADDITIONAL_REQ' ? (
+                          <div>
+                            <div className="text-[11px] font-bold text-amber-800 flex items-center gap-1">
+                              <RotateCcw className="w-3 h-3 text-amber-600 shrink-0" />
+                              <span>Trả về người lập bổ sung</span>
+                            </div>
+                            <p className="text-[10px] text-amber-700 font-medium truncate max-w-[140px]">
+                              {doc.creatorName} ({doc.department})
+                            </p>
+                          </div>
                         ) : (
                           <div>
                             <div className="text-[11px] font-bold text-slate-800">
@@ -606,7 +623,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="space-y-1">
                           {getStatusBadge(doc.status)}
-                          {doc.isOverdue || (currentStep?.status === 'CURRENT' && currentStep?.deadline && new Date().getTime() > new Date(currentStep.deadline).getTime()) ? (
+                          {doc.status !== 'ADDITIONAL_REQ' && (doc.isOverdue || (currentStep?.status === 'CURRENT' && currentStep?.deadline && new Date().getTime() > new Date(currentStep.deadline).getTime())) ? (
                             <div>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-800 border border-red-200 text-[9px] font-bold rounded-full animate-pulse">
                                 <AlertCircle className="h-2.5 w-2.5 text-brand-red shrink-0" />

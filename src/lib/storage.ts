@@ -542,6 +542,18 @@ export const deduplicateDocuments = (docsList: DocumentItem[]): DocumentItem[] =
     if (dId) seenIds.add(dId);
     if (dCode) seenCodes.add(dCode);
 
+    // Khi hồ sơ ở trạng thái Yêu cầu bổ sung, bảo đảm đã xóa cờ quá hạn để không báo trễ cho cấp duyệt
+    if (d.status === 'ADDITIONAL_REQ') {
+      d.isOverdue = false;
+      d.overdueDepartment = undefined;
+      d.overdueHours = undefined;
+      if (Array.isArray(d.steps)) {
+        d.steps.forEach(s => {
+          s.isOverdue = false;
+        });
+      }
+    }
+
     result.push(d);
   }
 

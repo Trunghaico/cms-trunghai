@@ -196,6 +196,7 @@ interface DocumentContextType {
     overdueCount: number;
     myPendingApprovalsCount: number;
     myCreatedCount: number;
+    myAdditionalReqCount: number;
   };
 }
 
@@ -2308,12 +2309,25 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       newStatus: 'ADDITIONAL_REQ',
     };
 
+    const updatedSteps = targetDoc.steps.map((step, idx) => {
+      if (idx === targetDoc.currentStepIndex) {
+        return {
+          ...step,
+          isOverdue: false,
+          comment: `[Trả hồ sơ do quá hạn SLA - Phòng ${deptName}]: ${reason}`,
+          decisionDate: now,
+        };
+      }
+      return step;
+    });
+
     const updatedDoc: DocumentItem = {
       ...targetDoc,
       status: 'ADDITIONAL_REQ',
       isOverdue: false,
       overdueDepartment: undefined,
       overdueHours: undefined,
+      steps: updatedSteps,
       updatedAt: now,
       auditLogs: [...targetDoc.auditLogs, newLog],
     };
@@ -2468,9 +2482,25 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       newStatus: 'ADDITIONAL_REQ' as DocumentStatus,
     };
 
+    const updatedSteps = targetDoc.steps.map((step, idx) => {
+      if (idx === targetDoc.currentStepIndex) {
+        return {
+          ...step,
+          isOverdue: false,
+          comment: `[Yêu cầu bổ sung]: ${note}`,
+          decisionDate: now,
+        };
+      }
+      return step;
+    });
+
     const updatedDoc: DocumentItem = {
       ...targetDoc,
       status: 'ADDITIONAL_REQ',
+      isOverdue: false,
+      overdueDepartment: undefined,
+      overdueHours: undefined,
+      steps: updatedSteps,
       updatedAt: now,
       auditLogs: [...targetDoc.auditLogs, newLog],
     };
@@ -2547,16 +2577,24 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const updatedSteps = targetDocToResubmit.steps.map((step, idx) => {
       if (isContinuing) {
         if (idx === targetDocToResubmit.currentStepIndex) {
+          const stepSla = step.slaHours || 8;
           return {
             ...step,
             status: 'CURRENT' as StepStatus,
+            startedAt: now,
+            deadline: new Date(Date.now() + stepSla * 3600 * 1000).toISOString(),
+            isOverdue: false,
           };
         }
         return step;
       } else {
+        const step0Sla = targetDocToResubmit.steps[0]?.slaHours || 8;
         return {
           ...step,
           status: (idx === 0 ? 'CURRENT' : 'PENDING') as StepStatus,
+          startedAt: idx === 0 ? now : undefined,
+          deadline: idx === 0 ? new Date(Date.now() + step0Sla * 3600 * 1000).toISOString() : undefined,
+          isOverdue: false,
           comment: undefined,
           decisionDate: undefined,
           signatureImage: undefined,
@@ -2593,6 +2631,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       status: targetStatus,
       currentStepIndex: targetStepIndex,
       steps: updatedSteps,
+      isOverdue: false,
+      overdueDepartment: undefined,
+      overdueHours: undefined,
+      deadline: isContinuing ? updatedSteps[targetStepIndex]?.deadline : updatedSteps[0]?.deadline,
       updatedAt: now,
       auditLogs: [...targetDocToResubmit.auditLogs, newLog],
     };
@@ -2961,9 +3003,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }).length : 0;
 
     const myCreatedCount = activeUser ? accessibleDocuments.filter(d => d.creatorId === activeUser.id).length : 0;
+    const myAdditionalReqCount = activeUser ? accessibleDocuments.filter(d => d.creatorId === activeUser.id && d.status === 'ADDITIONAL_REQ').length : 0;
 
     const overdueCount = accessibleDocuments.filter(d => {
-      if (d.status === 'APPROVED' || d.status === 'REJECTED') return false;
+      if (d.status === 'APPROVED' || d.status === 'REJECTED' || d.status === 'ADDITIONAL_REQ') return false;
       if (d.isOverdue) return true;
       const currentStep = d.steps[d.currentStepIndex];
       return (
@@ -2984,6 +3027,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       overdueCount,
       myPendingApprovalsCount,
       myCreatedCount,
+      myAdditionalReqCount,
     };
   }, [accessibleDocuments, activeUser]);
 

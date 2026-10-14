@@ -76,7 +76,7 @@ export const SLAReportView: React.FC = () => {
 
         deptMap[dName].totalAssigned += 1;
 
-        if (step.status === 'CURRENT') {
+        if (step.status === 'CURRENT' && doc.status !== 'ADDITIONAL_REQ') {
           deptMap[dName].totalActive += 1;
           const isOverdue = step.isOverdue || (step.deadline && now > new Date(step.deadline).getTime());
           if (isOverdue) {
@@ -108,7 +108,7 @@ export const SLAReportView: React.FC = () => {
   const overdueDocs = useMemo(() => {
     const now = Date.now();
     return documents.filter(doc => {
-      if (doc.status === 'APPROVED' || doc.status === 'REJECTED') return false;
+      if (doc.status === 'APPROVED' || doc.status === 'REJECTED' || doc.status === 'ADDITIONAL_REQ') return false;
       const currentStep = doc.steps[doc.currentStepIndex];
       if (!currentStep || currentStep.status !== 'CURRENT') return false;
 
@@ -136,7 +136,7 @@ export const SLAReportView: React.FC = () => {
     if (!overdueModalDept) return [];
     const now = Date.now();
     return documents.filter(doc => {
-      if (doc.status === 'APPROVED' || doc.status === 'REJECTED') return false;
+      if (doc.status === 'APPROVED' || doc.status === 'REJECTED' || doc.status === 'ADDITIONAL_REQ') return false;
       const currentStep = doc.steps[doc.currentStepIndex];
       if (!currentStep || currentStep.status !== 'CURRENT') return false;
 
