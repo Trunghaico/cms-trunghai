@@ -60,7 +60,7 @@ export const DashboardView: React.FC = () => {
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="px-3 py-1 bg-white/10 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider rounded-full border border-white/15 shadow-xs flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-cyan-300 animate-pulse" />
-              <span>TRUNG HAI AI APPROVAL</span>
+              <span>TRUNG HAI CMS</span>
             </span>
             <span className="text-xs text-indigo-200">Hệ thống Trình ký Điện tử Thế hệ mới</span>
           </div>
