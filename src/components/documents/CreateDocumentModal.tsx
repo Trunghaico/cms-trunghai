@@ -23,13 +23,15 @@ import {
   GitFork,
   CheckCircle2,
   Flame,
-  Check
+  Check,
+  DollarSign
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { ApprovalStep, DocumentStatus, Attachment, User, UserRole, OverdueAction, WorkflowTemplate, DocumentPriority } from '../../types';
 import { QuillEditor } from '../common/QuillEditor';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { uploadFileToNAS } from '../../lib/nasStorageService';
+import { formatCurrency } from '../../lib/storage';
 
 export type ApproverItem = 
   | { type: 'USER'; user: User; title?: string; slaHours?: number; overdueAction?: OverdueAction }
@@ -53,8 +55,9 @@ export const CreateDocumentModal: React.FC = () => {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   
-  // 2. Tên hồ sơ
+  // 2. Tên hồ sơ & Giá trị đề xuất
   const [title, setTitle] = useState('');
+  const [amount, setAmount] = useState<number | undefined>(undefined);
   
   // 3. Dự án & Độ khẩn
   const [project, setProject] = useState('');
@@ -231,6 +234,7 @@ export const CreateDocumentModal: React.FC = () => {
     setCategory(initialCategory);
     setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
     setTitle('');
+    setAmount(undefined);
     setProject('');
     setPriority('NORMAL');
     setDepartment(activeUser?.department || (systemDepts && systemDepts[0]?.name) || 'Phòng Kỹ thuật & Dự án');
@@ -602,6 +606,7 @@ export const CreateDocumentModal: React.FC = () => {
     createDocument({
       code,
       title: title.trim(),
+      amount: amount && amount > 0 ? amount : undefined,
       category,
       project: project.trim() || undefined,
       department: department.trim(),
@@ -857,6 +862,38 @@ export const CreateDocumentModal: React.FC = () => {
                   onChange={(e) => setDesiredDeadline(e.target.value)}
                   className="w-full max-w-full min-w-0 appearance-none box-border min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all shadow-2xs"
                 />
+              </div>
+            </div>
+
+            {/* Giá trị đề xuất (VNĐ) */}
+            <div>
+              <label className="flex items-center justify-between font-bold text-slate-700 mb-1.5 text-xs sm:text-sm">
+                <span className="flex items-center gap-1.5">
+                  <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Giá trị đề xuất (VNĐ)</span>
+                </span>
+                <span className="text-slate-400 font-normal text-[11px]">(Tùy chọn - điền nếu hồ sơ liên quan chi phí, thanh toán, mua sắm...)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={amount !== undefined ? amount : ''}
+                  onChange={(e) => {
+                    const val = e.target.value.trim();
+                    setAmount(val ? Math.max(0, Number(val)) : undefined);
+                  }}
+                  placeholder="VD: 50000000 (Để trống nếu là văn bản phi tài chính)"
+                  className="w-full min-h-[44px] pl-3.5 pr-32 py-2.5 bg-white border border-slate-300 rounded-xl font-medium text-slate-800 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all shadow-2xs"
+                />
+                {amount !== undefined && amount > 0 && (
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center">
+                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-mono font-bold text-xs rounded-lg border border-emerald-200 shadow-2xs">
+                      {formatCurrency(amount)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
