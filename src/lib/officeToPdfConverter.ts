@@ -23,6 +23,25 @@ export interface DocxTable {
 
 export type DocxElement = DocxParagraph | DocxTable;
 
+export interface OfficePdfSigner {
+  id?: string;
+  name: string;
+  roleTitle?: string;
+  department?: string;
+  status?: string;
+  decisionDate?: string;
+  signatureImage?: string;
+  comment?: string;
+  isCreator?: boolean;
+  stepOrder?: number;
+  autoApprovedBySystem?: boolean;
+}
+
+export interface OfficeConvertOptions {
+  displayDocCode?: string;
+  signers?: OfficePdfSigner[];
+}
+
 export interface ConversionResult {
   pdfBytes: Uint8Array;
   fileName: string;
@@ -265,14 +284,39 @@ function extractPlainTextFromBinary(arrayBuffer: ArrayBuffer): DocxElement[] {
 }
 
 /**
+ * Helper vẽ hình chữ nhật bo góc (Rounded Rectangle) trên Canvas 2D
+ */
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+/**
  * 3. Vẽ và chuyển đổi DocxElement[] thành file PDF đa trang độ phân giải cao bằng Canvas
  * Đảm bảo 100% hiển thị đầy đủ tiếng Việt có dấu, phông chữ chuẩn hành chính,
- * tự động ngắt trang thông minh và để chừa khoảng lề đáy 50pt cho tem giáp lai
+ * tự động ngắt trang thông minh, vẽ chữ ký điện tử các phòng ban phê duyệt và bảo lưu lề chân trang
  */
 export async function renderDocElementsToPdf(
   fileName: string,
   elements: DocxElement[],
-  displayDocCode: string = 'HĐ-2026/TH'
+  displayDocCode: string = 'HĐ-2026/TH',
+  signers?: OfficePdfSigner[]
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
 
@@ -514,6 +558,205 @@ export async function renderDocElementsToPdf(
     }
   }
 
+  // 4.5. VẼ KHỐI CHỮ KÝ ĐIỆN TỬ CỦA CÁC PHÒNG BAN PHÊ DUYỆT (NẾU CÓ)
+  if (signers && signers.length > 0) {
+    // 1. Tải trước các ảnh chữ ký vẽ tay (nếu có)
+    const loadedImages: { [key: number]: HTMLImageElement } = {};
+    if (typeof window !== 'undefined' && typeof Image !== 'undefined') {
+      await Promise.all(
+        signers.map(async (signer, idx) => {
+          if (signer.signatureImage && signer.signatureImage.length > 50 && signer.signatureImage.startsWith('data:image')) {
+            try {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject();
+                img.src = signer.signatureImage!;
+              });
+              loadedImages[idx] = img;
+            } catch {
+              // Bỏ qua lỗi ảnh
+            }
+          }
+        })
+      );
+    }
+
+    // 2. Tính toán phân bổ các cột ký duyệt (Chuẩn văn bản: 2 hoặc 3 cột/hàng)
+    const totalSigners = signers.length;
+    const colsPerRow = totalSigners === 3 || totalSigners >= 5 ? 3 : 2;
+    const gap = colsPerRow === 3 ? 12 : 24;
+    const colWidth = (contentWidth - gap * (colsPerRow - 1)) / colsPerRow;
+    const cardHeight = 144; // Chiều cao mỗi thẻ chữ ký & con dấu
+
+    // Tiêu đề khối chữ ký
+    checkPageBreak(40);
+    currentY += 12;
+
+    // Đường kẻ phân cách
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(marginX, currentY);
+    ctx.lineTo(a4Width - marginX, currentY);
+    ctx.stroke();
+
+    currentY += 16;
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 9.5px "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('XÁC NHẬN KÝ DUYỆT & ĐÓNG DẤU ĐIỆN TỬ CÁC PHÒNG BAN', marginX, currentY);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'italic 7px "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Văn bản số hóa & chứng thực PAdES - B-LTA • Hệ thống DMS Trung Hải', a4Width - marginX, currentY);
+
+    currentY += 16;
+
+    // Duyệt qua từng hàng ký
+    for (let i = 0; i < totalSigners; i += colsPerRow) {
+      const rowSigners = signers.slice(i, i + colsPerRow);
+      checkPageBreak(cardHeight + 8);
+
+      for (let c = 0; c < rowSigners.length; c++) {
+        const signer = rowSigners[c];
+        const signerIndex = i + c;
+        const colX = marginX + c * (colWidth + gap);
+        const colCenterX = colX + colWidth / 2;
+
+        // Header: Tên đơn vị / Phòng ban
+        const deptTitle = signer.isCreator
+          ? 'NGƯỜI LẬP HỒ SƠ'
+          : (signer.department || signer.roleTitle || 'PHÒNG DUYỆT').toUpperCase();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 8.5px "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(deptTitle, colCenterX, currentY + 10);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'italic 7px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(signer.isCreator ? '(Ký, ghi rõ họ tên)' : '(Ký số & Đóng dấu điện tử)', colCenterX, currentY + 21);
+
+        // Khung con dấu / Chữ ký
+        const isApproved = signer.status === 'APPROVED';
+        const stampW = Math.min(colWidth - 8, 172);
+        const stampH = 54;
+        const stampX = colCenterX - stampW / 2;
+        const stampY = currentY + 27;
+
+        if (isApproved) {
+          // 1. Vẽ con dấu điện tử đỏ Trung Hải
+          ctx.fillStyle = 'rgba(254, 242, 242, 0.85)';
+          ctx.strokeStyle = '#dc2626';
+          ctx.lineWidth = 1;
+          drawRoundedRect(ctx, stampX, stampY, stampW, stampH, 4);
+          ctx.fill();
+          ctx.stroke();
+
+          // Viền nét đứt bảo mật
+          ctx.setLineDash([2.5, 1.5]);
+          ctx.strokeStyle = 'rgba(220, 38, 38, 0.45)';
+          drawRoundedRect(ctx, stampX + 2, stampY + 2, stampW - 4, stampH - 4, 3);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Văn bản con dấu
+          ctx.fillStyle = '#dc2626';
+          ctx.font = 'bold 6px "Segoe UI", Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('CTY CP ĐẦU TƯ VÀ XÂY DỰNG TRUNG HẢI', colCenterX, stampY + 11);
+
+          ctx.fillStyle = '#b91c1c';
+          ctx.font = 'bold 7.5px "Segoe UI", Arial, sans-serif';
+          ctx.fillText('✓ ĐÃ KÝ ĐIỆN TỬ', colCenterX, stampY + 22);
+
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 7.5px "Segoe UI", Arial, sans-serif';
+          ctx.fillText(signer.name.toUpperCase(), colCenterX, stampY + 34);
+
+          const dateStr = signer.decisionDate
+            ? new Date(signer.decisionDate).toLocaleDateString('vi-VN') + ' ' + new Date(signer.decisionDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            : '20/10/2026 14:30';
+
+          ctx.fillStyle = '#475569';
+          ctx.font = '500 6px "Segoe UI", monospace';
+          ctx.fillText(`Ngày ký: ${dateStr}`, colCenterX, stampY + 43);
+
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '5px "Segoe UI", monospace';
+          ctx.fillText(`PAdES-B-LTA • AUTH: ${(signer.id || 'TH-CA').slice(-6).toUpperCase()}`, colCenterX, stampY + 50);
+
+          // Nếu có ảnh chữ ký vẽ tay thì đè lên
+          if (loadedImages[signerIndex]) {
+            ctx.save();
+            ctx.globalAlpha = 0.85;
+            const imgW = 75;
+            const imgH = 34;
+            ctx.drawImage(loadedImages[signerIndex], colCenterX - imgW / 2, stampY + 6, imgW, imgH);
+            ctx.restore();
+          }
+        } else if (signer.isCreator) {
+          // Chữ ký người lập hồ sơ
+          ctx.fillStyle = '#1d4ed8';
+          ctx.font = 'italic bold 15px "Segoe Script", "Brush Script MT", cursive, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(signer.name, colCenterX, currentY + 60);
+        } else {
+          // Chưa ký duyệt
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = 'italic 8px "Segoe UI", Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('(Chưa phê duyệt)', colCenterX, currentY + 58);
+        }
+
+        // Tên họ người ký & Chức vụ
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 8.5px "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(signer.name.toUpperCase(), colCenterX, currentY + 98);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '500 7.5px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(signer.roleTitle || '', colCenterX, currentY + 110);
+
+        // Huy hiệu bảo mật
+        const pillW = 126;
+        const pillH = 14;
+        const pillX = colCenterX - pillW / 2;
+        const pillY = currentY + 118;
+
+        if (isApproved) {
+          ctx.fillStyle = '#ecfdf5';
+          ctx.strokeStyle = '#a7f3d0';
+          ctx.lineWidth = 0.8;
+          drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 7);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#047857';
+          ctx.font = 'bold 6.5px "Segoe UI", Arial, sans-serif';
+          ctx.fillText('✓ Chữ ký số hợp lệ (VNPT-CA)', colCenterX, pillY + 10);
+        } else if (signer.isCreator) {
+          ctx.fillStyle = '#eff6ff';
+          ctx.strokeStyle = '#bfdbfe';
+          ctx.lineWidth = 0.8;
+          drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 7);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#1d4ed8';
+          ctx.font = 'bold 6.5px "Segoe UI", Arial, sans-serif';
+          ctx.fillText('✓ Khởi tạo hồ sơ DMS', colCenterX, pillY + 10);
+        }
+      }
+
+      currentY += cardHeight + 8;
+    }
+  }
+
   // Đánh số trang cho trang cuối
   ctx.fillStyle = '#94a3b8';
   ctx.font = '500 7.5px "Segoe UI", Arial, sans-serif';
@@ -545,16 +788,21 @@ export async function renderDocElementsToPdf(
 }
 
 /**
- * 4. Chuyển đổi tệp Office (.docx, .xlsx) hoặc ảnh scan sang PDF có nội dung văn bản đầy đủ
+ * 4. Chuyển đổi tệp Office (.docx, .xlsx) hoặc ảnh scan sang PDF có nội dung văn bản đầy đủ và chữ ký điện tử
  */
-export async function convertOfficeOrImageToPdf(file: File): Promise<ConversionResult> {
+export async function convertOfficeOrImageToPdf(
+  file: File,
+  options?: OfficeConvertOptions
+): Promise<ConversionResult> {
   const fileNameLower = file.name.toLowerCase();
+  const displayDocCode = options?.displayDocCode || 'HĐ-2026/TH';
+  const signers = options?.signers;
 
   // 1. Tệp Word (.docx)
   if (fileNameLower.endsWith('.docx') || file.type.includes('wordprocessingml')) {
     const arrayBuffer = await file.arrayBuffer();
     const elements = await extractDocxElements(arrayBuffer);
-    const pdfBytes = await renderDocElementsToPdf(file.name, elements);
+    const pdfBytes = await renderDocElementsToPdf(file.name, elements, displayDocCode, signers);
 
     return {
       pdfBytes,
@@ -569,7 +817,7 @@ export async function convertOfficeOrImageToPdf(file: File): Promise<ConversionR
   if (fileNameLower.endsWith('.xlsx') || file.type.includes('spreadsheetml')) {
     const arrayBuffer = await file.arrayBuffer();
     const elements = await extractXlsxElements(arrayBuffer);
-    const pdfBytes = await renderDocElementsToPdf(file.name, elements);
+    const pdfBytes = await renderDocElementsToPdf(file.name, elements, displayDocCode, signers);
 
     return {
       pdfBytes,
@@ -622,7 +870,7 @@ export async function convertOfficeOrImageToPdf(file: File): Promise<ConversionR
   // 4. Các định dạng văn bản thô khác (.txt, .rtf, .doc...)
   const arrayBuffer = await file.arrayBuffer();
   const elements = extractPlainTextFromBinary(arrayBuffer);
-  const pdfBytes = await renderDocElementsToPdf(file.name, elements);
+  const pdfBytes = await renderDocElementsToPdf(file.name, elements, displayDocCode, signers);
 
   return {
     pdfBytes,

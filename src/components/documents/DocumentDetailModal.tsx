@@ -914,6 +914,8 @@ export const DocumentDetailModal: React.FC = () => {
                   attachment={previewAttachment}
                   documentCode={selectedDocument.code}
                   documentTitle={selectedDocument.title}
+                  document={selectedDocument}
+                  steps={selectedDocument.steps}
                   onClose={() => setPreviewAttachment(null)}
                 />
               )}

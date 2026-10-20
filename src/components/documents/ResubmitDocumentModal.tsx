@@ -555,6 +555,8 @@ export const ResubmitDocumentModal: React.FC<ResubmitDocumentModalProps> = ({
           attachment={previewAttachment}
           documentTitle={doc.title}
           documentCode={doc.code}
+          document={doc}
+          steps={doc.steps}
           onClose={() => setPreviewAttachment(null)}
         />
       )}

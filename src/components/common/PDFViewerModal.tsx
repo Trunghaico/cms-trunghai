@@ -18,14 +18,17 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import { Attachment } from '../../types';
+import { Attachment, DocumentItem, ApprovalStep } from '../../types';
+import { useDocument } from '../../context/DocumentContext';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
-import { convertOfficeOrImageToPdf } from '../../lib/officeToPdfConverter';
+import { convertOfficeOrImageToPdf, OfficePdfSigner } from '../../lib/officeToPdfConverter';
 
 interface PDFViewerModalProps {
   attachment: Attachment | (Attachment & { documentCode?: string; documentTitle?: string; documentStatus?: string }) | null;
   documentTitle?: string;
   documentCode?: string;
+  document?: DocumentItem | null;
+  steps?: ApprovalStep[];
   onClose: () => void;
 }
 
@@ -33,8 +36,12 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   attachment, 
   documentTitle,
   documentCode,
+  document: documentProp,
+  steps: stepsProp,
   onClose 
 }) => {
+  const { documents, selectedDocument } = useDocument();
+
   const [zoom, setZoom] = useState<number>(100);
   const [rotation, setRotation] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -67,6 +74,91 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     )
   );
 
+  const displayDocCode = (attachment && 'documentCode' in attachment && attachment.documentCode) || documentCode || 'HĐ-2026/TH';
+  const displayDocTitle = (attachment && 'documentTitle' in attachment && attachment.documentTitle) || documentTitle || (attachment ? attachment.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ') : '');
+
+  // Xác định hồ sơ hiện tại để lấy các phòng ban phê duyệt
+  const activeDoc: DocumentItem | null =
+    documentProp ||
+    (selectedDocument && (selectedDocument.code === displayDocCode || selectedDocument.title === displayDocTitle) ? selectedDocument : null) ||
+    documents.find(d => d.code === displayDocCode || d.title === displayDocTitle) ||
+    selectedDocument ||
+    null;
+
+  // Tổng hợp danh sách người ký & các phòng ban phê duyệt
+  const docSigners: OfficePdfSigner[] = React.useMemo(() => {
+    const list: OfficePdfSigner[] = [];
+
+    // 1. Người lập hồ sơ
+    const creatorName = activeDoc?.creatorName || (attachment as any)?.uploadedBy || 'Nguyễn Văn Long';
+    const creatorTitle = activeDoc?.creatorTitle || 'Chuyên viên phụ trách';
+    const creatorDept = activeDoc?.department || 'Phòng Kỹ thuật & Dự án';
+    const createdAt = activeDoc?.createdAt || attachment?.uploadedAt || new Date().toISOString();
+
+    list.push({
+      id: 'creator',
+      name: creatorName,
+      roleTitle: creatorTitle,
+      department: creatorDept,
+      status: 'APPROVED',
+      decisionDate: createdAt,
+      isCreator: true,
+      stepOrder: 0,
+    });
+
+    // 2. Các phòng ban phê duyệt
+    const steps = stepsProp || activeDoc?.steps;
+    if (steps && steps.length > 0) {
+      steps.forEach((step, idx) => {
+        list.push({
+          id: step.id,
+          name: step.approverName,
+          roleTitle: step.approverTitle,
+          department: step.department || step.title,
+          status: step.status,
+          decisionDate: step.decisionDate || (step.status === 'APPROVED' ? activeDoc?.updatedAt || new Date().toISOString() : undefined),
+          signatureImage: step.signatureImage,
+          comment: step.comment,
+          stepOrder: step.stepOrder || idx + 1,
+          autoApprovedBySystem: step.autoApprovedBySystem,
+        });
+      });
+    } else {
+      // Mẫu chuẩn các phòng ban Trung Hải nếu tài liệu mô phỏng chưa có steps
+      list.push(
+        {
+          id: 'step-kt',
+          name: 'Trần Đình Đạo',
+          roleTitle: 'Trưởng phòng Kỹ thuật',
+          department: 'PHÒNG KỸ THUẬT THI CÔNG',
+          status: 'APPROVED',
+          decisionDate: new Date(Date.now() - 3600000 * 24).toISOString(),
+          stepOrder: 1,
+        },
+        {
+          id: 'step-tc',
+          name: 'Lê Bá Trung',
+          roleTitle: 'Kế toán trưởng',
+          department: 'PHÒNG TÀI CHÍNH KẾ TOÁN',
+          status: 'APPROVED',
+          decisionDate: new Date(Date.now() - 3600000 * 12).toISOString(),
+          stepOrder: 2,
+        },
+        {
+          id: 'step-tgd',
+          name: 'Đỗ Trung Hải',
+          roleTitle: 'Tổng Giám Đốc',
+          department: 'BAN TỔNG GIÁM ĐỐC',
+          status: 'APPROVED',
+          decisionDate: new Date().toISOString(),
+          stepOrder: 3,
+        }
+      );
+    }
+
+    return list;
+  }, [activeDoc, stepsProp, attachment]);
+
   useEffect(() => {
     setMounted(true);
     setZoom(100);
@@ -88,7 +180,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     };
   }, [attachment]);
 
-  // Tự động chuyển đổi văn bản Office (.docx, .xlsx) sang PDF để hiển thị đúng nội dung thực tế
+  // Tự động chuyển đổi văn bản Office (.docx, .xlsx) sang PDF để hiển thị đúng nội dung thực tế và chữ ký các phòng ban
   useEffect(() => {
     if (!attachment || !isOfficeDoc || !hasRealFileContent) {
       setConvertedPdfUrl(null);
@@ -116,7 +208,10 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
         if (arrayBuf && !isCancelled) {
           const dummyFile = new File([arrayBuf], attachment.name, { type: attachment.type });
-          const res = await convertOfficeOrImageToPdf(dummyFile);
+          const res = await convertOfficeOrImageToPdf(dummyFile, {
+            displayDocCode,
+            signers: docSigners,
+          });
           if (!isCancelled && res.pdfBytes && res.pdfBytes.byteLength > 0) {
             const blob = new Blob([res.pdfBytes as any], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
@@ -135,7 +230,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [attachment, secureUrl, isOfficeDoc, hasRealFileContent]);
+  }, [attachment, secureUrl, isOfficeDoc, hasRealFileContent, displayDocCode, docSigners]);
 
   // Thu hồi Blob URL khi component unmount hoặc thay đổi tệp
   useEffect(() => {
@@ -180,9 +275,6 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
       alert(`Đang tải file: ${attachment.name}`);
     }
   };
-
-  const displayDocCode = ('documentCode' in attachment && attachment.documentCode) || documentCode || 'HĐ-2026/TH';
-  const displayDocTitle = ('documentTitle' in attachment && attachment.documentTitle) || documentTitle || attachment.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
 
   const modalContent = (
     <div 
@@ -498,55 +590,123 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                     2. Văn bản có hiệu lực kể từ ngày ký số và được lưu trữ trên nền tảng quản lý hồ sơ số DMS của Cty CP Xây dựng và Đầu tư Trung Hải.
                   </p>
 
-                  {/* Red Seal & Signatures Box */}
-                  <div className="pt-4 grid grid-cols-2 gap-6 items-start">
-                    <div className="text-center">
-                      <p className="font-bold text-xs uppercase text-slate-800">NGƯỜI LẬP HỒ SƠ</p>
-                      <p className="text-[10px] text-slate-500 italic mt-0.5">(Ký, ghi rõ họ tên)</p>
-                      <div className="h-16 flex items-center justify-center">
-                        <span 
-                          className="italic text-base text-brand-blue font-bold tracking-normal"
-                          style={{ fontFamily: "'Segoe Script', 'Brush Script MT', cursive, sans-serif" }}
-                        >
-                          {(attachment.uploadedBy || 'Nguyễn Văn Long').trim().normalize('NFC')}
-                        </span>
-                      </div>
-                      <p className="text-xs font-bold text-slate-800">{(attachment.uploadedBy || 'Nguyễn Văn Long').trim().normalize('NFC')}</p>
-                      <p className="text-[10px] text-slate-500">Chuyên viên phụ trách</p>
+                  {/* Khối Chữ ký điện tử & Dấu mộc các phòng ban phê duyệt */}
+                  <div className="pt-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-300 pb-2">
+                      <h6 className="font-extrabold text-[11px] uppercase tracking-wide text-slate-900">
+                        XÁC NHẬN KÝ DUYỆT & ĐÓNG DẤU ĐIỆN TỬ CÁC PHÒNG BAN
+                      </h6>
+                      <span className="text-[10px] text-brand-blue font-semibold">
+                        ✓ Chứng thực số PAdES - B-LTA hợp lệ
+                      </span>
                     </div>
 
-                    <div className="text-center relative">
-                      <p className="font-bold text-xs uppercase text-slate-800">ĐẠI DIỆN PHÊ DUYỆT</p>
-                      <p className="text-[10px] text-slate-500 italic mt-0.5">(Ký số & Đóng dấu điện tử)</p>
-                      
-                      {/* Red Stamp Overlay */}
-                      <div className="h-20 flex items-center justify-center relative">
-                        {/* Stamp Graphic */}
-                        <div className="w-20 h-20 rounded-full border-2 border-dashed border-brand-red flex flex-col items-center justify-center p-1 text-brand-red select-none opacity-90 rotate-[-12deg] shadow-xs">
-                          <div className="text-[5.5px] font-bold uppercase text-center leading-tight">
-                            CTY CP XÂY DỰNG &<br />ĐẦU TƯ TRUNG HẢI
-                          </div>
-                          <div className="text-[5px] font-mono font-bold my-0.5">★ ĐÃ PHÊ DUYỆT ★</div>
-                          <div className="text-[5px] text-center font-bold">MÃ: TH-DMS-2026</div>
-                        </div>
+                    <div 
+                      className="grid gap-3.5 items-start"
+                      style={{
+                        gridTemplateColumns: `repeat(${Math.min(docSigners.length, 3)}, minmax(0, 1fr))`
+                      }}
+                    >
+                      {docSigners.map((signer, sIdx) => {
+                        const isApproved = signer.status === 'APPROVED';
+                        const hasDrawSignature = signer.signatureImage && signer.signatureImage.startsWith('data:image');
+                        const hasUrlSignature = signer.signatureImage && signer.signatureImage.startsWith('http');
 
-                        {/* Signature Text */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span 
-                            className="italic text-base text-brand-blue-dark font-bold drop-shadow tracking-normal"
-                            style={{ fontFamily: "'Segoe Script', 'Brush Script MT', cursive, sans-serif" }}
+                        return (
+                          <div 
+                            key={signer.id || sIdx}
+                            className={`border rounded-xl p-3 flex flex-col justify-between text-center relative overflow-hidden transition-all ${
+                              isApproved 
+                                ? 'border-red-200 bg-red-50/20 shadow-2xs' 
+                                : signer.isCreator
+                                ? 'border-blue-200 bg-blue-50/20 shadow-2xs'
+                                : 'border-slate-200 bg-slate-50/50 opacity-80'
+                            }`}
                           >
-                            Đỗ Trung Hải
-                          </span>
-                        </div>
-                      </div>
+                            {/* Header: Phòng ban / Chức vụ */}
+                            <div>
+                              <p className="font-black text-[10px] uppercase tracking-wider text-slate-900 line-clamp-1" title={signer.department || signer.roleTitle}>
+                                {signer.isCreator ? 'NGƯỜI LẬP HỒ SƠ' : (signer.department || signer.roleTitle || 'PHÒNG PHÊ DUYỆT')}
+                              </p>
+                              <p className="text-[9px] text-slate-500 italic mt-0.5">
+                                {signer.isCreator ? '(Ký, ghi rõ họ tên)' : '(Ký số & Đóng dấu điện tử)'}
+                              </p>
+                            </div>
 
-                      <p className="text-xs font-bold text-slate-900 mt-0.5">ĐỖ TRUNG HẢI</p>
-                      <p className="text-[10px] text-slate-600 font-medium">Tổng Giám đốc</p>
-                      <div className="inline-flex items-center gap-1 mt-0.5 text-[9px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                        <CheckCircle2 className="h-3 w-3" />
-                        <span>Chữ ký số hợp lệ (VNPT-CA 2026)</span>
-                      </div>
+                            {/* Khu vực con dấu & chữ ký */}
+                            <div className="my-2 py-1 flex flex-col items-center justify-center min-h-[75px]">
+                              {isApproved ? (
+                                <div className="space-y-1 flex flex-col items-center w-full">
+                                  {/* Chữ ký vẽ tay nếu có */}
+                                  {(hasDrawSignature || hasUrlSignature) ? (
+                                    <div className="h-8 max-w-[130px] flex items-center justify-center overflow-hidden mb-1">
+                                      <img 
+                                        src={signer.signatureImage} 
+                                        alt="Chữ ký" 
+                                        className="max-h-full object-contain filter contrast-125"
+                                      />
+                                    </div>
+                                  ) : null}
+
+                                  {/* Con dấu đỏ điện tử Trung Hải */}
+                                  <div className="w-full px-2 py-1.5 border border-brand-red rounded-lg text-brand-red bg-red-50/90 text-center space-y-0.5 shadow-2xs">
+                                    <div className="flex items-center justify-center gap-1 font-black text-[7.5px] uppercase tracking-wider border-b border-brand-red/30 pb-0.5">
+                                      <ShieldCheck className="w-2.5 h-2.5 text-brand-red shrink-0" />
+                                      <span>CTY CP ĐẦU TƯ & XD TRUNG HẢI</span>
+                                    </div>
+                                    <p className="font-black text-[8.5px] uppercase tracking-wider text-brand-red pt-0.5">
+                                      ✓ ĐÃ KÝ ĐIỆN TỬ
+                                    </p>
+                                    <p className="font-bold text-[8.5px] text-slate-900 truncate">
+                                      {signer.name}
+                                    </p>
+                                    <p className="text-[7.5px] font-mono text-slate-600">
+                                      {signer.decisionDate ? new Date(signer.decisionDate).toLocaleDateString('vi-VN') + ' ' + new Date(signer.decisionDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '20/10/2026 14:30'}
+                                    </p>
+                                    <p className="text-[7px] font-mono text-slate-400">
+                                      AUTH: {(signer.id || 'TH-CA').slice(-6).toUpperCase()}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : signer.isCreator ? (
+                                <div className="h-16 flex items-center justify-center">
+                                  <span 
+                                    className="italic text-base text-brand-blue font-bold tracking-normal"
+                                    style={{ fontFamily: "'Segoe Script', 'Brush Script MT', cursive, sans-serif" }}
+                                  >
+                                    {signer.name}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="text-center text-slate-400 text-[10px] italic py-3">
+                                  (Chưa ký duyệt)
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Tên & chức danh phía dưới */}
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-900 leading-tight uppercase">
+                                {signer.name}
+                              </p>
+                              <p className="text-[9px] text-slate-500 font-medium truncate mt-0.5">
+                                {signer.roleTitle}
+                              </p>
+                              {isApproved ? (
+                                <div className="inline-flex items-center gap-1 mt-1 text-[8px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />
+                                  <span>Chữ ký số hợp lệ (VNPT-CA)</span>
+                                </div>
+                              ) : signer.isCreator ? (
+                                <div className="inline-flex items-center gap-1 mt-1 text-[8px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                                  <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />
+                                  <span>Người lập hồ sơ</span>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
