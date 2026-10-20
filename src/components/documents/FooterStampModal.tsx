@@ -17,18 +17,18 @@ import {
   RotateCw,
   Maximize2,
   Minimize2,
-  Info
+  Info,
+  AlertCircle
 } from 'lucide-react';
 import { DocumentItem } from '../../types';
 import { 
   stampPdfWithFooterSeal, 
-  createStandardDocumentPdf, 
   createFooterStampCanvas, 
   FooterStampOptions, 
   FooterSignerInfo 
 } from '../../lib/pdfFooterStamper';
-import { convertOfficeOrImageToPdf } from '../../lib/officeToPdfConverter';
 import { formatDate } from '../../lib/storage';
+import { getSecureFileUrl } from '../../lib/nasStorageService';
 
 interface FooterStampModalProps {
   isOpen: boolean;
@@ -50,6 +50,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
   const [zoom, setZoom] = useState<number>(100);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isLoadingSource, setIsLoadingSource] = useState<boolean>(false);
+  const [nonPdfError, setNonPdfError] = useState<string | null>(null);
   const [sourcePdfBytes, setSourcePdfBytes] = useState<Uint8Array | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [previewStampDataUri, setPreviewStampDataUri] = useState<string>('');
@@ -156,64 +157,99 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
     };
   }, [isOpen, activeSignersKey, doc?.code, currentPage, totalPages]);
 
-  // 2. Tải và chuẩn hóa tài liệu gốc duy nhất 1 lần khi mở modal (tránh lặp tải fetch / convert)
+  // 2. Tải và kiểm tra tệp PDF gốc (chỉ cho phép tệp định dạng PDF tải lên, không chuyển đổi Word/Excel)
   useEffect(() => {
     if (!isOpen) {
       setSourcePdfBytes(null);
+      setNonPdfError(null);
       return;
     }
 
     let isCancelled = false;
     setIsLoadingSource(true);
+    setNonPdfError(null);
 
     const loadSource = async () => {
       try {
-        let bytes: Uint8Array;
+        let bytes: Uint8Array | null = null;
 
-        if (pdfSource && pdfSource !== '#') {
-          if (typeof pdfSource === 'string') {
-            if (pdfSource.startsWith('data:application/pdf;base64,')) {
-              const base64 = pdfSource.replace('data:application/pdf;base64,', '');
+        let resolvedSource = pdfSource;
+        if (!resolvedSource && doc?.attachments && doc.attachments.length > 0) {
+          const pdfAtt = doc.attachments.find(a => 
+            a.name?.toLowerCase().endsWith('.pdf') || 
+            a.type === 'application/pdf' ||
+            a.url?.toLowerCase().includes('.pdf')
+          );
+          if (pdfAtt?.url) {
+            resolvedSource = pdfAtt.url;
+          }
+        }
+
+        if (resolvedSource && resolvedSource !== '#') {
+          if (typeof resolvedSource === 'string') {
+            if (resolvedSource.startsWith('data:application/pdf;base64,')) {
+              const base64 = resolvedSource.replace('data:application/pdf;base64,', '');
               bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
             } else {
-              try {
-                const res = await fetch(pdfSource);
-                if (res.ok) {
-                  const buf = await res.arrayBuffer();
-                  const h = new Uint8Array(buf.slice(0, 4));
-                  if (h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46) {
-                    bytes = new Uint8Array(buf);
-                  } else {
-                    const fallbackName = typeof pdfSource === 'string'
-                      ? pdfSource.split('/').pop()?.split('?')[0] || `${doc?.code || 'document'}.docx`
-                      : `${doc?.code || 'document'}.docx`;
-                    const conv = await convertOfficeOrImageToPdf(new File([buf], fallbackName));
-                    bytes = conv.pdfBytes;
-                  }
+              const fetchUrl = getSecureFileUrl(resolvedSource);
+              const res = await fetch(fetchUrl);
+              if (res.ok) {
+                const buf = await res.arrayBuffer();
+                const h = new Uint8Array(buf.slice(0, 4));
+                // Kiểm tra định dạng PDF chuẩn (%PDF = 0x25 0x50 0x44 0x46)
+                if (h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46) {
+                  bytes = new Uint8Array(buf);
                 } else {
-                  bytes = await createStandardDocumentPdf(doc);
+                  if (!isCancelled) {
+                    setNonPdfError('Tệp đính kèm không phải định dạng PDF. Hệ thống không chuyển đổi file Word/Excel; tính năng đóng dấu giáp lai chân trang chỉ áp dụng cho tệp .PDF tải lên.');
+                  }
+                  return;
                 }
-              } catch {
-                bytes = await createStandardDocumentPdf(doc);
+              } else {
+                if (!isCancelled) {
+                  setNonPdfError(`Không thể tải tệp PDF từ máy chủ lưu trữ (Mã phản hồi HTTP: ${res.status}). Vui lòng kiểm tra lại tệp đính kèm.`);
+                }
+                return;
               }
             }
-          } else if (pdfSource instanceof Uint8Array) {
-            bytes = pdfSource;
+          } else if (resolvedSource instanceof Uint8Array) {
+            const h = resolvedSource.subarray(0, 4);
+            if (h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46) {
+              bytes = resolvedSource;
+            } else {
+              if (!isCancelled) {
+                setNonPdfError('Tệp được chọn không phải định dạng PDF chuẩn. Chỉ hỗ trợ đóng dấu giáp lai trên tệp .PDF.');
+              }
+              return;
+            }
+          } else if (resolvedSource instanceof ArrayBuffer) {
+            const h = new Uint8Array(resolvedSource.slice(0, 4));
+            if (h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46) {
+              bytes = new Uint8Array(resolvedSource);
+            } else {
+              if (!isCancelled) {
+                setNonPdfError('Tệp được chọn không phải định dạng PDF chuẩn. Chỉ hỗ trợ đóng dấu giáp lai trên tệp .PDF.');
+              }
+              return;
+            }
           } else {
-            bytes = new Uint8Array(pdfSource);
+            bytes = new Uint8Array(resolvedSource);
           }
         } else {
-          bytes = await createStandardDocumentPdf(doc);
+          if (!isCancelled) {
+            setNonPdfError('Hồ sơ không có tệp đính kèm định dạng PDF. Tính năng đóng dấu giáp lai chân trang chỉ áp dụng cho tệp .PDF tải lên.');
+          }
+          return;
         }
 
-        if (!isCancelled) {
+        if (!isCancelled && bytes) {
+          setNonPdfError(null);
           setSourcePdfBytes(bytes);
         }
-      } catch (err) {
-        console.error('Lỗi khi chuẩn bị tài liệu nguồn:', err);
+      } catch (err: any) {
+        console.error('Lỗi khi nạp tệp PDF nguồn:', err);
         if (!isCancelled) {
-          const fallback = await createStandardDocumentPdf(doc);
-          setSourcePdfBytes(fallback);
+          setNonPdfError('Không thể nạp tệp PDF để đóng dấu giáp lai. Vui lòng kiểm tra định dạng tệp tải lên.');
         }
       } finally {
         if (!isCancelled) {
@@ -334,7 +370,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              disabled={isGenerating || isLoadingSource || !previewBlobUrl}
+              disabled={isGenerating || isLoadingSource || !previewBlobUrl || !!nonPdfError}
               className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -343,7 +379,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
             <button
               type="button"
               onClick={handleDownload}
-              disabled={isGenerating || isLoadingSource || !previewBlobUrl}
+              disabled={isGenerating || isLoadingSource || !previewBlobUrl || !!nonPdfError}
               className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
@@ -570,7 +606,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
               <button
                 type="button"
                 onClick={handleDownload}
-                disabled={isGenerating || isLoadingSource || !previewBlobUrl}
+                disabled={isGenerating || isLoadingSource || !previewBlobUrl || !!nonPdfError}
                 className="w-full py-2.5 px-4 bg-gradient-to-r from-brand-red via-red-600 to-rose-700 hover:from-red-600 hover:to-brand-red text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-98"
               >
                 <Download className="w-4 h-4" />
@@ -587,7 +623,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
             <div className="px-3 py-1.5 bg-slate-900 border border-slate-700/80 rounded-2xl flex items-center justify-between text-xs text-white mb-2 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-300 text-[11px]">Bản Xem Trước Văn Bản Đã Dán Tem:</span>
-                {(isGenerating || isLoadingSource) && (
+                {(isGenerating || isLoadingSource) && !nonPdfError && (
                   <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] rounded-full animate-pulse">
                     {isLoadingSource ? 'Đang đọc tệp gốc...' : 'Đang xử lý dán tem...'}
                   </span>
@@ -601,8 +637,9 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                 <button
                   type="button"
                   onClick={handlePrint}
+                  disabled={isGenerating || isLoadingSource || !previewBlobUrl || !!nonPdfError}
                   title="In tài liệu"
-                  className="p-1 hover:bg-slate-750 text-slate-300 hover:text-white rounded-lg transition-colors cursor-pointer"
+                  className="p-1 hover:bg-slate-750 text-slate-300 hover:text-white rounded-lg transition-colors cursor-pointer disabled:opacity-40"
                 >
                   <Printer className="w-4 h-4" />
                 </button>
@@ -611,7 +648,27 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
 
             {/* PDF Embedded View */}
             <div className="flex-1 min-h-0 bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden relative shadow-inner">
-              {previewBlobUrl ? (
+              {nonPdfError ? (
+                <div className="flex flex-col items-center justify-center h-full p-6 sm:p-12 text-center text-slate-300 gap-3 max-w-md mx-auto select-text">
+                  <div className="w-14 h-14 rounded-3xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30 shadow-inner">
+                    <AlertCircle className="w-7 h-7" />
+                  </div>
+                  <h4 className="text-sm font-bold text-white">Chỉ hỗ trợ đóng dấu trên tệp PDF tải lên</h4>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {nonPdfError}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Vui lòng sử dụng tệp định dạng .PDF gốc để sử dụng tính năng đóng dấu giáp lai chân trang.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer border border-slate-600"
+                  >
+                    Đóng cửa sổ
+                  </button>
+                </div>
+              ) : previewBlobUrl ? (
                 <iframe
                   src={`${previewBlobUrl}#toolbar=0&navpanes=0&view=FitH`}
                   className="w-full h-full border-0 rounded-2xl bg-white"
@@ -621,7 +678,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                   <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                   <p className="text-xs">
-                    {isLoadingSource ? 'Đang tải và chuẩn hóa tệp gốc...' : 'Đang sinh bản PDF giáp lai an toàn lề...'}
+                    {isLoadingSource ? 'Đang đọc và kiểm tra tệp PDF tải lên...' : 'Đang sinh bản PDF giáp lai an toàn lề...'}
                   </p>
                 </div>
               )}

@@ -1,7 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { DocumentItem, ApprovalStep } from '../types';
 import { formatDate } from './storage';
-import { convertOfficeOrImageToPdf } from './officeToPdfConverter';
+import { getSecureFileUrl } from './nasStorageService';
 
 /**
  * Helper chuyển chuỗi tiếng Việt có dấu sang không dấu (ASCII an toàn cho chuẩn WinAnsi của PDF)
@@ -394,9 +394,12 @@ export async function normalizeFileToPdf(file: File): Promise<{
 }> {
   const fileNameLower = file.name.toLowerCase();
 
-  // Trường hợp 1: Tệp đã là PDF sẵn
-  if (fileNameLower.endsWith('.pdf') || file.type === 'application/pdf') {
-    const buf = await file.arrayBuffer();
+  // Kiểm tra nếu là file PDF tải lên
+  const buf = await file.arrayBuffer();
+  const h = new Uint8Array(buf.slice(0, 4));
+  const isPdf = (h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46) || fileNameLower.endsWith('.pdf') || file.type === 'application/pdf';
+
+  if (isPdf) {
     return {
       pdfBytes: new Uint8Array(buf),
       fileName: file.name,
@@ -404,14 +407,7 @@ export async function normalizeFileToPdf(file: File): Promise<{
     };
   }
 
-  // Trường hợp 2: Tệp Office (.docx, .xlsx), hình ảnh hoặc văn bản khác
-  // -> Phân tích cấu trúc thực tế và chuyển đổi sang PDF có nội dung và định dạng đầy đủ
-  const convResult = await convertOfficeOrImageToPdf(file);
-  return {
-    pdfBytes: convResult.pdfBytes,
-    fileName: convResult.fileName,
-    isConverted: convResult.isConverted,
-  };
+  throw new Error('Hệ thống không chuyển đổi file Word/Excel. Tính năng đóng dấu giáp lai chỉ áp dụng cho tệp định dạng .PDF tải lên.');
 }
 
 /**
@@ -579,26 +575,19 @@ export async function downloadFooterStampedPdf(
         const base64 = existingPdfSource.replace('data:application/pdf;base64,', '');
         sourceBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       } else {
-        try {
-          const res = await fetch(existingPdfSource);
-          if (res.ok) {
-            const buf = await res.arrayBuffer();
-            const h = new Uint8Array(buf.slice(0, 4));
-            const isPdf = h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46;
-            if (isPdf) {
-              sourceBytes = buf;
-            } else {
-              const fallbackName = typeof existingPdfSource === 'string'
-                ? existingPdfSource.split('/').pop()?.split('?')[0] || `${doc.code}.docx`
-                : `${doc.code}.docx`;
-              const conv = await convertOfficeOrImageToPdf(new File([buf], fallbackName));
-              sourceBytes = conv.pdfBytes;
-            }
+        const fetchUrl = getSecureFileUrl(existingPdfSource);
+        const res = await fetch(fetchUrl);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          const h = new Uint8Array(buf.slice(0, 4));
+          const isPdf = h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46;
+          if (isPdf) {
+            sourceBytes = buf;
           } else {
-            sourceBytes = await createStandardDocumentPdf(doc);
+            throw new Error('Tệp đính kèm không phải định dạng .PDF. Tính năng đóng dấu giáp lai chỉ áp dụng cho tệp .PDF tải lên.');
           }
-        } catch {
-          sourceBytes = await createStandardDocumentPdf(doc);
+        } else {
+          throw new Error(`Không thể tải tệp PDF đính kèm từ máy chủ lưu trữ (Mã HTTP: ${res.status}).`);
         }
       }
     } else {

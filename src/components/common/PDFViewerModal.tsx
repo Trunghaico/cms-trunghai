@@ -16,12 +16,13 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Info
 } from 'lucide-react';
 import { Attachment, DocumentItem, ApprovalStep } from '../../types';
 import { useDocument } from '../../context/DocumentContext';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
-import { convertOfficeOrImageToPdf, OfficePdfSigner } from '../../lib/officeToPdfConverter';
+import { OfficePdfSigner } from '../../lib/officeToPdfConverter';
 import { FooterStampModal } from '../documents/FooterStampModal';
 
 interface PDFViewerModalProps {
@@ -51,8 +52,6 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   const [isClosing, setIsClosing] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
   const [imageError, setImageError] = useState<boolean>(false);
-  const [convertedPdfUrl, setConvertedPdfUrl] = useState<string | null>(null);
-  const [isConvertingDocx, setIsConvertingDocx] = useState<boolean>(false);
   const [isFooterStampOpen, setIsFooterStampOpen] = useState<boolean>(false);
   const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
@@ -182,67 +181,6 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     };
   }, [attachment]);
 
-  // Tự động chuyển đổi văn bản Office (.docx, .xlsx) sang PDF để hiển thị đúng nội dung thực tế và chữ ký các phòng ban
-  useEffect(() => {
-    if (!attachment || !isOfficeDoc || !hasRealFileContent) {
-      setConvertedPdfUrl(null);
-      setIsConvertingDocx(false);
-      return;
-    }
-
-    let isCancelled = false;
-    setIsConvertingDocx(true);
-
-    const convertDocx = async () => {
-      try {
-        let arrayBuf: ArrayBuffer | null = null;
-        if (secureUrl.startsWith('data:')) {
-          const base64 = secureUrl.split(',')[1];
-          const bin = atob(base64);
-          const u8 = Uint8Array.from(bin, c => c.charCodeAt(0));
-          arrayBuf = u8.buffer;
-        } else {
-          const res = await fetch(secureUrl);
-          if (res.ok) {
-            arrayBuf = await res.arrayBuffer();
-          }
-        }
-
-        if (arrayBuf && !isCancelled) {
-          const dummyFile = new File([arrayBuf], attachment.name, { type: attachment.type });
-          const res = await convertOfficeOrImageToPdf(dummyFile, {
-            displayDocCode,
-            signers: docSigners,
-          });
-          if (!isCancelled && res.pdfBytes && res.pdfBytes.byteLength > 0) {
-            const blob = new Blob([res.pdfBytes as any], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            setConvertedPdfUrl(url);
-          }
-        }
-      } catch (err) {
-        console.warn('Lỗi chuyển đổi xem trước tệp văn phòng:', err);
-      } finally {
-        if (!isCancelled) setIsConvertingDocx(false);
-      }
-    };
-
-    convertDocx();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [attachment, secureUrl, isOfficeDoc, hasRealFileContent, displayDocCode, docSigners]);
-
-  // Thu hồi Blob URL khi component unmount hoặc thay đổi tệp
-  useEffect(() => {
-    return () => {
-      if (convertedPdfUrl) {
-        URL.revokeObjectURL(convertedPdfUrl);
-      }
-    };
-  }, [convertedPdfUrl]);
-
   if (!attachment || !mounted || typeof document === 'undefined') return null;
 
   const handleClose = () => {
@@ -265,11 +203,11 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   };
 
   const handleDownload = () => {
-    const downloadTarget = convertedPdfUrl || secureUrl;
+    const downloadTarget = secureUrl;
     if (downloadTarget && downloadTarget !== '#' && downloadTarget.length > 5) {
       const a = document.createElement('a');
       a.href = downloadTarget;
-      a.download = convertedPdfUrl ? attachment.name.replace(/\.[^/.]+$/, '') + '.pdf' : attachment.name;
+      a.download = attachment.name;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -409,11 +347,11 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                 <span className="hidden sm:inline text-[11px] font-medium">Mở tab mới</span>
               </a>
             )}
-            {activeDoc && (
+            {activeDoc && isPdf && hasRealFileContent && (
               <button
                 type="button"
                 onClick={() => setIsFooterStampOpen(true)}
-                title="Đóng dấu giáp lai chân trang các phòng ban phê duyệt"
+                title="Đóng dấu giáp lai chân trang cho tệp PDF tải lên"
                 className="px-2.5 py-1 text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-slate-600 rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-2xs active:scale-95"
               >
                 <ShieldCheck className="h-3.5 w-3.5 text-brand-red shrink-0" />
@@ -455,26 +393,59 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
         {/* EXPANDED PDF VIEWER BODY */}
         <div className={`flex-1 min-h-0 min-w-0 bg-slate-950/95 relative flex ${
-          hasRealFileContent && (isPdf || convertedPdfUrl)
+          hasRealFileContent && isPdf
             ? 'p-1 sm:p-2 overflow-hidden flex-col' 
             : 'overflow-auto p-2 sm:p-4 items-start justify-center'
         }`}>
           
-          {/* CASE 1: Real PDF file or Converted DOCX/XLSX */}
-          {hasRealFileContent && (isPdf || convertedPdfUrl) ? (
+          {/* CASE 1: Real PDF file uploaded by user */}
+          {hasRealFileContent && isPdf ? (
             <div className="w-full h-full flex-1 min-h-0 min-w-0 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/60 relative">
               <iframe
-                src={`${convertedPdfUrl || secureUrl}#toolbar=1&navpanes=0&view=FitH`}
+                src={`${secureUrl}#toolbar=1&navpanes=0&view=FitH`}
                 className="w-full h-full flex-1 min-h-0 min-w-0 border-0 rounded-2xl bg-white"
                 title={attachment.name}
               />
             </div>
-          ) : isConvertingDocx ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center text-white gap-3.5 my-auto">
-              <Loader2 className="w-9 h-9 text-blue-400 animate-spin" />
+          ) : hasRealFileContent && isOfficeDoc ? (
+            /* CASE 2: Word / Excel files - Do NOT convert, keep original and offer download */
+            <div className="bg-white text-slate-900 shadow-2xl rounded-2xl border border-slate-300 p-8 sm:p-12 max-w-xl w-full text-center space-y-4 my-auto select-text">
+              <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-200 shadow-xs">
+                <FileText className="w-8 h-8" />
+              </div>
               <div>
-                <p className="text-sm font-bold text-white">Đang phân tích và hiển thị nội dung tệp {attachment.name}...</p>
-                <p className="text-xs text-slate-400 mt-1">Đồng bộ cấu trúc văn bản, bảng biểu sang chuẩn PDF độ nét cao</p>
+                <h4 className="text-base font-bold text-slate-900">{attachment.name}</h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Tệp văn bản Word / Excel gốc • {attachment.size ? (attachment.size / 1024).toFixed(1) + ' KB' : 'DMS Storage'}
+                </p>
+              </div>
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-left text-xs text-amber-800 space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Quy định đóng dấu & hiển thị tệp:</span>
+                </p>
+                <p className="text-[11.5px] leading-relaxed">
+                  Hệ thống không tự động chuyển đổi tệp Word/Excel sang PDF. Tính năng <strong>Đóng dấu giáp lai chân trang</strong> chỉ áp dụng cho các tệp định dạng <strong>.PDF</strong> gốc do người dùng tải lên.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <a
+                  href={secureUrl}
+                  download={attachment.name}
+                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Tải Tệp Về Máy Tính</span>
+                </a>
+                <a
+                  href={secureUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-2 border border-slate-300 transition-all cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Mở liên kết tệp</span>
+                </a>
               </div>
             </div>
           ) : hasRealFileContent && isImage && !imageError ? (
@@ -756,13 +727,13 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
       </div>
 
-      {/* Footer Stamp Modal if active */}
-      {isFooterStampOpen && activeDoc && (
+      {/* Footer Stamp Modal if active - Chỉ mở cho tệp PDF tải lên */}
+      {isFooterStampOpen && activeDoc && isPdf && hasRealFileContent && (
         <FooterStampModal
           isOpen={isFooterStampOpen}
           onClose={() => setIsFooterStampOpen(false)}
           document={activeDoc}
-          pdfSource={convertedPdfUrl || secureUrl}
+          pdfSource={secureUrl}
         />
       )}
     </div>

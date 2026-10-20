@@ -88,6 +88,14 @@ export const DocumentDetailModal: React.FC = () => {
   const canUserResubmit = selectedDocument?.status === 'ADDITIONAL_REQ' && (isCreator || activeUser.role === 'ADMIN');
   const canDelete = hasPermission('doc.delete') && (isCreator || activeUser.role === 'ADMIN' || hasPermission('approval.override'));
 
+  // Tệp PDF đính kèm tải lên hợp lệ để đóng dấu giáp lai
+  const pdfAttachment = selectedDocument?.attachments?.find(a => 
+    a.name?.toLowerCase().endsWith('.pdf') || 
+    a.type === 'application/pdf' ||
+    a.url?.toLowerCase().includes('.pdf')
+  );
+  const hasPdfAttachment = Boolean(pdfAttachment && pdfAttachment.url);
+
   const latestRequestInfoLog = selectedDocument 
     ? [...selectedDocument.auditLogs].reverse().find(l => l.action === 'REQUEST_INFO') 
     : null;
@@ -327,11 +335,24 @@ export const DocumentDetailModal: React.FC = () => {
           <div className="flex items-center gap-2 pb-1 flex-wrap">
             <button
               type="button"
-              onClick={() => setIsFooterStampOpen(true)}
-              className="px-2.5 py-1 text-[11px] font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-              title="Đóng dấu & Giáp lai chân trang bảo mật (Footer Stamping)"
+              onClick={() => {
+                if (hasPdfAttachment) {
+                  setIsFooterStampOpen(true);
+                }
+              }}
+              disabled={!hasPdfAttachment}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs ${
+                hasPdfAttachment
+                  ? 'text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer'
+                  : 'text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-60'
+              }`}
+              title={
+                hasPdfAttachment
+                  ? 'Đóng dấu & Giáp lai chân trang bảo mật (Chỉ áp dụng cho tệp .PDF tải lên)'
+                  : 'Chỉ áp dụng đóng dấu giáp lai cho tệp .PDF tải lên (Hồ sơ này không có tệp đính kèm .PDF)'
+              }
             >
-              <Stamp className="h-3.5 w-3.5 text-red-600" />
+              <Stamp className={`h-3.5 w-3.5 ${hasPdfAttachment ? 'text-red-600' : 'text-slate-400'}`} />
               <span>Giáp lai chân trang</span>
             </button>
 
@@ -815,9 +836,22 @@ export const DocumentDetailModal: React.FC = () => {
                   <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
                     <button
                       type="button"
-                      onClick={() => setIsFooterStampOpen(true)}
-                      className="px-3.5 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-bold text-xs rounded-xl shadow-md shadow-red-900/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer shrink-0"
-                      title="Đóng dấu & Giáp lai chân trang an toàn lề (Tránh đè chữ / Bảng biểu Excel)"
+                      onClick={() => {
+                        if (hasPdfAttachment) {
+                          setIsFooterStampOpen(true);
+                        }
+                      }}
+                      disabled={!hasPdfAttachment}
+                      className={`px-3.5 py-2.5 font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0 ${
+                        hasPdfAttachment
+                          ? 'bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-red-900/20 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer'
+                          : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none opacity-60'
+                      }`}
+                      title={
+                        hasPdfAttachment
+                          ? 'Đóng dấu & Giáp lai chân trang an toàn lề (Chỉ áp dụng cho tệp .PDF tải lên)'
+                          : 'Chỉ áp dụng đóng dấu giáp lai cho tệp .PDF tải lên (Hồ sơ này không có tệp đính kèm .PDF)'
+                      }
                     >
                       <Stamp className="w-4 h-4" />
                       <span>Đóng Dấu Giáp Lai Chân Trang</span>
@@ -1057,19 +1091,13 @@ export const DocumentDetailModal: React.FC = () => {
         document={selectedDocument}
       />
 
-      {/* Footer Stamping & Margin-Safe Modal */}
-      {isFooterStampOpen && (
+      {/* Footer Stamping & Margin-Safe Modal - Chỉ áp dụng cho tệp .PDF tải lên */}
+      {isFooterStampOpen && hasPdfAttachment && pdfAttachment && (
         <FooterStampModal
           isOpen={isFooterStampOpen}
           onClose={() => setIsFooterStampOpen(false)}
           document={selectedDocument}
-          pdfSource={
-            selectedDocument.attachments.find(a => 
-              a.name?.toLowerCase().endsWith('.pdf') || 
-              a.type === 'application/pdf' ||
-              a.url?.includes('.pdf')
-            )?.url || selectedDocument.attachments[0]?.url || null
-          }
+          pdfSource={getSecureFileUrl(pdfAttachment.url)}
         />
       )}
     </div>
