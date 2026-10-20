@@ -27,6 +27,7 @@ import {
   FooterStampOptions, 
   FooterSignerInfo 
 } from '../../lib/pdfFooterStamper';
+import { convertOfficeOrImageToPdf } from '../../lib/officeToPdfConverter';
 import { formatDate } from '../../lib/storage';
 
 interface FooterStampModalProps {
@@ -101,7 +102,11 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                   if (h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46) {
                     sourceBytes = buf;
                   } else {
-                    sourceBytes = await createStandardDocumentPdf(doc);
+                    const fallbackName = typeof pdfSource === 'string'
+                      ? pdfSource.split('/').pop()?.split('?')[0] || `${doc.code}.docx`
+                      : `${doc.code}.docx`;
+                    const conv = await convertOfficeOrImageToPdf(new File([buf], fallbackName));
+                    sourceBytes = conv.pdfBytes;
                   }
                 } else {
                   sourceBytes = await createStandardDocumentPdf(doc);

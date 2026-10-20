@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { DocumentItem, ApprovalStep } from '../types';
 import { formatDate } from './storage';
+import { convertOfficeOrImageToPdf } from './officeToPdfConverter';
 
 /**
  * Helper chuyển chuỗi tiếng Việt có dấu sang không dấu (ASCII an toàn cho chuẩn WinAnsi của PDF)
@@ -310,104 +311,13 @@ export async function normalizeFileToPdf(file: File): Promise<{
     };
   }
 
-  // Trường hợp 2: Tệp hình ảnh (PNG, JPG, JPEG, WEBP) -> Đóng gói vừa vặn trang A4
-  if (file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(fileNameLower)) {
-    const pdfDoc = await PDFDocument.create();
-    const a4Width = 595.28;
-    const a4Height = 841.89;
-    const page = pdfDoc.addPage([a4Width, a4Height]);
-
-    const imgBytes = new Uint8Array(await file.arrayBuffer());
-    let embeddedImg;
-
-    if (fileNameLower.endsWith('.png') || file.type === 'image/png') {
-      embeddedImg = await pdfDoc.embedPng(imgBytes);
-    } else {
-      embeddedImg = await pdfDoc.embedJpg(imgBytes);
-    }
-
-    const imgDims = embeddedImg.scale(1);
-    const margin = 36;
-    const maxW = a4Width - margin * 2;
-    const maxH = a4Height - margin * 2 - 40;
-
-    const scaleFactor = Math.min(maxW / imgDims.width, maxH / imgDims.height, 1);
-    const finalW = imgDims.width * scaleFactor;
-    const finalH = imgDims.height * scaleFactor;
-    const imgX = (a4Width - finalW) / 2;
-    const imgY = a4Height - margin - finalH;
-
-    page.drawImage(embeddedImg, {
-      x: imgX,
-      y: imgY,
-      width: finalW,
-      height: finalH,
-    });
-
-    const pdfBytes = await pdfDoc.save();
-    return {
-      pdfBytes,
-      fileName: file.name.replace(/\.[^/.]+$/, '') + '.pdf',
-      isConverted: true,
-    };
-  }
-
-  // Trường hợp 3: Tệp Office / Khác -> Sinh tài liệu PDF A4 chứa thông tin đối chiếu
-  const pdfDoc = await PDFDocument.create();
-  const a4Width = 595.28;
-  const a4Height = 841.89;
-  const page = pdfDoc.addPage([a4Width, a4Height]);
-
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-  page.drawText('CONG TY CO PHAN XAY DUNG VA DAU TU TRUNG HAI', {
-    x: 48,
-    y: a4Height - 65,
-    size: 10,
-    font: fontBold,
-    color: rgb(0.1, 0.15, 0.25),
-  });
-
-  page.drawText(toSafePdfAscii(`FILE DINH KEM: ${file.name}`), {
-    x: 48,
-    y: a4Height - 95,
-    size: 14,
-    font: fontBold,
-    color: rgb(0.08, 0.12, 0.2),
-  });
-
-  page.drawText(toSafePdfAscii(`Kich thuoc: ${(file.size / 1024).toFixed(1)} KB | Ngay tai len: ${new Date().toLocaleDateString('en-GB')}`), {
-    x: 48,
-    y: a4Height - 115,
-    size: 9,
-    font: fontRegular,
-    color: rgb(0.4, 0.45, 0.55),
-  });
-
-  page.drawRectangle({
-    x: 48,
-    y: 100,
-    width: a4Width - 96,
-    height: a4Height - 240,
-    borderColor: rgb(0.85, 0.88, 0.92),
-    borderWidth: 1,
-    color: rgb(0.98, 0.99, 1),
-  });
-
-  page.drawText(toSafePdfAscii('NOI DUNG TEP TIN DA DUOC DONG BO TREN HE THONG DMS TRUNG HAI'), {
-    x: 60,
-    y: a4Height - 160,
-    size: 9,
-    font: fontBold,
-    color: rgb(0.2, 0.3, 0.45),
-  });
-
-  const pdfBytes = await pdfDoc.save();
+  // Trường hợp 2: Tệp Office (.docx, .xlsx), hình ảnh hoặc văn bản khác
+  // -> Phân tích cấu trúc thực tế và chuyển đổi sang PDF có nội dung và định dạng đầy đủ
+  const convResult = await convertOfficeOrImageToPdf(file);
   return {
-    pdfBytes,
-    fileName: file.name.replace(/\.[^/.]+$/, '') + '.pdf',
-    isConverted: true,
+    pdfBytes: convResult.pdfBytes,
+    fileName: convResult.fileName,
+    isConverted: convResult.isConverted,
   };
 }
 
@@ -585,7 +495,11 @@ export async function downloadFooterStampedPdf(
             if (isPdf) {
               sourceBytes = buf;
             } else {
-              sourceBytes = await createStandardDocumentPdf(doc);
+              const fallbackName = typeof existingPdfSource === 'string'
+                ? existingPdfSource.split('/').pop()?.split('?')[0] || `${doc.code}.docx`
+                : `${doc.code}.docx`;
+              const conv = await convertOfficeOrImageToPdf(new File([buf], fallbackName));
+              sourceBytes = conv.pdfBytes;
             }
           } else {
             sourceBytes = await createStandardDocumentPdf(doc);

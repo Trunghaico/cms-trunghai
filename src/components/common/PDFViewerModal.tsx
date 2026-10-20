@@ -15,10 +15,12 @@ import {
   ShieldCheck,
   ExternalLink,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { Attachment } from '../../types';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
+import { convertOfficeOrImageToPdf } from '../../lib/officeToPdfConverter';
 
 interface PDFViewerModalProps {
   attachment: Attachment | (Attachment & { documentCode?: string; documentTitle?: string; documentStatus?: string }) | null;
@@ -41,7 +43,29 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   const [isClosing, setIsClosing] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
   const [imageError, setImageError] = useState<boolean>(false);
+  const [convertedPdfUrl, setConvertedPdfUrl] = useState<string | null>(null);
+  const [isConvertingDocx, setIsConvertingDocx] = useState<boolean>(false);
   const mouseDownTargetRef = useRef<EventTarget | null>(null);
+
+  const rawUrl = attachment?.url;
+  const secureUrl = getSecureFileUrl(rawUrl);
+
+  const fileNameLower = attachment?.name?.toLowerCase() || '';
+  const isPdf = fileNameLower.endsWith('.pdf') || (attachment?.type && attachment.type.includes('pdf'));
+  const isImage = (attachment?.type && attachment.type.startsWith('image/')) || /\.(png|jpe?g|webp|gif|svg)$/i.test(fileNameLower);
+  const isOfficeDoc = /\.(docx|xlsx|pptx|doc|xls)$/i.test(fileNameLower);
+
+  const hasRealFileContent = !!(
+    secureUrl && 
+    secureUrl !== '#' && 
+    (
+      secureUrl.startsWith('data:') || 
+      secureUrl.startsWith('blob:') || 
+      secureUrl.startsWith('http://') || 
+      secureUrl.startsWith('https://') ||
+      secureUrl.startsWith('/api/nas')
+    )
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -64,6 +88,64 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     };
   }, [attachment]);
 
+  // Tự động chuyển đổi văn bản Office (.docx, .xlsx) sang PDF để hiển thị đúng nội dung thực tế
+  useEffect(() => {
+    if (!attachment || !isOfficeDoc || !hasRealFileContent) {
+      setConvertedPdfUrl(null);
+      setIsConvertingDocx(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsConvertingDocx(true);
+
+    const convertDocx = async () => {
+      try {
+        let arrayBuf: ArrayBuffer | null = null;
+        if (secureUrl.startsWith('data:')) {
+          const base64 = secureUrl.split(',')[1];
+          const bin = atob(base64);
+          const u8 = Uint8Array.from(bin, c => c.charCodeAt(0));
+          arrayBuf = u8.buffer;
+        } else {
+          const res = await fetch(secureUrl);
+          if (res.ok) {
+            arrayBuf = await res.arrayBuffer();
+          }
+        }
+
+        if (arrayBuf && !isCancelled) {
+          const dummyFile = new File([arrayBuf], attachment.name, { type: attachment.type });
+          const res = await convertOfficeOrImageToPdf(dummyFile);
+          if (!isCancelled && res.pdfBytes && res.pdfBytes.byteLength > 0) {
+            const blob = new Blob([res.pdfBytes as any], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            setConvertedPdfUrl(url);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi chuyển đổi xem trước tệp văn phòng:', err);
+      } finally {
+        if (!isCancelled) setIsConvertingDocx(false);
+      }
+    };
+
+    convertDocx();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [attachment, secureUrl, isOfficeDoc, hasRealFileContent]);
+
+  // Thu hồi Blob URL khi component unmount hoặc thay đổi tệp
+  useEffect(() => {
+    return () => {
+      if (convertedPdfUrl) {
+        URL.revokeObjectURL(convertedPdfUrl);
+      }
+    };
+  }, [convertedPdfUrl]);
+
   if (!attachment || !mounted || typeof document === 'undefined') return null;
 
   const handleClose = () => {
@@ -85,14 +167,12 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     window.print();
   };
 
-  const rawUrl = attachment.url;
-  const secureUrl = getSecureFileUrl(rawUrl);
-
   const handleDownload = () => {
-    if (secureUrl && secureUrl !== '#' && secureUrl.length > 5) {
+    const downloadTarget = convertedPdfUrl || secureUrl;
+    if (downloadTarget && downloadTarget !== '#' && downloadTarget.length > 5) {
       const a = document.createElement('a');
-      a.href = secureUrl;
-      a.download = attachment.name;
+      a.href = downloadTarget;
+      a.download = convertedPdfUrl ? attachment.name.replace(/\.[^/.]+$/, '') + '.pdf' : attachment.name;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -100,22 +180,6 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
       alert(`Đang tải file: ${attachment.name}`);
     }
   };
-
-  const fileNameLower = attachment.name.toLowerCase();
-  const isPdf = fileNameLower.endsWith('.pdf') || (attachment.type && attachment.type.includes('pdf'));
-  const isImage = (attachment.type && attachment.type.startsWith('image/')) || /\.(png|jpe?g|webp|gif|svg)$/i.test(attachment.name);
-
-  const hasRealFileContent = !!(
-    secureUrl && 
-    secureUrl !== '#' && 
-    (
-      secureUrl.startsWith('data:') || 
-      secureUrl.startsWith('blob:') || 
-      secureUrl.startsWith('http://') || 
-      secureUrl.startsWith('https://') ||
-      secureUrl.startsWith('/api/nas')
-    )
-  );
 
   const displayDocCode = ('documentCode' in attachment && attachment.documentCode) || documentCode || 'HĐ-2026/TH';
   const displayDocTitle = ('documentTitle' in attachment && attachment.documentTitle) || documentTitle || attachment.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
@@ -286,19 +350,27 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
         {/* EXPANDED PDF VIEWER BODY */}
         <div className={`flex-1 min-h-0 min-w-0 bg-slate-950/95 relative flex ${
-          hasRealFileContent && isPdf 
+          hasRealFileContent && (isPdf || convertedPdfUrl)
             ? 'p-1 sm:p-2 overflow-hidden flex-col' 
             : 'overflow-auto p-2 sm:p-4 items-start justify-center'
         }`}>
           
-          {/* CASE 1: Real PDF file uploaded by user (Base64 data or Blob or URL) */}
-          {hasRealFileContent && isPdf ? (
+          {/* CASE 1: Real PDF file or Converted DOCX/XLSX */}
+          {hasRealFileContent && (isPdf || convertedPdfUrl) ? (
             <div className="w-full h-full flex-1 min-h-0 min-w-0 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/60 relative">
               <iframe
-                src={`${secureUrl}#toolbar=1&navpanes=0&view=FitH`}
+                src={`${convertedPdfUrl || secureUrl}#toolbar=1&navpanes=0&view=FitH`}
                 className="w-full h-full flex-1 min-h-0 min-w-0 border-0 rounded-2xl bg-white"
                 title={attachment.name}
               />
+            </div>
+          ) : isConvertingDocx ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center text-white gap-3.5 my-auto">
+              <Loader2 className="w-9 h-9 text-blue-400 animate-spin" />
+              <div>
+                <p className="text-sm font-bold text-white">Đang phân tích và hiển thị nội dung tệp {attachment.name}...</p>
+                <p className="text-xs text-slate-400 mt-1">Đồng bộ cấu trúc văn bản, bảng biểu sang chuẩn PDF độ nét cao</p>
+              </div>
             </div>
           ) : hasRealFileContent && isImage && !imageError ? (
             /* CASE 2: Image file uploaded by user */
