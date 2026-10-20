@@ -493,33 +493,35 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         </div>
 
         {/* 2. DESKTOP FULL TABLE (>= lg) */}
-        <div className="hidden lg:block overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="hidden lg:block overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300">
+          <table className="w-full text-left text-xs min-w-[1100px]">
             <thead className="bg-slate-50/90 text-slate-600 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider select-none">
               <tr>
-                <th className="px-4 py-3.5 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('code')}>
+                <th className="px-3.5 py-3.5 cursor-pointer hover:bg-slate-100 whitespace-nowrap" onClick={() => toggleSort('code')}>
                   <div className="flex items-center gap-1.5">
                     <span>Số Hiệu</span>
                     <ArrowUpDown className="h-3 w-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="px-4 py-3.5">Trích Yếu Hồ Sơ</th>
-                <th className="px-4 py-3.5">Người Trình / Đơn Vị</th>
-                <th className="px-4 py-3.5 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('amount')}>
+                <th className="px-3.5 py-3.5 min-w-[220px]">Trích Yếu Hồ Sơ</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">Người Trình / Đơn Vị</th>
+                <th className="px-3.5 py-3.5 cursor-pointer hover:bg-slate-100 whitespace-nowrap" onClick={() => toggleSort('amount')}>
                   <div className="flex items-center gap-1.5">
                     <span>Giá Trị (VNĐ)</span>
                     <ArrowUpDown className="h-3 w-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="px-4 py-3.5">Tiến Trình (BPM)</th>
-                <th className="px-4 py-3.5">Trạng Thái</th>
-                <th className="px-4 py-3.5 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort('createdAt')}>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">Tiến Trình (BPM)</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">Trạng Thái</th>
+                <th className="px-3.5 py-3.5 cursor-pointer hover:bg-slate-100 whitespace-nowrap" onClick={() => toggleSort('createdAt')}>
                   <div className="flex items-center gap-1.5">
                     <span>Ngày Trình</span>
                     <ArrowUpDown className="h-3 w-3 text-slate-400" />
                   </div>
                 </th>
-                <th className="px-4 py-3.5 text-right">Thao Tác</th>
+                <th className="px-4 py-3.5 text-center min-w-[160px] sticky right-0 bg-slate-50/95 backdrop-blur-xs z-10 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] border-l border-slate-200/60 whitespace-nowrap">
+                  Thao Tác
+                </th>
               </tr>
             </thead>
 
@@ -541,12 +543,12 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                   return (
                     <tr 
                       key={doc.id}
-                      className={`hover:bg-indigo-50/30 transition-colors ${
+                      className={`group hover:bg-indigo-50/30 transition-colors ${
                         isMyTurn ? 'bg-amber-50/40' : ''
                       }`}
                     >
                       {/* Code */}
-                      <td className="px-4 py-3.5 font-mono font-bold text-indigo-700 whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 font-mono font-bold text-indigo-700 whitespace-nowrap">
                         <span 
                           onClick={() => setSelectedDocument(doc)}
                           className="hover:underline cursor-pointer"
@@ -556,7 +558,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                       </td>
 
                       {/* Title & Category */}
-                      <td className="px-4 py-3.5 min-w-[240px] max-w-sm">
+                      <td className="px-3.5 py-3.5 min-w-[220px] max-w-sm">
                         <div 
                           onClick={() => setSelectedDocument(doc)}
                           className="font-bold text-slate-900 hover:text-indigo-600 cursor-pointer line-clamp-1 transition-colors"
@@ -596,18 +598,18 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                       </td>
 
                       {/* Creator & Dept */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
                         <p className="font-semibold text-slate-800">{doc.creatorName}</p>
                         <p className="text-[10px] text-slate-500">{doc.department}</p>
                       </td>
 
                       {/* Amount */}
-                      <td className="px-4 py-3.5 font-semibold text-slate-800 whitespace-nowrap font-mono">
+                      <td className="px-3.5 py-3.5 font-semibold text-slate-800 whitespace-nowrap font-mono">
                         {formatCurrency(doc.amount)}
                       </td>
 
                       {/* BPM Step Progress */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
                         {doc.status === 'APPROVED' ? (
                           <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full w-max border border-emerald-200">
                             ✓ Hoàn tất {doc.steps.length}/{doc.steps.length} bước
@@ -635,7 +637,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
                         <div className="space-y-1">
                           {getStatusBadge(doc.status)}
                           {doc.status !== 'ADDITIONAL_REQ' && (doc.isOverdue || (currentStep?.status === 'CURRENT' && currentStep?.deadline && new Date().getTime() > new Date(currentStep.deadline).getTime())) ? (
@@ -657,17 +659,19 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                       </td>
 
                       {/* Date */}
-                      <td className="px-4 py-3.5 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 text-slate-500 font-mono text-[11px] whitespace-nowrap">
                         {formatDate(doc.createdAt)}
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className={`px-4 py-3 text-center whitespace-nowrap sticky right-0 z-10 shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] border-l border-slate-200/60 transition-colors ${
+                        isMyTurn ? 'bg-amber-50/95 group-hover:bg-amber-100/90' : 'bg-white group-hover:bg-indigo-50/50'
+                      }`}>
+                        <div className="flex items-center justify-center gap-1.5">
                           {doc.status === 'ADDITIONAL_REQ' && (doc.creatorId === activeUser.id || activeUser.role === 'ADMIN') ? (
                             <button
                               onClick={() => setSelectedDocument(doc)}
-                              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
                             >
                               <RotateCcw className="h-3.5 w-3.5" />
                               <span>Bổ Sung</span>
@@ -675,7 +679,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                           ) : isMyTurn ? (
                             <button
                               onClick={() => setSelectedDocument(doc)}
-                              className="px-3 py-1.5 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-indigo-600 hover:to-brand-blue text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                              className="px-3 py-1.5 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-indigo-600 hover:to-brand-blue text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0"
                             >
                               <FileSignature className="h-3.5 w-3.5" />
                               <span>Ký Duyệt</span>
@@ -684,7 +688,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                             <button
                               onClick={() => setSelectedDocument(doc)}
                               title="Xem chi tiết"
-                              className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+                              className="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-xl border border-slate-200 transition-colors cursor-pointer shrink-0"
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </button>
@@ -695,7 +699,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                               type="button"
                               onClick={() => setPrintDoc(doc)}
                               title="Xuất phiếu phê duyệt có chữ ký để in"
-                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-colors shadow-2xs shrink-0"
                             >
                               <Printer className="h-3.5 w-3.5 text-emerald-700" />
                               <span>In</span>
@@ -711,7 +715,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                                 }
                               }}
                               title="Xóa hồ sơ"
-                              className="p-2 text-slate-400 hover:text-brand-red hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                              className="p-2 text-slate-400 hover:text-brand-red hover:bg-red-50 rounded-xl transition-colors cursor-pointer shrink-0"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>

@@ -138,7 +138,7 @@ const AppContent: React.FC = () => {
 
         {/* Right Main Content Area */}
         <main className="flex-1 pl-0 md:pl-60 min-w-0 max-w-full overflow-x-hidden pb-24 md:pb-8">
-          <div className="p-3 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full animate-fade-in">
+          <div className="p-3 sm:p-5 lg:p-6 w-full max-w-[1720px] 2xl:max-w-[1920px] mx-auto animate-fade-in">
             {renderContent()}
           </div>
         </main>
