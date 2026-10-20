@@ -185,7 +185,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
                 </span>
               </div>
               <p className="text-xs font-bold text-slate-800 mt-0.5">{approverName}</p>
-              <p className="text-[10px] text-slate-500">{approverTitle} - Công ty Cổ phần Trung Hải</p>
+              <p className="text-[10px] text-slate-500">{approverTitle} - Cty CP Xây dựng và Đầu tư Trung Hải</p>
             </div>
           </div>
         </div>
@@ -207,7 +207,7 @@ export const DigitalSignaturePad: React.FC<DigitalSignaturePadProps> = ({
                 </span>
               </div>
               <p className="text-xs font-bold text-slate-800 mt-0.5">{approverName}</p>
-              <p className="text-[10px] text-slate-500">{approverTitle} - Công ty Cổ phần Trung Hải</p>
+              <p className="text-[10px] text-slate-500">{approverTitle} - Cty CP Xây dựng và Đầu tư Trung Hải</p>
             </div>
           </div>
           <div className="text-right text-[10px] text-slate-400 font-mono hidden sm:block">

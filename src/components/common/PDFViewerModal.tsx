@@ -332,7 +332,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
               <div className="flex justify-between items-start border-b border-slate-300 pb-4 mb-5">
                 <div>
                   <h4 className="font-bold text-xs uppercase tracking-wide text-slate-800">
-                    CÔNG TY CỔ PHẦN CÔNG NGHỆ TRUNG HẢI
+                    CTY CỔ PHẦN XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI
                   </h4>
                   <p className="text-[10px] text-slate-500 mt-0.5">Số: {displayDocCode} • Hệ thống DMS</p>
                 </div>
@@ -381,7 +381,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                     I. CĂN CỨ VÀ NỘI DUNG TÀI LIỆU
                   </h5>
                   <p>
-                    - Căn cứ quy định lưu trữ và ban hành văn bản của Công ty Cổ phần Công nghệ Trung Hải;<br />
+                    - Căn cứ quy định lưu trữ và ban hành văn bản của Cty CP Xây dựng và Đầu tư Trung Hải;<br />
                     - Căn cứ hồ sơ đề xuất, tờ trình phê duyệt số hiệu <strong>{displayDocCode}</strong> đã được các cấp có thẩm quyền thẩm định;<br />
                     - Căn cứ các bảng thông số kỹ thuật, hợp đồng và hóa đơn chứng từ kèm theo;
                   </p>
@@ -413,7 +413,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                   </h5>
                   <p>
                     1. Toàn bộ các điều khoản được thực hiện theo đúng nội dung hợp đồng và tờ trình đã phê duyệt.<br />
-                    2. Văn bản có hiệu lực kể từ ngày ký số và được lưu trữ trên nền tảng quản lý hồ sơ số DMS của Công ty Trung Hải.
+                    2. Văn bản có hiệu lực kể từ ngày ký số và được lưu trữ trên nền tảng quản lý hồ sơ số DMS của Cty CP Xây dựng và Đầu tư Trung Hải.
                   </p>
 
                   {/* Red Seal & Signatures Box */}
@@ -422,11 +422,14 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                       <p className="font-bold text-xs uppercase text-slate-800">NGƯỜI LẬP HỒ SƠ</p>
                       <p className="text-[10px] text-slate-500 italic mt-0.5">(Ký, ghi rõ họ tên)</p>
                       <div className="h-16 flex items-center justify-center">
-                        <span className="font-serif italic text-base text-brand-blue font-semibold">
-                          {attachment.uploadedBy || 'Nguyễn Văn Long'}
+                        <span 
+                          className="italic text-base text-brand-blue font-bold tracking-normal"
+                          style={{ fontFamily: "'Segoe Script', 'Brush Script MT', cursive, sans-serif" }}
+                        >
+                          {(attachment.uploadedBy || 'Nguyễn Văn Long').trim().normalize('NFC')}
                         </span>
                       </div>
-                      <p className="text-xs font-bold text-slate-800">{attachment.uploadedBy || 'Nguyễn Văn Long'}</p>
+                      <p className="text-xs font-bold text-slate-800">{(attachment.uploadedBy || 'Nguyễn Văn Long').trim().normalize('NFC')}</p>
                       <p className="text-[10px] text-slate-500">Chuyên viên phụ trách</p>
                     </div>
 
@@ -438,8 +441,8 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                       <div className="h-20 flex items-center justify-center relative">
                         {/* Stamp Graphic */}
                         <div className="w-20 h-20 rounded-full border-2 border-dashed border-brand-red flex flex-col items-center justify-center p-1 text-brand-red select-none opacity-90 rotate-[-12deg] shadow-xs">
-                          <div className="text-[6px] font-bold uppercase text-center leading-tight">
-                            CÔNG TY CỔ PHẦN<br />CÔNG NGHỆ TRUNG HẢI
+                          <div className="text-[5.5px] font-bold uppercase text-center leading-tight">
+                            CTY CP XÂY DỰNG &<br />ĐẦU TƯ TRUNG HẢI
                           </div>
                           <div className="text-[5px] font-mono font-bold my-0.5">★ ĐÃ PHÊ DUYỆT ★</div>
                           <div className="text-[5px] text-center font-bold">MÃ: TH-DMS-2026</div>
@@ -447,7 +450,10 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
                         {/* Signature Text */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="font-serif italic text-base text-brand-blue-dark font-bold drop-shadow">
+                          <span 
+                            className="italic text-base text-brand-blue-dark font-bold drop-shadow tracking-normal"
+                            style={{ fontFamily: "'Segoe Script', 'Brush Script MT', cursive, sans-serif" }}
+                          >
                             Đỗ Trung Hải
                           </span>
                         </div>

@@ -69,6 +69,11 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
   const approvedSteps = (doc.steps || []).filter(s => s.status === 'APPROVED');
   const verificationHash = `TH-${doc.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}-${Date.now().toString(36).slice(-4).toUpperCase()}`;
 
+  // Chuẩn hóa họ tên người lập tránh lỗi khoảng cách font và Unicode decomposed
+  const cleanCreatorName = (doc.creatorName || '').trim().normalize('NFC').replace(/\s+/g, ' ');
+  const nameParts = cleanCreatorName.split(' ');
+  const creatorLastName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : 'Ký';
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 overflow-hidden animate-backdrop-in">
       {/* Modal Container */}
@@ -165,7 +170,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                 {/* Đơn vị trình ký */}
                 <div className="w-[48%] text-center space-y-0.5">
                   <p className="font-extrabold text-[12px] sm:text-[13px] uppercase tracking-wider text-slate-900 leading-tight">
-                    CÔNG TY CỔ PHẦN ĐẦU TƯ TRUNG HẢI
+                    CTY CỔ PHẦN XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI
                   </p>
                   <p className="font-bold text-[11px] uppercase text-brand-blue tracking-wide">
                     {doc.department || 'BAN QUẢN LÝ DỰ ÁN & VĂN PHÒNG'}
@@ -308,11 +313,11 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                   <div className="p-4 border border-slate-300 rounded text-xs leading-relaxed text-slate-900 bg-white">
                     {doc.contentHtml ? (
                       <div 
-                        className="prose prose-xs max-w-none text-slate-900 font-serif"
+                        className="prose prose-xs max-w-none text-slate-900 font-sans"
                         dangerouslySetInnerHTML={{ __html: doc.contentHtml }} 
                       />
                     ) : (
-                      <p className="font-serif text-slate-800 whitespace-pre-wrap">{doc.description}</p>
+                      <p className="font-sans text-slate-800 whitespace-pre-wrap">{doc.description}</p>
                     )}
                   </div>
                 </div>
@@ -443,9 +448,9 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
 
                                 {/* Corporate Red Verification Stamp (Chuẩn văn bản Việt Nam) */}
                                 <div className="px-2.5 py-1.5 border-2 border-brand-red rounded-lg text-brand-red bg-red-50/80 text-center space-y-0.5 shadow-2xs max-w-[180px]">
-                                  <div className="flex items-center justify-center gap-1 font-black text-[8px] uppercase tracking-wider border-b border-brand-red/40 pb-0.5">
+                                  <div className="flex items-center justify-center gap-1 font-black text-[7.5px] uppercase tracking-wider border-b border-brand-red/40 pb-0.5">
                                     <ShieldCheck className="w-3 h-3 text-brand-red shrink-0" />
-                                    <span>CÔNG TY CP ĐẦU TƯ TRUNG HẢI</span>
+                                    <span>CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI</span>
                                   </div>
                                   <p className="font-black text-[9.5px] uppercase tracking-wider pt-0.5">
                                     ✓ ĐÃ KÝ ĐIỆN TỬ
@@ -486,19 +491,58 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
 
                 {/* Signature of Creator */}
                 <div className="pt-3 border-t border-slate-200 flex justify-between items-end text-xs text-slate-700">
-                  <div className="text-center w-52 space-y-1">
-                    <p className="font-bold uppercase text-[11px] text-slate-800">NGƯỜI LẬP HỒ SƠ</p>
-                    <p className="text-[10.5px] italic text-slate-500">(Ký, ghi rõ họ tên)</p>
-                    <div className="h-14 flex items-center justify-center font-serif italic text-blue-900 font-bold text-sm">
-                      {doc.creatorName}
+                  <div className="text-center w-56 space-y-1">
+                    <p className="font-bold uppercase text-[11px] text-slate-900 font-sans tracking-wide">NGƯỜI LẬP HỒ SƠ</p>
+                    <p className="text-[10.5px] italic text-slate-500 font-sans">(Ký, ghi rõ họ tên)</p>
+                    
+                    {/* Khu vực nét ký tay số hóa thanh thoát & chống lỗi font */}
+                    <div className="h-16 flex flex-col items-center justify-center my-1">
+                      <div className="relative flex flex-col items-center justify-center">
+                        <svg viewBox="0 0 140 45" className="w-32 h-10 overflow-visible" fill="none">
+                          <path
+                            d="M15 28 C 25 12, 38 8, 48 22 C 58 35, 70 14, 82 24 C 95 34, 110 16, 125 20"
+                            stroke="#1d4ed8"
+                            strokeWidth="2.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M28 32 Q 65 44 120 30"
+                            stroke="#2563eb"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                          <text
+                            x="68"
+                            y="23"
+                            textAnchor="middle"
+                            fill="#1e40af"
+                            fontSize="15"
+                            fontWeight="bold"
+                            fontStyle="italic"
+                            style={{ fontFamily: "'Segoe Script', 'Brush Script MT', 'Dancing Script', cursive, sans-serif" }}
+                          >
+                            {creatorLastName}
+                          </text>
+                        </svg>
+                        <span className="text-[8px] font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 mt-0.5 font-semibold">
+                          ✓ ĐÃ KÝ ĐIỆN TỬ
+                        </span>
+                      </div>
                     </div>
-                    <p className="font-bold text-slate-900">{doc.creatorName}</p>
-                    <p className="text-[10.5px] text-slate-500">{doc.creatorTitle || 'Chuyên viên'} - {doc.department}</p>
+
+                    <p className="font-bold text-slate-950 text-xs tracking-normal font-sans">
+                      {cleanCreatorName}
+                    </p>
+                    <p className="text-[10.5px] text-slate-600 font-sans">
+                      {doc.creatorTitle || 'Chuyên viên'} • {doc.department}
+                    </p>
                   </div>
 
                   <div className="text-right text-[10.5px] text-slate-500 font-mono space-y-0.5 max-w-xs">
-                    <p className="text-slate-700 font-bold">XÁC THỰC TOÀN VẸN VĂN BẢN</p>
+                    <p className="text-slate-800 font-bold">XÁC THỰC TOÀN VẸN VĂN BẢN</p>
                     <p>Mã băm chứng thực: {verificationHash}</p>
+                    <p>Đơn vị: CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI</p>
                     <p>Thời điểm in: {formatDate(new Date().toISOString())}</p>
                   </div>
                 </div>
@@ -508,10 +552,10 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
             {/* DOCUMENT FOOTER & LEGAL NOTICE */}
             <div className="mt-8 pt-3 border-t-2 border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[9.5px] text-slate-600 font-mono gap-1">
               <div>
-                <span>TRUNG HAI CMS • HỆ THỐNG TRÌNH KÝ & PHÊ DUYỆT ĐIỆN TỬ</span>
+                <span>CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI • HỆ THỐNG TRÌNH KÝ & PHÊ DUYỆT ĐIỆN TỬ</span>
               </div>
               <div className="text-center sm:text-right">
-                <span>Văn bản điện tử được xác thực hợp lệ theo quy chế Trung Hải. Bản in có giá trị đối soát.</span>
+                <span>Văn bản điện tử được xác thực hợp lệ theo quy chế Cty CP Xây dựng và Đầu tư Trung Hải. Bản in có giá trị đối soát.</span>
               </div>
             </div>
 
