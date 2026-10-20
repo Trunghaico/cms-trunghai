@@ -22,6 +22,7 @@ import { Attachment, DocumentItem, ApprovalStep } from '../../types';
 import { useDocument } from '../../context/DocumentContext';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
 import { convertOfficeOrImageToPdf, OfficePdfSigner } from '../../lib/officeToPdfConverter';
+import { FooterStampModal } from '../documents/FooterStampModal';
 
 interface PDFViewerModalProps {
   attachment: Attachment | (Attachment & { documentCode?: string; documentTitle?: string; documentStatus?: string }) | null;
@@ -52,6 +53,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   const [imageError, setImageError] = useState<boolean>(false);
   const [convertedPdfUrl, setConvertedPdfUrl] = useState<string | null>(null);
   const [isConvertingDocx, setIsConvertingDocx] = useState<boolean>(false);
+  const [isFooterStampOpen, setIsFooterStampOpen] = useState<boolean>(false);
   const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   const rawUrl = attachment?.url;
@@ -407,6 +409,17 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                 <span className="hidden sm:inline text-[11px] font-medium">Mở tab mới</span>
               </a>
             )}
+            {activeDoc && (
+              <button
+                type="button"
+                onClick={() => setIsFooterStampOpen(true)}
+                title="Đóng dấu giáp lai chân trang các phòng ban phê duyệt"
+                className="px-2.5 py-1 text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-slate-600 rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-2xs active:scale-95"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-brand-red shrink-0" />
+                <span className="hidden sm:inline">Giáp lai chân trang</span>
+              </button>
+            )}
             <button
               onClick={handlePrint}
               title="In tài liệu"
@@ -742,6 +755,16 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         </div>
 
       </div>
+
+      {/* Footer Stamp Modal if active */}
+      {isFooterStampOpen && activeDoc && (
+        <FooterStampModal
+          isOpen={isFooterStampOpen}
+          onClose={() => setIsFooterStampOpen(false)}
+          document={activeDoc}
+          pdfSource={convertedPdfUrl || secureUrl}
+        />
+      )}
     </div>
   );
 

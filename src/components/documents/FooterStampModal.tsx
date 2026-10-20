@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
   Printer, 
@@ -52,30 +52,67 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [previewStampDataUri, setPreviewStampDataUri] = useState<string>('');
 
-  // Lấy thông tin người ký chính
+  // Lấy toàn bộ danh sách các phòng ban đã phê duyệt
   const approvedSteps = (doc.steps || []).filter(s => s.status === 'APPROVED');
-  const primarySigner: FooterSignerInfo = approvedSteps.length > 0 
-    ? {
-        name: approvedSteps[approvedSteps.length - 1].approverName,
-        roleTitle: approvedSteps[approvedSteps.length - 1].approverTitle,
-        department: approvedSteps[approvedSteps.length - 1].department,
-        signatureImage: approvedSteps[approvedSteps.length - 1].signatureImage,
-        signedAt: approvedSteps[approvedSteps.length - 1].decisionDate,
-      }
-    : {
-        name: doc.creatorName || 'ĐỖ TRUNG HẢI',
-        roleTitle: doc.creatorTitle || 'Tổng Giám Đốc',
-        department: doc.department || 'Ban Tổng Giám Đốc',
+  const availableSigners: FooterSignerInfo[] = useMemo(() => {
+    if (approvedSteps.length > 0) {
+      return approvedSteps.map(s => ({
+        name: s.approverName,
+        roleTitle: s.approverTitle,
+        department: s.department || s.title,
+        signatureImage: s.signatureImage,
+        signedAt: s.decisionDate,
+      }));
+    }
+    // Mẫu mặc định nếu tài liệu mô phỏng chưa có bước duyệt
+    return [
+      {
+        name: doc.creatorName || 'Nguyễn Văn Long',
+        roleTitle: doc.creatorTitle || 'Chuyên viên phụ trách',
+        department: doc.department || 'Phòng Kỹ thuật & Dự án',
         signedAt: doc.createdAt,
-      };
+      },
+      {
+        name: 'Trần Đình Đạo',
+        roleTitle: 'Trưởng phòng Kỹ thuật',
+        department: 'PHÒNG KỸ THUẬT THI CÔNG',
+        signedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+      },
+      {
+        name: 'Lê Bá Trung',
+        roleTitle: 'Kế toán trưởng',
+        department: 'PHÒNG TÀI CHÍNH KẾ TOÁN',
+        signedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+      },
+      {
+        name: 'Đỗ Trung Hải',
+        roleTitle: 'Tổng Giám Đốc',
+        department: 'BAN TỔNG GIÁM ĐỐC',
+        signedAt: new Date().toISOString(),
+      }
+    ];
+  }, [doc, approvedSteps]);
+
+  // Các phòng ban được chọn đóng dấu giáp lai (mặc định chọn tất cả các ban)
+  const [selectedDeptIndices, setSelectedDeptIndices] = useState<number[]>([]);
+
+  // Tự động khởi tạo tick chọn tất cả khi danh sách thay đổi
+  useEffect(() => {
+    setSelectedDeptIndices(availableSigners.map((_, i) => i));
+  }, [availableSigners]);
+
+  const activeSigners = useMemo(() => {
+    const list = selectedDeptIndices.map(i => availableSigners[i]).filter(Boolean);
+    return list.length > 0 ? list : availableSigners;
+  }, [selectedDeptIndices, availableSigners]);
 
   // 1. Tạo tem mẫu trực quan cho giao diện xem trước
   useEffect(() => {
     if (!isOpen) return;
-    createFooterStampCanvas(primarySigner, doc.code, currentPage, totalPages).then((uri) => {
+    createFooterStampCanvas(activeSigners, doc.code, currentPage, totalPages).then((uri) => {
       setPreviewStampDataUri(uri);
     });
-  }, [isOpen, primarySigner, doc.code, currentPage, totalPages]);
+  }, [isOpen, activeSigners, doc.code, currentPage, totalPages]);
 
   // 2. Tạo bản PDF hoàn thiện khi cấu hình thay đổi
   useEffect(() => {
@@ -125,7 +162,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
         const options: FooterStampOptions = {
           marginMode,
           applyToAllPages,
-          signers: [primarySigner],
+          signers: activeSigners,
           documentCode: doc.code,
           documentTitle: doc.title,
         };
@@ -353,25 +390,80 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                 </div>
               </div>
 
-              {/* Signer Preview Badge */}
+              {/* Danh sách các phòng ban phê duyệt đóng dấu giáp lai */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                <span className="text-[11px] font-bold text-slate-700 block">Thông tin trên con dấu chân trang:</span>
-                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-900">{primarySigner.name}</span>
-                    <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded">Đã duyệt</span>
-                  </div>
-                  <div className="text-[11px] text-slate-600">{primarySigner.roleTitle} — {primarySigner.department}</div>
-                  <div className="text-[10px] text-slate-400 font-mono">Thời gian: {formatDate(primarySigner.signedAt || new Date().toISOString())}</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand-red" />
+                    <span>Phòng ban đóng dấu giáp lai ({activeSigners.length}/{availableSigners.length}):</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedDeptIndices.length === availableSigners.length) {
+                        setSelectedDeptIndices([availableSigners.length - 1]);
+                      } else {
+                        setSelectedDeptIndices(availableSigners.map((_, i) => i));
+                      }
+                    }}
+                    className="text-[10px] text-blue-600 hover:text-blue-800 font-bold cursor-pointer transition-colors"
+                  >
+                    {selectedDeptIndices.length === availableSigners.length ? 'Chọn 1 ban' : 'Chọn tất cả'}
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+                  {availableSigners.map((signer, sIdx) => {
+                    const isChecked = selectedDeptIndices.includes(sIdx);
+                    return (
+                      <div
+                        key={sIdx}
+                        onClick={() => {
+                          if (isChecked) {
+                            if (selectedDeptIndices.length > 1) {
+                              setSelectedDeptIndices(prev => prev.filter(i => i !== sIdx));
+                            }
+                          } else {
+                            setSelectedDeptIndices(prev => [...prev, sIdx]);
+                          }
+                        }}
+                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                          isChecked
+                            ? 'bg-red-50/70 border-red-300 text-slate-900 shadow-2xs'
+                            : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-xs text-brand-red truncate">
+                              {signer.department || signer.roleTitle}
+                            </span>
+                            <span className="px-1 py-0.2 bg-emerald-100 text-emerald-800 text-[8.5px] font-bold rounded">
+                              Đã duyệt
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] font-semibold text-slate-800 truncate mt-0.5">
+                            {signer.name} <span className="font-normal text-slate-500 text-[10px]">({signer.roleTitle})</span>
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          readOnly
+                          className="rounded text-red-600 focus:ring-red-500 h-4 w-4 shrink-0 pointer-events-none"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {previewStampDataUri && (
-                  <div className="pt-1">
-                    <span className="text-[10px] text-slate-500 block mb-1">Mẫu tem thực tế (Vector Canvas 3x):</span>
+                  <div className="pt-2 border-t border-slate-200">
+                    <span className="text-[10px] text-slate-500 block mb-1 font-medium">Mẫu tem giáp lai thực tế (Vector Canvas 3x):</span>
                     <img 
                       src={previewStampDataUri} 
                       alt="Footer Stamp Preview" 
-                      className="w-full h-auto rounded border border-slate-300 shadow-2xs" 
+                      className="w-full h-auto rounded border border-slate-300 shadow-2xs bg-white" 
                     />
                   </div>
                 )}

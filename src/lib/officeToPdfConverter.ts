@@ -405,14 +405,108 @@ export async function renderDocElementsToPdf(
   // Vẽ Header đầu tiên
   drawPageHeader();
 
-  // Hàm chuyển trang tự động khi hết dòng
-  const checkPageBreak = (neededHeight: number) => {
-    if (currentY + neededHeight > maxContentY) {
-      // Đánh số trang ở góc đáy giữa
+  // Vẽ con dấu giáp lai chân trang của các phòng ban phê duyệt và đánh số trang
+  const drawFooterGiapLaiAndPagination = (pageIdx: number) => {
+    const approvedSigners = (signers || []).filter(s => s.status === 'APPROVED');
+    if (approvedSigners.length > 0) {
+      const stampH = 24;
+      const isMulti = approvedSigners.length > 1;
+      const stampW = isMulti ? Math.min(contentWidth, approvedSigners.length >= 3 ? 460 : 340) : 230;
+      const stampX = marginX + (contentWidth - stampW) / 2;
+      const stampY = a4Height - 42;
+
+      // Nền tem giáp lai
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 0.8;
+      drawRoundedRect(ctx, stampX, stampY, stampW, stampH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Viền nét đứt bảo mật
+      ctx.setLineDash([2, 1.5]);
+      ctx.strokeStyle = 'rgba(220, 38, 38, 0.35)';
+      drawRoundedRect(ctx, stampX + 1.5, stampY + 1.5, stampW - 3, stampH - 3, 3);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Huy hiệu tròn bên trái
+      const iconCenterX = stampX + 12;
+      const iconCenterY = stampY + stampH / 2;
+      ctx.fillStyle = '#059669';
+      ctx.beginPath();
+      ctx.arc(iconCenterX, iconCenterY, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(iconCenterX - 3, iconCenterY);
+      ctx.lineTo(iconCenterX - 0.8, iconCenterY + 2);
+      ctx.lineTo(iconCenterX + 3, iconCenterY - 2);
+      ctx.stroke();
+
+      // Nội dung giáp lai các phòng ban
+      if (!isMulti) {
+        const s = approvedSigners[0];
+        ctx.fillStyle = '#991b1b';
+        ctx.font = 'bold 6.5px "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`CTY CP ĐẦU TƯ & XD TRUNG HẢI • DẤU GIÁP LAI CHÂN TRANG: ${s.name} (${s.department || s.roleTitle})`, stampX + 22, stampY + 14);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '500 6px "Segoe UI", monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${displayDocCode} • Trang ${pageIdx}`, stampX + stampW - 6, stampY + 14);
+      } else {
+        const startX = stampX + 22;
+        const availW = stampW - 28;
+        const colW = availW / approvedSigners.length;
+
+        approvedSigners.forEach((s, idx) => {
+          const colX = startX + idx * colW;
+          if (idx > 0) {
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.7)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(colX, stampY + 3);
+            ctx.lineTo(colX, stampY + stampH - 3);
+            ctx.stroke();
+          }
+
+          const textX = colX + (idx > 0 ? 4 : 0);
+          ctx.textAlign = 'left';
+          
+          const rawDept = s.department || s.roleTitle || 'PHÒNG';
+          const cleanDept = rawDept.replace(/^PHÒNG\s+/i, 'P. ').toUpperCase();
+          ctx.fillStyle = '#b91c1c';
+          ctx.font = 'bold 5.5px "Segoe UI", Arial, sans-serif';
+          ctx.fillText(`✓ ${cleanDept}`, textX, stampY + 9.5);
+
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 6.5px "Segoe UI", Arial, sans-serif';
+          ctx.fillText(s.name, textX, stampY + 18);
+        });
+
+        // Đánh số trang góc phải ngoài tem
+        ctx.fillStyle = '#64748b';
+        ctx.font = '500 6.5px "Segoe UI", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`Trang ${pageIdx}`, a4Width - marginX, a4Height - 12);
+      }
+    } else {
+      // Đánh số trang mặc định nếu không có người duyệt
       ctx.fillStyle = '#94a3b8';
       ctx.font = '500 7.5px "Segoe UI", Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`Trang ${pageIndex}`, a4Width / 2, a4Height - 20);
+      ctx.fillText(`Trang ${pageIdx}`, a4Width / 2, a4Height - 20);
+    }
+  };
+
+  // Hàm chuyển trang tự động khi hết dòng
+  const checkPageBreak = (neededHeight: number) => {
+    if (currentY + neededHeight > maxContentY) {
+      drawFooterGiapLaiAndPagination(pageIndex);
 
       canvasPages.push(currentCanvas);
       pageIndex++;
@@ -757,11 +851,8 @@ export async function renderDocElementsToPdf(
     }
   }
 
-  // Đánh số trang cho trang cuối
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = '500 7.5px "Segoe UI", Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(`Trang ${pageIndex}`, a4Width / 2, a4Height - 20);
+  // Vẽ dấu giáp lai chân trang cho trang cuối
+  drawFooterGiapLaiAndPagination(pageIndex);
 
   canvasPages.push(currentCanvas);
 
