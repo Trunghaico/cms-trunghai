@@ -506,7 +506,14 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
                 {/* Avatar */}
                 <div className="w-8 h-8 rounded-2xl bg-indigo-100 border border-indigo-200 flex items-center justify-center font-bold text-xs text-indigo-700 shrink-0 overflow-hidden shadow-2xs">
                   {cmt.senderAvatar ? (
-                    <img src={cmt.senderAvatar} alt={cmt.senderName} className="w-full h-full object-cover" />
+                    <img 
+                      src={cmt.senderAvatar} 
+                      alt={cmt.senderName} 
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(cmt.senderName)}&background=3e4095&color=fff`;
+                      }}
+                      className="w-full h-full object-cover" 
+                    />
                   ) : (
                     cmt.senderName.charAt(0)
                   )}
@@ -559,6 +566,9 @@ export const DocumentCommentThread: React.FC<DocumentCommentThreadProps> = ({ do
                                 <img
                                   src={att.url}
                                   alt={att.name}
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(att.name || 'TH')}&background=3e4095&color=fff`;
+                                  }}
                                   onClick={() => setPreviewImage(att.url)}
                                   className="w-full max-h-56 object-cover cursor-pointer hover:scale-102 transition-transform duration-200 bg-slate-900"
                                 />

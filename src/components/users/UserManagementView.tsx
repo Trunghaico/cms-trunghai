@@ -457,6 +457,9 @@ export const UserManagementView: React.FC = () => {
                           <img
                             src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=3e4095&color=fff`}
                             alt={user.name}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=3e4095&color=fff`;
+                            }}
                             className="w-7 h-7 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0 ring-1 ring-slate-100"
                           />
                           <span className="font-bold text-slate-900">{user.name}</span>

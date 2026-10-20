@@ -14,7 +14,8 @@ import {
   FileText, 
   ShieldCheck,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { Attachment } from '../../types';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
@@ -39,6 +40,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isClosing, setIsClosing] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
+  const [imageError, setImageError] = useState<boolean>(false);
   const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     setZoom(100);
     setRotation(0);
     setCurrentPage(1);
+    setImageError(false);
 
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -297,7 +300,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                 title={attachment.name}
               />
             </div>
-          ) : hasRealFileContent && isImage ? (
+          ) : hasRealFileContent && isImage && !imageError ? (
             /* CASE 2: Image file uploaded by user */
             <div 
               className="flex items-center justify-center p-2 transition-transform duration-150 origin-top"
@@ -309,6 +312,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
               <img
                 src={secureUrl}
                 alt={attachment.name}
+                onError={() => setImageError(true)}
                 className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl bg-white border border-slate-300"
               />
             </div>
@@ -329,6 +333,12 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
               </div>
 
               {/* Document Header */}
+              {imageError && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-xs text-amber-800 shadow-2xs">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Tệp đính kèm trên máy chủ lưu trữ NAS chưa đồng bộ hoặc đã được di dời. Hệ thống tự động kích hoạt phiếu đối chiếu hồ sơ điện tử.</span>
+                </div>
+              )}
               <div className="flex justify-between items-start border-b border-slate-300 pb-4 mb-5">
                 <div>
                   <h4 className="font-bold text-xs uppercase tracking-wide text-slate-800">

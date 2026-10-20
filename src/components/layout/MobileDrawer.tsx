@@ -140,7 +140,14 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 className="w-11 h-11 rounded-2xl bg-white/10 border-2 border-indigo-300/40 flex items-center justify-center font-black text-sm text-cyan-300 shadow-md cursor-pointer hover:scale-105 transition-transform"
               >
                 {activeUser.avatar ? (
-                  <img src={activeUser.avatar} alt={activeUser.name} className="w-full h-full object-cover rounded-2xl" />
+                  <img 
+                    src={activeUser.avatar} 
+                    alt={activeUser.name} 
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeUser.name)}&background=3e4095&color=fff`;
+                    }}
+                    className="w-full h-full object-cover rounded-2xl" 
+                  />
                 ) : (
                   activeUser.name.charAt(0)
                 )}

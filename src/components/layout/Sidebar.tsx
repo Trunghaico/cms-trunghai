@@ -344,6 +344,9 @@ export const Sidebar: React.FC = () => {
               <img
                 src={activeUser.avatar}
                 alt={activeUser.name}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeUser.name)}&background=3e4095&color=fff`;
+                }}
                 className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-500/30 group-hover:ring-indigo-400 transition-all shadow-xs"
               />
             ) : (

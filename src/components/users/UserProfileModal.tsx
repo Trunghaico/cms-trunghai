@@ -496,6 +496,9 @@ export const UserProfileModal: React.FC = () => {
                     <img
                       src={avatarUrl || activeUser.avatar}
                       alt={activeUser.name}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeUser.name)}&background=3e4095&color=fff`;
+                      }}
                       className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-white shadow-lg ring-2 ring-brand-blue/30"
                     />
                     <button

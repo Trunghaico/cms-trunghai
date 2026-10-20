@@ -586,6 +586,33 @@ export async function onRequest(context: any): Promise<Response> {
       try {
         const res = await signedSocketFetch(aws, `${endpoint}/${bucket}/${key}`);
         if (!res.ok) {
+          // Khi tệp hình ảnh không tồn tại trên MinIO NAS, trả về ảnh SVG Trung Hải chuẩn với HTTP 200
+          // để tránh lỗi 404 trong Console của trình duyệt và không làm vỡ giao diện
+          const isImageKey = /\.(jpe?g|png|webp|gif|svg)$/i.test(key) || key.includes('avatar');
+          if (isImageKey && action !== 'download') {
+            const svgFallback = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3e4095"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="28" fill="url(#g)"/>
+  <circle cx="120" cy="95" r="40" fill="#ffffff" fill-opacity="0.15"/>
+  <path d="M75 178 C75 142, 165 142, 165 178" fill="#ffffff" fill-opacity="0.15"/>
+  <text x="120" y="105" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="26" font-weight="bold" fill="#ffffff">TH</text>
+  <text x="120" y="212" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#a5b4fc" letter-spacing="1">TRUNG HẢI DMS</text>
+</svg>`;
+            return new Response(svgFallback, {
+              status: 200,
+              headers: {
+                'Content-Type': 'image/svg+xml; charset=utf-8',
+                'Cache-Control': 'public, max-age=86400',
+                'Access-Control-Allow-Origin': '*',
+              }
+            });
+          }
+
           return new Response('File not found', { status: 404, headers: corsHeaders });
         }
         
