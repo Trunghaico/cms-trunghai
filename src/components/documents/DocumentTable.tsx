@@ -22,8 +22,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Printer
 } from 'lucide-react';
+import { ExportPrintDocumentModal } from './ExportPrintDocumentModal';
 
 interface DocumentTableProps {
   filterType?: 'ALL' | 'MY_DOCS' | 'RECEIVED' | 'ARCHIVE' | 'PENDING_MY_APPROVAL' | 'MY_APPROVED_HISTORY';
@@ -62,6 +64,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   // Pagination State - Mặc định tối đa 15 hồ sơ / trang theo yêu cầu
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(15);
+  const [printDoc, setPrintDoc] = useState<DocumentItem | null>(null);
 
   // Lấy danh sách danh mục & phòng ban duy nhất
   const categories = useMemo(() => Array.from(new Set(documents.map(d => d.category))), [documents]);
@@ -455,6 +458,18 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                           </button>
                         )}
 
+                        {doc.status === 'APPROVED' && (
+                          <button
+                            type="button"
+                            onClick={() => setPrintDoc(doc)}
+                            title="Xuất phiếu có chữ ký để in"
+                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                          >
+                            <Printer className="h-3.5 w-3.5 text-emerald-700" />
+                            <span>In</span>
+                          </button>
+                        )}
+
                         {canDelete && (doc.creatorId === activeUser.id || canOverride) && (
                           <button
                             onClick={() => {
@@ -675,6 +690,18 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                             </button>
                           )}
 
+                          {doc.status === 'APPROVED' && (
+                            <button
+                              type="button"
+                              onClick={() => setPrintDoc(doc)}
+                              title="Xuất phiếu phê duyệt có chữ ký để in"
+                              className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                            >
+                              <Printer className="h-3.5 w-3.5 text-emerald-700" />
+                              <span>In</span>
+                            </button>
+                          )}
+
                           {canDelete && (doc.creatorId === activeUser.id || canOverride) && (
                             <button
                               onClick={(e) => {
@@ -807,6 +834,12 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         </div>
       </div>
 
+      {/* Export & Print Document Modal with Signatures */}
+      <ExportPrintDocumentModal
+        isOpen={!!printDoc}
+        onClose={() => setPrintDoc(null)}
+        document={printDoc}
+      />
     </div>
   );
 };

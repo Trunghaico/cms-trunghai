@@ -244,10 +244,52 @@ code, kbd, samp, pre, .font-mono {
 }
 
 @media print {
-  body {
-    background: white;
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 12mm 15mm;
   }
-  header, aside, button, nav {
+
+  html, body {
+    background: white !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide regular UI elements when printing */
+  header, aside, nav, .no-print {
     display: none !important;
   }
+
+  /* Hide everything on page body except the printable document */
+  body * {
+    visibility: hidden;
+  }
+
+  .printable-document,
+  .printable-document * {
+    visibility: visible;
+  }
+
+  .printable-document {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+    background: white !important;
+  }
+
+  .page-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
+

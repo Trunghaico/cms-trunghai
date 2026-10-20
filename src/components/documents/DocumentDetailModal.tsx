@@ -39,6 +39,7 @@ import { DocumentCommentThread } from './DocumentCommentThread';
 import { Attachment } from '../../types';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
 import { isUserApproverForStep, canUserOverseeAllDocuments, canUserPerformInternalCheck, canUserPerformManagerApproval } from '../../lib/permissions';
+import { ExportPrintDocumentModal } from './ExportPrintDocumentModal';
 
 export const DocumentDetailModal: React.FC = () => {
   const { 
@@ -61,6 +62,7 @@ export const DocumentDetailModal: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [isResubmitModalOpen, setIsResubmitModalOpen] = useState(false);
+  const [isExportPrintOpen, setIsExportPrintOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [returnOverdueReason, setReturnOverdueReason] = useState('');
   const [isReturningOverdue, setIsReturningOverdue] = useState(false);
@@ -158,7 +160,7 @@ export const DocumentDetailModal: React.FC = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    setIsExportPrintOpen(true);
   };
 
   const isCurrentStepOverdue = Boolean(
@@ -782,18 +784,29 @@ export const DocumentDetailModal: React.FC = () => {
               )}
 
               {selectedDocument.status === 'APPROVED' && (
-                <div className="p-5 bg-gradient-to-r from-emerald-50 to-teal-50/60 border border-emerald-300 rounded-2xl flex items-center gap-3.5 shadow-2xs">
-                  <div className="h-10 w-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-glow-emerald">
-                    <ShieldCheck className="h-6 w-6" />
+                <div className="p-5 bg-gradient-to-r from-emerald-50 via-teal-50/60 to-emerald-50/40 border-2 border-emerald-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+                  <div className="flex items-center gap-3.5">
+                    <div className="h-11 w-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-glow-emerald">
+                      <ShieldCheck className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-emerald-950 uppercase flex items-center gap-2">
+                        <span>Hồ Sơ Đã Hoàn Tất Toàn Bộ Quy Trình Phê Duyệt & Đóng Dấu Điện Tử</span>
+                      </h4>
+                      <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                        Đã có đầy đủ chữ ký số và con dấu chứng thực của các ban ({selectedDocument.steps.length}/{selectedDocument.steps.length} bước). Có thể xuất bản in chính thức hoặc lưu trữ PDF.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-emerald-900 uppercase">
-                      Hồ Sơ Đã Hoàn Tất Toàn Bộ Quy Trình Ký Duyệt & Đóng Dấu Điện Tử
-                    </h4>
-                    <p className="text-[11px] text-emerald-700 mt-0.5 leading-relaxed">
-                      Văn bản đã có đầy đủ giá trị pháp lý nội bộ theo quy định của Ban Giám đốc Công ty Trung Hải.
-                    </p>
-                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsExportPrintOpen(true)}
+                    className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-900/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer shrink-0"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Xuất phiếu có chữ ký để in / PDF</span>
+                  </button>
                 </div>
               )}
 
@@ -983,6 +996,14 @@ export const DocumentDetailModal: React.FC = () => {
             )}
             <button
               type="button"
+              onClick={() => setIsExportPrintOpen(true)}
+              className="px-3 py-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              <span>{selectedDocument.status === 'APPROVED' ? 'Xuất & In Phiếu Ký' : 'In Phiếu Phê Duyệt'}</span>
+            </button>
+            <button
+              type="button"
               onClick={handleClose}
               className="px-3.5 py-1.5 text-[11.5px] font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
             >
@@ -1001,6 +1022,13 @@ export const DocumentDetailModal: React.FC = () => {
           document={selectedDocument}
         />
       )}
+
+      {/* Export & Print Document Modal with Signatures */}
+      <ExportPrintDocumentModal
+        isOpen={isExportPrintOpen}
+        onClose={() => setIsExportPrintOpen(false)}
+        document={selectedDocument}
+      />
     </div>
   );
 };
