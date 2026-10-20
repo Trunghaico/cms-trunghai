@@ -353,7 +353,7 @@ export const DocumentDetailModal: React.FC = () => {
                       <span>Cảnh Báo Vi Phạm Thời Gian Phê Duyệt (SLA)</span>
                     </div>
                     <span className="text-[11px] font-bold text-red-800 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-300">
-                      Phòng: {currentStep?.department} • SLA: {currentStep?.slaHours || 8}h
+                      Phòng: {currentStep?.department} • SLA: {currentStep?.slaHours !== undefined ? (Number.isInteger(currentStep.slaHours) ? `${currentStep.slaHours}h` : `${Number(currentStep.slaHours.toFixed(1))}h`) : '8h'}
                     </span>
                   </div>
 
@@ -494,8 +494,8 @@ export const DocumentDetailModal: React.FC = () => {
                     {selectedDocument.amount ? formatCurrency(selectedDocument.amount) : 'Phi tài chính'}
                   </p>
                   <p className="text-[10px] font-bold text-brand-red">
-                    {selectedDocument.priority === 'VERY_URGENT' ? 'Hỏa tốc (Xử lý ngay)' :
-                     selectedDocument.priority === 'URGENT' ? 'Khẩn cấp (Trong ngày)' : 'Bình thường'}
+                    {selectedDocument.priority === 'VERY_URGENT' ? 'Hỏa tốc (Chia đều 8h)' :
+                     selectedDocument.priority === 'URGENT' ? 'Khẩn (Chia đều 24h)' : 'Bình thường'}
                   </p>
                 </div>
               </div>

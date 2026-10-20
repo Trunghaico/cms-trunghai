@@ -241,9 +241,9 @@ export const ApprovalTimeline: React.FC<ApprovalTimelineProps> = ({ steps, curre
                       {badge.labelText}
                     </span>
 
-                    {step.slaHours && (
+                    {step.slaHours !== undefined && (
                       <span className="text-[9px] text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded-full">
-                        SLA: {step.slaHours}h
+                        SLA: {Number.isInteger(step.slaHours) ? `${step.slaHours}h` : `${Number(step.slaHours.toFixed(1))}h`}
                       </span>
                     )}
                   </div>

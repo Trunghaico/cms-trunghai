@@ -3,13 +3,13 @@ import { useDocument } from '../../context/DocumentContext';
 import { StatCard } from './StatCard';
 import { WorkflowSLAChart } from './WorkflowSLAChart';
 import { RecentActivity } from './RecentActivity';
-import { 
-  FileCheck, 
-  Clock, 
-  AlertCircle, 
-  FileText, 
-  Flame, 
-  Plus, 
+import {
+  FileCheck,
+  Clock,
+  AlertCircle,
+  FileText,
+  Flame,
+  Plus,
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
@@ -21,14 +21,14 @@ import { formatDate, formatCurrency } from '../../lib/storage';
 import { isUserApproverForStep } from '../../lib/permissions';
 
 export const DashboardView: React.FC = () => {
-  const { 
-    stats, 
-    activeUser, 
-    documents, 
-    setSelectedDocument, 
-    setActiveTab, 
+  const {
+    stats,
+    activeUser,
+    documents,
+    setSelectedDocument,
+    setActiveTab,
     setIsCreateModalOpen,
-    hasPermission 
+    hasPermission
   } = useDocument();
 
   if (!activeUser) return null;
@@ -48,10 +48,10 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      
+
       {/* Top Banner with Welcome & Quick Action */}
       <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue-dark text-white p-6 sm:p-7 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5 border border-indigo-500/30">
-        
+
         {/* Background ambient AI glow */}
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute left-1/3 -top-10 w-48 h-48 bg-cyan-500/15 rounded-full blur-2xl pointer-events-none" />
@@ -68,11 +68,11 @@ export const DashboardView: React.FC = () => {
             Xin chào, {activeUser.name}
           </h1>
           <p className="text-xs text-slate-300/90 mt-1.5 max-w-xl leading-relaxed">
-            {pendingForMe.length > 0 
+            {pendingForMe.length > 0
               ? `Bạn đang có ${pendingForMe.length} hồ sơ cần phê duyệt hoặc ký số điện tử. Vui lòng kiểm tra và xử lý kịp thời hạn SLA.`
               : myAdditionalDocs.length > 0
-              ? `Bạn có ${myAdditionalDocs.length} hồ sơ được trả về yêu cầu bổ sung/giải trình. Vui lòng hoàn thiện để tiếp tục quy trình.`
-              : 'Hiện tại bạn không có hồ sơ nào bị tồn đọng cần phê duyệt. Hệ thống AI đang liên tục giám sát tiến độ luân chuyển!'}
+                ? `Bạn có ${myAdditionalDocs.length} hồ sơ được trả về yêu cầu bổ sung/giải trình. Vui lòng hoàn thiện để tiếp tục quy trình.`
+                : 'Hiện tại bạn không có hồ sơ nào bị tồn đọng cần phê duyệt. Hệ thống AI đang liên tục giám sát tiến độ luân chuyển!'}
           </p>
         </div>
 
@@ -191,11 +191,10 @@ export const DashboardView: React.FC = () => {
                     <span className="font-mono text-xs font-black text-indigo-700 group-hover:underline">
                       {doc.code}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      isApproved ? 'bg-emerald-100 text-emerald-800' :
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isApproved ? 'bg-emerald-100 text-emerald-800' :
                       isRejected ? 'bg-red-100 text-red-800' :
-                      isAddReq ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-700'
-                    }`}>
+                        isAddReq ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-700'
+                      }`}>
                       {isApproved ? 'Hoàn tất' : isRejected ? 'Từ chối' : isAddReq ? 'Bổ sung' : 'Đang xử lý'}
                     </span>
                   </div>
@@ -254,7 +253,7 @@ export const DashboardView: React.FC = () => {
                   return (
                     <tr key={doc.id} className="hover:bg-amber-50/30 transition-colors">
                       <td className="px-4 py-3.5">
-                        <span 
+                        <span
                           onClick={() => setSelectedDocument(doc)}
                           className="font-mono font-bold text-indigo-700 hover:underline cursor-pointer block"
                         >
@@ -348,15 +347,15 @@ export const DashboardView: React.FC = () => {
                       <td className="px-4 py-3.5">
                         {doc.priority === 'VERY_URGENT' ? (
                           <span className="px-2.5 py-0.5 bg-brand-red text-white text-[10px] font-bold rounded-full shadow-xs">
-                            Hỏa tốc
+                            Hỏa tốc (8h)
                           </span>
                         ) : doc.priority === 'URGENT' ? (
                           <span className="px-2.5 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-full">
-                            Khẩn
+                            Khẩn (24h)
                           </span>
                         ) : (
                           <span className="px-2.5 py-0.5 bg-slate-200 text-slate-700 text-[10px] font-bold rounded-full">
-                            Thường
+                            Thông thường
                           </span>
                         )}
                       </td>

@@ -354,12 +354,12 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                         {doc.priority === 'VERY_URGENT' && (
                           <span className="px-2 py-0.5 bg-brand-red text-white text-[9px] font-bold rounded-full flex items-center gap-0.5 shadow-2xs">
                             <Flame className="h-2.5 w-2.5" />
-                            Hỏa tốc
+                            Hỏa tốc (8h)
                           </span>
                         )}
                         {doc.priority === 'URGENT' && (
                           <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded-full">
-                            Khẩn
+                            Khẩn (24h)
                           </span>
                         )}
                       </div>
@@ -569,12 +569,12 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                           {doc.priority === 'VERY_URGENT' && (
                             <span className="px-2 py-0.5 bg-brand-red text-white text-[9px] font-bold rounded-full flex items-center gap-0.5 shadow-2xs">
                               <Flame className="h-2.5 w-2.5" />
-                              Hỏa tốc
+                              Hỏa tốc (8h)
                             </span>
                           )}
                           {doc.priority === 'URGENT' && (
                             <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded-full">
-                              Khẩn
+                              Khẩn (24h)
                             </span>
                           )}
                         </div>

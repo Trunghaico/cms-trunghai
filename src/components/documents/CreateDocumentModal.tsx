@@ -31,11 +31,32 @@ import { ApprovalStep, DocumentStatus, Attachment, User, UserRole, OverdueAction
 import { QuillEditor } from '../common/QuillEditor';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { uploadFileToNAS } from '../../lib/nasStorageService';
-import { formatCurrency } from '../../lib/storage';
+import { formatCurrency, formatDate } from '../../lib/storage';
 
 export type ApproverItem = 
-  | { type: 'USER'; user: User; title?: string; slaHours?: number; overdueAction?: OverdueAction }
-  | { type: 'DEPARTMENT'; departmentName: string; departmentCode: string; title?: string; slaHours?: number; overdueAction?: OverdueAction; isInternalCheck?: boolean; requiresInternalCheck?: boolean };
+  | { type: 'USER'; user: User; title?: string; slaHours?: number; originalSlaHours?: number; overdueAction?: OverdueAction }
+  | { type: 'DEPARTMENT'; departmentName: string; departmentCode: string; title?: string; slaHours?: number; originalSlaHours?: number; overdueAction?: OverdueAction; isInternalCheck?: boolean; requiresInternalCheck?: boolean };
+
+// Helper chuyển Date sang định dạng input datetime-local (YYYY-MM-DDTHH:mm)
+export const formatDateTimeLocal = (d: Date): string => {
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const date = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const mins = pad(d.getMinutes());
+  return `${year}-${month}-${date}T${hours}:${mins}`;
+};
+
+// Helper hiển thị SLA đẹp mắt (vd: 8h, 2.7h ~ 2h 40p)
+export const formatSlaDisplay = (hours?: number): string => {
+  if (!hours || isNaN(hours)) return '8h';
+  if (Number.isInteger(hours)) return `${hours}h`;
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h === 0) return `${m}p`;
+  return `${Number(hours.toFixed(1))}h (${h}h ${m}p)`;
+};
 
 export const CreateDocumentModal: React.FC = () => {
   const { 
@@ -62,6 +83,7 @@ export const CreateDocumentModal: React.FC = () => {
   // 3. Dự án & Độ khẩn
   const [project, setProject] = useState('');
   const [priority, setPriority] = useState<DocumentPriority>('NORMAL');
+  const [normalSlaMode, setNormalSlaMode] = useState<'PRESET' | 'SPLIT_DESIRED'>('PRESET');
   
   // 4. Phòng ban khởi tạo (Thẻ select)
   const [department, setDepartment] = useState(activeUser?.department || 'Phòng Kỹ thuật & Dự án');
@@ -100,13 +122,7 @@ export const CreateDocumentModal: React.FC = () => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
     d.setHours(17, 0, 0, 0);
-    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
-    const year = d.getFullYear();
-    const month = pad(d.getMonth() + 1);
-    const date = pad(d.getDate());
-    const hours = pad(d.getHours());
-    const mins = pad(d.getMinutes());
-    return `${year}-${month}-${date}T${hours}:${mins}`;
+    return formatDateTimeLocal(d);
   });
 
   // 8. Nội dung (Quill.js 2.0)
@@ -126,6 +142,78 @@ export const CreateDocumentModal: React.FC = () => {
     const fromUsers = Array.from(new Set(users.map(u => u.department)));
     return fromUsers.map((name, idx) => ({ id: `dept-${idx}`, name, code: `PB${idx+1}`, defaultSlaHours: 8, defaultOverdueAction: 'WARN_AND_RETURN' as OverdueAction }));
   }, [systemDepts, users]);
+
+  // Helper phân bổ thời gian SLA cho các ban duyệt theo mức độ xử lý:
+  // - KHẨN: chia đều trong 24h
+  // - HỎA TỐC: chia đều trong 8h
+  // - THÔNG THƯỜNG: theo thời gian mong muốn (chia đều) HOẶC theo SLA đã set sẵn của từng ban
+  const calculateAllocatedApprovers = useCallback((
+    targetPriority: DocumentPriority,
+    targetNormalMode: 'PRESET' | 'SPLIT_DESIRED',
+    targetDeadline: string,
+    approvers: ApproverItem[]
+  ): { updatedApprovers: ApproverItem[]; calculatedDeadline?: string } => {
+    const count = approvers.length;
+
+    if (targetPriority === 'URGENT') {
+      // Khẩn: Tổng 24 giờ chia đều cho các ban duyệt
+      const totalHours = 24;
+      const perStepSla = count > 0 ? Number((totalHours / count).toFixed(1)) : 24;
+      const updated = approvers.map(a => ({
+        ...a,
+        slaHours: perStepSla,
+      }));
+      const newDeadline = formatDateTimeLocal(new Date(Date.now() + 24 * 3600 * 1000));
+      return { updatedApprovers: updated, calculatedDeadline: newDeadline };
+    }
+
+    if (targetPriority === 'VERY_URGENT') {
+      // Hỏa tốc: Tổng 8 giờ chia đều cho các ban duyệt
+      const totalHours = 8;
+      const perStepSla = count > 0 ? Number((totalHours / count).toFixed(1)) : 8;
+      const updated = approvers.map(a => ({
+        ...a,
+        slaHours: perStepSla,
+      }));
+      const newDeadline = formatDateTimeLocal(new Date(Date.now() + 8 * 3600 * 1000));
+      return { updatedApprovers: updated, calculatedDeadline: newDeadline };
+    }
+
+    // targetPriority === 'NORMAL'
+    if (targetNormalMode === 'SPLIT_DESIRED') {
+      // Chia đều theo thời gian mong muốn
+      const deadlineMs = targetDeadline ? new Date(targetDeadline).getTime() : NaN;
+      const nowMs = Date.now();
+      const diffHours = !isNaN(deadlineMs) && deadlineMs > nowMs 
+        ? Math.max(1, (deadlineMs - nowMs) / (3600 * 1000))
+        : 72;
+      const perStepSla = count > 0 ? Number((diffHours / count).toFixed(1)) : 8;
+      const updated = approvers.map(a => ({
+        ...a,
+        slaHours: perStepSla,
+      }));
+      return { updatedApprovers: updated };
+    }
+
+    // targetNormalMode === 'PRESET': Khôi phục theo SLA đã set sẵn của từng ban duyệt
+    const updated = approvers.map(a => {
+      let preset = a.originalSlaHours;
+      if (!preset) {
+        if (a.type === 'USER') {
+          preset = getDeptDefaultSla(a.user.department);
+        } else {
+          const dObj = allDepartments.find(d => d.name === a.departmentName);
+          preset = (dObj as any)?.defaultSlaHours || getDeptDefaultSla(a.departmentName);
+        }
+      }
+      return {
+        ...a,
+        slaHours: preset || 8,
+        originalSlaHours: preset || 8,
+      };
+    });
+    return { updatedApprovers: updated };
+  }, [allDepartments, getDeptDefaultSla]);
 
   // Danh sách các loại hồ sơ khả dụng (Bao gồm các mẫu mới được thêm vào)
   const availableCategories = useMemo(() => {
@@ -196,33 +284,38 @@ export const CreateDocumentModal: React.FC = () => {
                       dName.toLowerCase().includes('ban qlda') || 
                       dName.toLowerCase().includes('ban kiểm soát') ||
                       dName.toLowerCase().includes('ban điều hành');
+      const stepPresetSla = s.slaHours || deptObj?.defaultSlaHours || getDeptDefaultSla(dName);
       mappedSteps.push({
         type: 'DEPARTMENT',
         departmentName: dName,
         departmentCode: deptObj?.code || 'PB',
         title: s.title || (isBoard ? `Ban ${dName}` : `Phòng ${dName}`),
-        slaHours: s.slaHours || deptObj?.defaultSlaHours || getDeptDefaultSla(dName),
+        slaHours: stepPresetSla,
+        originalSlaHours: stepPresetSla,
         overdueAction: s.overdueAction || deptObj?.defaultOverdueAction || getDeptDefaultOverdueAction(dName),
         isInternalCheck: !!s.isInternalCheck,
         requiresInternalCheck: !!s.isInternalCheck
       });
     }
 
-    setSelectedApprovers(mappedSteps);
-  }, [workflowTemplates, systemDepts, getDeptDefaultSla, getDeptDefaultOverdueAction]);
+    const { updatedApprovers, calculatedDeadline } = calculateAllocatedApprovers(
+      priority, 
+      normalSlaMode, 
+      desiredDeadline, 
+      mappedSteps
+    );
+    setSelectedApprovers(updatedApprovers);
+    if (calculatedDeadline) {
+      setDesiredDeadline(calculatedDeadline);
+    }
+  }, [workflowTemplates, systemDepts, getDeptDefaultSla, getDeptDefaultOverdueAction, calculateAllocatedApprovers, priority, normalSlaMode, desiredDeadline]);
 
   // Helper lấy deadline mặc định
   const getDefaultDeadline = useCallback(() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
     d.setHours(17, 0, 0, 0);
-    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
-    const year = d.getFullYear();
-    const month = pad(d.getMonth() + 1);
-    const date = pad(d.getDate());
-    const hours = pad(d.getHours());
-    const mins = pad(d.getMinutes());
-    return `${year}-${month}-${date}T${hours}:${mins}`;
+    return formatDateTimeLocal(d);
   }, []);
 
   // Hàm reset trắng toàn bộ dữ liệu form tạo hồ sơ mới (Mặc định để trống chuỗi duyệt cho người lập tự chọn)
@@ -237,6 +330,7 @@ export const CreateDocumentModal: React.FC = () => {
     setAmount(undefined);
     setProject('');
     setPriority('NORMAL');
+    setNormalSlaMode('PRESET');
     setDepartment(activeUser?.department || (systemDepts && systemDepts[0]?.name) || 'Phòng Kỹ thuật & Dự án');
     setDocOverdueAction('WARN_AND_RETURN');
     setSelectedApprovers([]); // Để trống chuỗi duyệt, người lập tự tạo tự chọn phòng ban
@@ -299,6 +393,56 @@ export const CreateDocumentModal: React.FC = () => {
   };
 
 
+  // Xử lý khi thay đổi Độ khẩn / Mức độ ưu tiên
+  const handlePriorityChange = (newPriority: DocumentPriority) => {
+    setPriority(newPriority);
+    const { updatedApprovers, calculatedDeadline } = calculateAllocatedApprovers(
+      newPriority,
+      normalSlaMode,
+      desiredDeadline,
+      selectedApprovers
+    );
+    setSelectedApprovers(updatedApprovers);
+    if (calculatedDeadline) {
+      setDesiredDeadline(calculatedDeadline);
+    } else if (newPriority === 'NORMAL' && (priority === 'URGENT' || priority === 'VERY_URGENT')) {
+      setDesiredDeadline(getDefaultDeadline());
+    }
+  };
+
+  // Xử lý khi thay đổi chế độ phân bổ SLA ở mức Thông thường: 'PRESET' (chuẩn ban) hoặc 'SPLIT_DESIRED' (chia theo hạn)
+  const handleNormalSlaModeChange = (newMode: 'PRESET' | 'SPLIT_DESIRED') => {
+    setNormalSlaMode(newMode);
+    const { updatedApprovers } = calculateAllocatedApprovers(
+      'NORMAL',
+      newMode,
+      desiredDeadline,
+      selectedApprovers
+    );
+    setSelectedApprovers(updatedApprovers);
+  };
+
+  // Xử lý khi thay đổi Hạn duyệt mong muốn
+  const handleDesiredDeadlineChange = (val: string) => {
+    setDesiredDeadline(val);
+    if (priority === 'NORMAL' && normalSlaMode === 'SPLIT_DESIRED') {
+      const { updatedApprovers } = calculateAllocatedApprovers(
+        'NORMAL',
+        'SPLIT_DESIRED',
+        val,
+        selectedApprovers
+      );
+      setSelectedApprovers(updatedApprovers);
+    }
+  };
+
+  // Đặt hạn duyệt mong muốn = thời điểm hiện tại + Tổng SLA các ban đã set sẵn
+  const handleSetDeadlineToTotalPresetSla = () => {
+    const totalHours = selectedApprovers.reduce((sum, a) => sum + (a.slaHours || 8), 0);
+    const targetDate = new Date(Date.now() + Math.max(1, totalHours) * 3600 * 1000);
+    setDesiredDeadline(formatDateTimeLocal(targetDate));
+  };
+
   // Thêm người duyệt là CÁ NHÂN (Kiểm tra tránh chọn trùng người đã có trong chuỗi duyệt hoặc Cc)
   const handleAddUserApprover = (user: User) => {
     setErrorMsg('');
@@ -314,10 +458,17 @@ export const CreateDocumentModal: React.FC = () => {
 
     const sla = getDeptDefaultSla(user.department);
     const overdueAct = getDeptDefaultOverdueAction(user.department);
-    setSelectedApprovers(prev => [
-      ...prev,
-      { type: 'USER', user, title: user.name, slaHours: sla, overdueAction: overdueAct }
-    ]);
+    const newItem: ApproverItem = { 
+      type: 'USER', 
+      user, 
+      title: user.name, 
+      slaHours: sla, 
+      originalSlaHours: sla, 
+      overdueAction: overdueAct 
+    };
+    const newApprovers = [...selectedApprovers, newItem];
+    const { updatedApprovers } = calculateAllocatedApprovers(priority, normalSlaMode, desiredDeadline, newApprovers);
+    setSelectedApprovers(updatedApprovers);
     setApproverSearchQuery('');
     setIsApproverDropdownOpen(false);
   };
@@ -337,18 +488,19 @@ export const CreateDocumentModal: React.FC = () => {
                     dName.toLowerCase().includes('ban qlda') || 
                     dName.toLowerCase().includes('ban kiểm soát') ||
                     dName.toLowerCase().includes('ban điều hành');
-    setSelectedApprovers(prev => [
-      ...prev,
-      { 
-        type: 'DEPARTMENT', 
-        departmentName: dName, 
-        departmentCode: dept.code, 
-        title: isBoard ? `Ban ${dName}` : `Phòng ${dName}`, 
-        slaHours: sla, 
-        overdueAction: overdueAct,
-        requiresInternalCheck: true
-      }
-    ]);
+    const newItem: ApproverItem = { 
+      type: 'DEPARTMENT', 
+      departmentName: dName, 
+      departmentCode: dept.code, 
+      title: isBoard ? `Ban ${dName}` : `Phòng ${dName}`, 
+      slaHours: sla, 
+      originalSlaHours: sla,
+      overdueAction: overdueAct,
+      requiresInternalCheck: true
+    };
+    const newApprovers = [...selectedApprovers, newItem];
+    const { updatedApprovers } = calculateAllocatedApprovers(priority, normalSlaMode, desiredDeadline, newApprovers);
+    setSelectedApprovers(updatedApprovers);
     setApproverSearchQuery('');
     setIsApproverDropdownOpen(false);
   };
@@ -356,7 +508,8 @@ export const CreateDocumentModal: React.FC = () => {
   // Cập nhật SLA số giờ cho từng bước (Chỉ Admin)
   const handleUpdateStepSla = (idx: number, hours: number) => {
     if (!isAdmin) return;
-    setSelectedApprovers(prev => prev.map((item, i) => i === idx ? { ...item, slaHours: Math.max(1, hours) } : item));
+    const h = Math.max(0.5, hours);
+    setSelectedApprovers(prev => prev.map((item, i) => i === idx ? { ...item, slaHours: h, originalSlaHours: h } : item));
   };
 
   // Cập nhật hành vi quá hạn cho từng bước (Chỉ Admin)
@@ -367,7 +520,9 @@ export const CreateDocumentModal: React.FC = () => {
 
   // Xóa bước duyệt
   const handleRemoveApprover = (index: number) => {
-    setSelectedApprovers(prev => prev.filter((_, idx) => idx !== index));
+    const newApprovers = selectedApprovers.filter((_, idx) => idx !== index);
+    const { updatedApprovers } = calculateAllocatedApprovers(priority, normalSlaMode, desiredDeadline, newApprovers);
+    setSelectedApprovers(updatedApprovers);
   };
 
   // Di chuyển bước LÊN
@@ -413,14 +568,19 @@ export const CreateDocumentModal: React.FC = () => {
       if (foundUser) {
         const sla = getDeptDefaultSla(foundUser.department);
         const overdueAct = getDeptDefaultOverdueAction(foundUser.department);
-        setSelectedApprovers(prev => prev.map((item, i) => i === idx ? { 
-          ...item, 
-          type: 'USER', 
-          user: foundUser, 
-          title: foundUser.name,
-          slaHours: isAdmin ? (item.slaHours || sla) : sla,
-          overdueAction: isAdmin ? (item.overdueAction || overdueAct) : overdueAct
-        } : item));
+        setSelectedApprovers(prev => {
+          const arr = prev.map((item, i) => i === idx ? { 
+            ...item, 
+            type: 'USER' as const, 
+            user: foundUser, 
+            title: foundUser.name,
+            originalSlaHours: sla,
+            slaHours: sla,
+            overdueAction: isAdmin ? (item.overdueAction || overdueAct) : overdueAct
+          } : item);
+          const { updatedApprovers } = calculateAllocatedApprovers(priority, normalSlaMode, desiredDeadline, arr);
+          return updatedApprovers;
+        });
       }
     } else if (value.startsWith('DEPT:')) {
       const deptName = value.replace('DEPT:', '');
@@ -431,15 +591,20 @@ export const CreateDocumentModal: React.FC = () => {
       const deptObj = allDepartments.find(d => d.name === deptName);
       const sla = (deptObj as any)?.defaultSlaHours || getDeptDefaultSla(deptName);
       const overdueAct = (deptObj as any)?.defaultOverdueAction || getDeptDefaultOverdueAction(deptName);
-      setSelectedApprovers(prev => prev.map((item, i) => i === idx ? { 
-        ...item,
-        type: 'DEPARTMENT', 
-        departmentName: deptName, 
-        departmentCode: (deptObj as any)?.code || 'PB',
-        title: `Phòng ${deptName}`,
-        slaHours: isAdmin ? (item.slaHours || sla) : sla,
-        overdueAction: isAdmin ? (item.overdueAction || overdueAct) : overdueAct
-      } : item));
+      setSelectedApprovers(prev => {
+        const arr = prev.map((item, i) => i === idx ? { 
+          ...item,
+          type: 'DEPARTMENT' as const, 
+          departmentName: deptName, 
+          departmentCode: (deptObj as any)?.code || 'PB',
+          title: `Phòng ${deptName}`,
+          originalSlaHours: sla,
+          slaHours: sla,
+          overdueAction: isAdmin ? (item.overdueAction || overdueAct) : overdueAct
+        } : item);
+        const { updatedApprovers } = calculateAllocatedApprovers(priority, normalSlaMode, desiredDeadline, arr);
+        return updatedApprovers;
+      });
     }
   };
 
@@ -850,17 +1015,34 @@ export const CreateDocumentModal: React.FC = () => {
 
               {/* Hạn duyệt mong muốn (Ngày & Giờ) */}
               <div>
-                <label className="flex items-center gap-1.5 font-bold text-slate-700 mb-1.5 text-xs sm:text-sm">
-                  <Clock className="w-4 h-4 text-brand-blue shrink-0" />
-                  <span>Hạn duyệt mong muốn (Ngày & Giờ)</span>
-                  <span className="text-brand-red">*</span>
+                <label className="flex items-center justify-between font-bold text-slate-700 mb-1.5 text-xs sm:text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-brand-blue shrink-0" />
+                    <span>Hạn duyệt mong muốn (Ngày & Giờ)</span>
+                    <span className="text-brand-red">*</span>
+                  </span>
+                  {priority === 'URGENT' && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                      ⚡ Cố định 24h (Mức Khẩn)
+                    </span>
+                  )}
+                  {priority === 'VERY_URGENT' && (
+                    <span className="text-[10px] font-bold text-brand-red bg-red-100 px-2 py-0.5 rounded-full border border-red-300">
+                      🔥 Cố định 8h (Mức Hỏa tốc)
+                    </span>
+                  )}
                 </label>
                 <input
                   type="datetime-local"
                   required
+                  disabled={priority !== 'NORMAL'}
                   value={desiredDeadline}
-                  onChange={(e) => setDesiredDeadline(e.target.value)}
-                  className="w-full max-w-full min-w-0 appearance-none box-border min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all shadow-2xs"
+                  onChange={(e) => handleDesiredDeadlineChange(e.target.value)}
+                  className={`w-full max-w-full min-w-0 appearance-none box-border min-h-[44px] px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all shadow-2xs ${
+                    priority !== 'NORMAL'
+                      ? 'bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed opacity-90'
+                      : 'bg-white border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue'
+                  }`}
                 />
               </div>
             </div>
@@ -900,14 +1082,14 @@ export const CreateDocumentModal: React.FC = () => {
             {/* Độ khẩn / Mức độ ưu tiên */}
             <div className="pt-2.5 border-t border-slate-200/90">
               <label className="block font-bold text-slate-700 mb-2 flex items-center justify-between gap-1.5 flex-wrap">
-                <span className="text-xs sm:text-sm">Độ khẩn / Mức độ ưu tiên</span>
-                <span className="text-slate-400 font-normal text-[11px]">(Phân loại để các ban ưu tiên xét duyệt đúng hạn)</span>
+                <span className="text-xs sm:text-sm">Mức độ xử lý & Độ khẩn</span>
+                <span className="text-slate-400 font-normal text-[11px]">(Quyết định cách phân bổ thời gian duyệt SLA cho các ban)</span>
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <label 
-                  className={`flex items-center justify-center gap-2 min-h-[44px] p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${
                     priority === 'NORMAL' 
-                      ? 'bg-slate-100 border-slate-400 text-slate-900 font-bold shadow-2xs ring-2 ring-slate-400/30' 
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-2xs ring-2 ring-emerald-500/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -916,17 +1098,22 @@ export const CreateDocumentModal: React.FC = () => {
                     name="priority" 
                     value="NORMAL" 
                     checked={priority === 'NORMAL'} 
-                    onChange={() => setPriority('NORMAL')}
+                    onChange={() => handlePriorityChange('NORMAL')}
                     className="sr-only" 
                   />
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-xs sm:text-sm">Bình thường</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold">Thông thường</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-normal mt-0.5 text-center">
+                    Theo hạn mong muốn / SLA chuẩn
+                  </span>
                 </label>
 
                 <label 
-                  className={`flex items-center justify-center gap-2 min-h-[44px] p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${
                     priority === 'URGENT' 
-                      ? 'bg-amber-50 border-amber-400 text-amber-900 font-bold shadow-2xs ring-2 ring-amber-400/30' 
+                      ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold shadow-2xs ring-2 ring-amber-500/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-amber-50/50'
                   }`}
                 >
@@ -935,15 +1122,20 @@ export const CreateDocumentModal: React.FC = () => {
                     name="priority" 
                     value="URGENT" 
                     checked={priority === 'URGENT'} 
-                    onChange={() => setPriority('URGENT')}
+                    onChange={() => handlePriorityChange('URGENT')}
                     className="sr-only" 
                   />
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-                  <span className="text-xs sm:text-sm">Khẩn (Trong ngày)</span>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold text-amber-900">Khẩn (Trong 24h)</span>
+                  </div>
+                  <span className="text-[10px] text-amber-700 font-normal mt-0.5 text-center">
+                    Chia đều 24h cho các ban duyệt
+                  </span>
                 </label>
 
                 <label 
-                  className={`flex items-center justify-center gap-2 min-h-[44px] p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${
                     priority === 'VERY_URGENT' 
                       ? 'bg-red-50 border-brand-red text-brand-red font-bold shadow-2xs ring-2 ring-brand-red/30' 
                       : 'bg-white border-slate-200 text-slate-600 hover:bg-red-50/50'
@@ -954,13 +1146,111 @@ export const CreateDocumentModal: React.FC = () => {
                     name="priority" 
                     value="VERY_URGENT" 
                     checked={priority === 'VERY_URGENT'} 
-                    onChange={() => setPriority('VERY_URGENT')}
+                    onChange={() => handlePriorityChange('VERY_URGENT')}
                     className="sr-only" 
                   />
-                  <Flame className="w-4 h-4 text-brand-red shrink-0" />
-                  <span className="text-xs sm:text-sm font-bold text-brand-red">Hỏa tốc (Xử lý ngay)</span>
+                  <div className="flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 text-brand-red shrink-0" />
+                    <span className="text-xs sm:text-sm font-bold text-brand-red">Hỏa tốc (Trong 8h)</span>
+                  </div>
+                  <span className="text-[10px] text-red-700 font-normal mt-0.5 text-center">
+                    Chia đều 8h cho các ban duyệt
+                  </span>
                 </label>
               </div>
+
+              {/* Dynamic SLA Allocation Explanation Banner */}
+              {priority === 'URGENT' && (
+                <div className="mt-3 p-3.5 bg-amber-50/90 border border-amber-300 rounded-xl flex items-start gap-3 text-xs text-amber-900 shadow-2xs animate-fade-in">
+                  <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-bold flex items-center gap-2 flex-wrap">
+                      <span>⚡ Chế độ Khẩn: Toàn trình xử lý trong 24 giờ</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black">
+                        {selectedApprovers.length > 0 ? `${formatSlaDisplay(24 / selectedApprovers.length)} / ban` : '24h'}
+                      </span>
+                    </div>
+                    <p className="text-amber-800 text-[11px] leading-relaxed">
+                      Tổng thời gian 24h được <strong>chia đều cho {selectedApprovers.length} ban duyệt</strong> ({selectedApprovers.length > 0 ? formatSlaDisplay(24 / selectedApprovers.length) : '24h'} mỗi cấp).
+                      Hạn duyệt toàn trình tự động thiết lập lúc: <strong>{formatDate(new Date(desiredDeadline).toISOString())}</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {priority === 'VERY_URGENT' && (
+                <div className="mt-3 p-3.5 bg-red-50/90 border border-red-300 rounded-xl flex items-start gap-3 text-xs text-red-900 shadow-2xs animate-fade-in">
+                  <Flame className="w-5 h-5 text-brand-red shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-bold flex items-center gap-2 flex-wrap">
+                      <span>🔥 Chế độ Hỏa tốc: Toàn trình xử lý gấp trong 8 giờ</span>
+                      <span className="px-2 py-0.5 rounded-full bg-red-200 text-red-900 text-[10px] font-black">
+                        {selectedApprovers.length > 0 ? `${formatSlaDisplay(8 / selectedApprovers.length)} / ban` : '8h'}
+                      </span>
+                    </div>
+                    <p className="text-red-800 text-[11px] leading-relaxed">
+                      Hồ sơ ưu tiên tối đa trong 8 giờ, thời gian được <strong>chia đều cho {selectedApprovers.length} ban duyệt</strong> ({selectedApprovers.length > 0 ? formatSlaDisplay(8 / selectedApprovers.length) : '8h'} mỗi cấp).
+                      Hạn duyệt toàn trình tự động thiết lập lúc: <strong>{formatDate(new Date(desiredDeadline).toISOString())}</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {priority === 'NORMAL' && (
+                <div className="mt-3 p-3.5 bg-slate-50 border border-slate-200/90 rounded-xl space-y-2 text-xs text-slate-700 shadow-2xs animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-bold text-slate-800">
+                      <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Chính sách phân bổ thời gian SLA mức Thông thường:</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 p-0.5 bg-white border border-slate-200 rounded-lg shadow-2xs self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleNormalSlaModeChange('PRESET')}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                          normalSlaMode === 'PRESET'
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        🏢 Theo SLA đã set sẵn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleNormalSlaModeChange('SPLIT_DESIRED')}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                          normalSlaMode === 'SPLIT_DESIRED'
+                            ? 'bg-brand-blue text-white shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        ⏱️ Chia đều theo hạn mong muốn
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {normalSlaMode === 'PRESET' ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-500">
+                      <span>
+                        Mỗi ban áp dụng SLA cam kết chuẩn (Tổng SLA: <strong>{Number(selectedApprovers.reduce((sum, a) => sum + (a.slaHours || 8), 0).toFixed(1))}h</strong>).
+                      </span>
+                      {selectedApprovers.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleSetDeadlineToTotalPresetSla}
+                          className="text-emerald-700 hover:text-emerald-800 font-bold underline inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          ⚡ Đặt hạn mong muốn = Tổng SLA (+{selectedApprovers.reduce((sum, a) => sum + (a.slaHours || 8), 0)}h)
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="pt-1 text-[11px] text-blue-700">
+                      Khoảng thời gian từ nay đến hạn mong muốn được <strong>chia đều cho {selectedApprovers.length} ban duyệt</strong> ({selectedApprovers.length > 0 ? formatSlaDisplay(selectedApprovers[0]?.slaHours) : '---'} / ban).
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -972,8 +1262,20 @@ export const CreateDocumentModal: React.FC = () => {
                 <span className="font-bold text-brand-blue text-xs uppercase tracking-wider">
                   Người / Phòng ban xét duyệt & Thời gian SLA
                 </span>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 bg-brand-blue text-white rounded-full">
-                  {selectedApprovers.length} cấp duyệt
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs ${
+                  priority === 'VERY_URGENT' ? 'bg-brand-red text-white' :
+                  priority === 'URGENT' ? 'bg-amber-500 text-white' :
+                  'bg-brand-blue text-white'
+                }`}>
+                  {priority === 'VERY_URGENT' && <Flame className="w-3 h-3 text-white" />}
+                  <span>{selectedApprovers.length} cấp duyệt</span>
+                  <span>•</span>
+                  <span>
+                    {priority === 'VERY_URGENT' ? `Hỏa tốc (Chia đều 8h: ${formatSlaDisplay(selectedApprovers.length > 0 ? 8 / selectedApprovers.length : 8)}/ban)` :
+                     priority === 'URGENT' ? `Khẩn (Chia đều 24h: ${formatSlaDisplay(selectedApprovers.length > 0 ? 24 / selectedApprovers.length : 24)}/ban)` :
+                     normalSlaMode === 'SPLIT_DESIRED' ? `Chia theo hạn: ${formatSlaDisplay(selectedApprovers[0]?.slaHours)}/ban` :
+                     `Tổng SLA: ${Number(selectedApprovers.reduce((sum, s) => sum + (s.slaHours || 0), 0).toFixed(1))}h`}
+                  </span>
                 </span>
               </div>
               {/* Cài đặt chính sách quá hạn */}
@@ -1120,15 +1422,38 @@ export const CreateDocumentModal: React.FC = () => {
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                           <span className="font-semibold text-slate-600">SLA cam kết:</span>
-                          {isAdmin ? (
+                          {priority === 'URGENT' ? (
+                            <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-300 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs">
+                              <span>{formatSlaDisplay(item.slaHours)}</span>
+                              <span className="text-[10px] font-normal text-amber-700 bg-amber-100/90 px-1.5 py-0.5 rounded">
+                                ⚡ Chia đều 24h ({selectedApprovers.length} ban)
+                              </span>
+                            </span>
+                          ) : priority === 'VERY_URGENT' ? (
+                            <span className="px-2.5 py-1 bg-red-50 text-brand-red border border-red-300 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs">
+                              <Flame className="w-3.5 h-3.5 text-brand-red shrink-0" />
+                              <span>{formatSlaDisplay(item.slaHours)}</span>
+                              <span className="text-[10px] font-normal text-red-700 bg-red-100/90 px-1.5 py-0.5 rounded">
+                                🔥 Chia đều 8h ({selectedApprovers.length} ban)
+                              </span>
+                            </span>
+                          ) : normalSlaMode === 'SPLIT_DESIRED' ? (
+                            <span className="px-2.5 py-1 bg-blue-50 text-brand-blue border border-blue-300 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs">
+                              <span>{formatSlaDisplay(item.slaHours)}</span>
+                              <span className="text-[10px] font-normal text-blue-700 bg-blue-100/90 px-1.5 py-0.5 rounded">
+                                ⏱️ Chia theo hạn ({selectedApprovers.length} ban)
+                              </span>
+                            </span>
+                          ) : isAdmin ? (
                             <>
                               <input
                                 type="number"
-                                min="1"
+                                min="0.5"
+                                step="0.5"
                                 max="168"
                                 value={item.slaHours || 8}
-                                onChange={(e) => handleUpdateStepSla(idx, parseInt(e.target.value) || 8)}
-                                className="w-12 px-1 py-0.5 bg-amber-50/60 border border-amber-300 rounded-lg font-bold text-amber-900 text-center text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                onChange={(e) => handleUpdateStepSla(idx, parseFloat(e.target.value) || 8)}
+                                className="w-14 px-1.5 py-0.5 bg-amber-50/60 border border-amber-300 rounded-lg font-bold text-amber-900 text-center text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                               />
                               <span className="text-slate-500 font-medium">giờ</span>
 
@@ -1152,7 +1477,7 @@ export const CreateDocumentModal: React.FC = () => {
                             </>
                           ) : (
                             <span className="px-2.5 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-full font-bold text-[11px] flex items-center gap-1 shadow-2xs">
-                              {item.slaHours || 8} giờ <span className="text-[9.5px] font-normal text-amber-700">(Quy định)</span>
+                              {formatSlaDisplay(item.slaHours || 8)} <span className="text-[9.5px] font-normal text-amber-700">(SLA chuẩn ban)</span>
                             </span>
                           )}
                         </div>
