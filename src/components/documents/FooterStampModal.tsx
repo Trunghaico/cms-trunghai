@@ -49,14 +49,18 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
   const [totalPages, setTotalPages] = useState<number>(2);
   const [zoom, setZoom] = useState<number>(100);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [isLoadingSource, setIsLoadingSource] = useState<boolean>(false);
+  const [sourcePdfBytes, setSourcePdfBytes] = useState<Uint8Array | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [previewStampDataUri, setPreviewStampDataUri] = useState<string>('');
+  const previewBlobUrlRef = useRef<string | null>(null);
 
-  // Lấy toàn bộ danh sách các phòng ban đã phê duyệt
-  const approvedSteps = (doc.steps || []).filter(s => s.status === 'APPROVED');
+  // 1. Lấy toàn bộ danh sách các phòng ban đã phê duyệt (được tính toán ổn định)
   const availableSigners: FooterSignerInfo[] = useMemo(() => {
-    if (approvedSteps.length > 0) {
-      return approvedSteps.map(s => ({
+    const steps = doc?.steps || [];
+    const approved = steps.filter(s => s.status === 'APPROVED');
+    if (approved.length > 0) {
+      return approved.map(s => ({
         name: s.approverName,
         roleTitle: s.approverTitle,
         department: s.department || s.title,
@@ -67,69 +71,97 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
     // Mẫu mặc định nếu tài liệu mô phỏng chưa có bước duyệt
     return [
       {
-        name: doc.creatorName || 'Nguyễn Văn Long',
-        roleTitle: doc.creatorTitle || 'Chuyên viên phụ trách',
-        department: doc.department || 'Phòng Kỹ thuật & Dự án',
-        signedAt: doc.createdAt,
+        name: doc?.creatorName || 'Nguyễn Văn Long',
+        roleTitle: doc?.creatorTitle || 'Chuyên viên phụ trách',
+        department: doc?.department || 'Phòng Kỹ thuật & Dự án',
+        signedAt: doc?.createdAt || '2026-03-24T08:00:00.000Z',
       },
       {
         name: 'Trần Đình Đạo',
         roleTitle: 'Trưởng phòng Kỹ thuật',
         department: 'PHÒNG KỸ THUẬT THI CÔNG',
-        signedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+        signedAt: '2026-03-24T10:30:00.000Z',
       },
       {
         name: 'Lê Bá Trung',
         roleTitle: 'Kế toán trưởng',
         department: 'PHÒNG TÀI CHÍNH KẾ TOÁN',
-        signedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+        signedAt: '2026-03-24T14:45:00.000Z',
       },
       {
         name: 'Đỗ Trung Hải',
         roleTitle: 'Tổng Giám Đốc',
         department: 'BAN TỔNG GIÁM ĐỐC',
-        signedAt: new Date().toISOString(),
+        signedAt: '2026-03-25T09:15:00.000Z',
       }
     ];
-  }, [doc, approvedSteps]);
+  }, [doc?.id, doc?.code, doc?.steps, doc?.creatorName, doc?.creatorTitle, doc?.department, doc?.createdAt]);
 
   // Các phòng ban được chọn đóng dấu giáp lai (mặc định chọn tất cả các ban)
-  const [selectedDeptIndices, setSelectedDeptIndices] = useState<number[]>([]);
+  const [selectedDeptIndices, setSelectedDeptIndices] = useState<number[]>(() =>
+    availableSigners.map((_, i) => i)
+  );
 
-  // Tự động khởi tạo tick chọn tất cả khi danh sách thay đổi
+  // Chỉ khởi tạo lại khi mở modal cho tài liệu mới
+  const prevDocIdRef = useRef<string | null>(null);
   useEffect(() => {
-    setSelectedDeptIndices(availableSigners.map((_, i) => i));
-  }, [availableSigners]);
+    if (isOpen) {
+      const currentId = doc?.id || 'default';
+      if (prevDocIdRef.current !== currentId) {
+        prevDocIdRef.current = currentId;
+        setSelectedDeptIndices(availableSigners.map((_, i) => i));
+      }
+    } else {
+      prevDocIdRef.current = null;
+    }
+  }, [isOpen, doc?.id, availableSigners.length]);
 
   const activeSigners = useMemo(() => {
-    const list = selectedDeptIndices.map(i => availableSigners[i]).filter(Boolean);
+    const list = selectedDeptIndices
+      .map(i => availableSigners[i])
+      .filter((s): s is FooterSignerInfo => !!s);
     return list.length > 0 ? list : availableSigners;
   }, [selectedDeptIndices, availableSigners]);
 
-  // 1. Tạo tem mẫu trực quan cho giao diện xem trước
+  const activeSignersKey = useMemo(() => {
+    return selectedDeptIndices.slice().sort((a, b) => a - b).join(',');
+  }, [selectedDeptIndices]);
+
+  // 1. Tạo tem mẫu trực quan cho giao diện xem trước (nhẹ ~1ms, cập nhật tức thì)
   useEffect(() => {
     if (!isOpen) return;
-    createFooterStampCanvas(activeSigners, doc.code, currentPage, totalPages).then((uri) => {
-      setPreviewStampDataUri(uri);
-    });
-  }, [isOpen, activeSigners, doc.code, currentPage, totalPages]);
-
-  // 2. Tạo bản PDF hoàn thiện khi cấu hình thay đổi
-  useEffect(() => {
-    if (!isOpen) return;
-
     let isCancelled = false;
 
-    const generatePreviewPdf = async () => {
-      setIsGenerating(true);
+    createFooterStampCanvas(activeSigners, doc?.code || 'TH_DOC', currentPage, totalPages).then((uri) => {
+      if (!isCancelled) {
+        setPreviewStampDataUri(uri);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen, activeSignersKey, doc?.code, currentPage, totalPages]);
+
+  // 2. Tải và chuẩn hóa tài liệu gốc duy nhất 1 lần khi mở modal (tránh lặp tải fetch / convert)
+  useEffect(() => {
+    if (!isOpen) {
+      setSourcePdfBytes(null);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoadingSource(true);
+
+    const loadSource = async () => {
       try {
-        let sourceBytes: Uint8Array | ArrayBuffer;
+        let bytes: Uint8Array;
 
         if (pdfSource && pdfSource !== '#') {
           if (typeof pdfSource === 'string') {
             if (pdfSource.startsWith('data:application/pdf;base64,')) {
               const base64 = pdfSource.replace('data:application/pdf;base64,', '');
-              sourceBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+              bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
             } else {
               try {
                 const res = await fetch(pdfSource);
@@ -137,68 +169,105 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                   const buf = await res.arrayBuffer();
                   const h = new Uint8Array(buf.slice(0, 4));
                   if (h[0] === 0x25 && h[1] === 0x50 && h[2] === 0x44 && h[3] === 0x46) {
-                    sourceBytes = buf;
+                    bytes = new Uint8Array(buf);
                   } else {
                     const fallbackName = typeof pdfSource === 'string'
-                      ? pdfSource.split('/').pop()?.split('?')[0] || `${doc.code}.docx`
-                      : `${doc.code}.docx`;
+                      ? pdfSource.split('/').pop()?.split('?')[0] || `${doc?.code || 'document'}.docx`
+                      : `${doc?.code || 'document'}.docx`;
                     const conv = await convertOfficeOrImageToPdf(new File([buf], fallbackName));
-                    sourceBytes = conv.pdfBytes;
+                    bytes = conv.pdfBytes;
                   }
                 } else {
-                  sourceBytes = await createStandardDocumentPdf(doc);
+                  bytes = await createStandardDocumentPdf(doc);
                 }
               } catch {
-                sourceBytes = await createStandardDocumentPdf(doc);
+                bytes = await createStandardDocumentPdf(doc);
               }
             }
+          } else if (pdfSource instanceof Uint8Array) {
+            bytes = pdfSource;
           } else {
-            sourceBytes = pdfSource;
+            bytes = new Uint8Array(pdfSource);
           }
         } else {
-          sourceBytes = await createStandardDocumentPdf(doc);
+          bytes = await createStandardDocumentPdf(doc);
         }
 
+        if (!isCancelled) {
+          setSourcePdfBytes(bytes);
+        }
+      } catch (err) {
+        console.error('Lỗi khi chuẩn bị tài liệu nguồn:', err);
+        if (!isCancelled) {
+          const fallback = await createStandardDocumentPdf(doc);
+          setSourcePdfBytes(fallback);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingSource(false);
+        }
+      }
+    };
+
+    loadSource();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen, doc?.id, pdfSource]);
+
+  // 3. Đóng dấu giáp lai chân trang (có debounce 250ms để người dùng click chọn phòng ban không bị đơ)
+  useEffect(() => {
+    if (!isOpen || !sourcePdfBytes) return;
+
+    let isCancelled = false;
+    setIsGenerating(true);
+
+    const timer = setTimeout(async () => {
+      try {
         const options: FooterStampOptions = {
           marginMode,
           applyToAllPages,
           signers: activeSigners,
-          documentCode: doc.code,
-          documentTitle: doc.title,
+          documentCode: doc?.code || 'TH_DOC',
+          documentTitle: doc?.title,
         };
 
-        const finalBytes = await stampPdfWithFooterSeal(sourceBytes, options);
+        const finalBytes = await stampPdfWithFooterSeal(sourcePdfBytes, options);
         if (isCancelled) return;
 
         const blob = new Blob([finalBytes as any], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
 
-        if (previewBlobUrl) {
-          URL.revokeObjectURL(previewBlobUrl);
+        if (previewBlobUrlRef.current) {
+          URL.revokeObjectURL(previewBlobUrlRef.current);
         }
+        previewBlobUrlRef.current = url;
         setPreviewBlobUrl(url);
       } catch (err) {
         console.error('Lỗi khi sinh bản PDF giáp lai chân trang:', err);
       } finally {
-        if (!isCancelled) setIsGenerating(false);
+        if (!isCancelled) {
+          setIsGenerating(false);
+        }
       }
-    };
-
-    generatePreviewPdf();
+    }, 250);
 
     return () => {
       isCancelled = true;
+      clearTimeout(timer);
     };
-  }, [isOpen, marginMode, applyToAllPages, doc, pdfSource]);
+  }, [isOpen, sourcePdfBytes, marginMode, applyToAllPages, activeSignersKey]);
 
-  // Clean up Blob URL when closing
+  // Clean up Blob URL khi đóng modal hoặc unmount
   useEffect(() => {
     return () => {
-      if (previewBlobUrl) {
-        URL.revokeObjectURL(previewBlobUrl);
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
       }
     };
-  }, [previewBlobUrl]);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -252,7 +321,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              disabled={isGenerating || !previewBlobUrl}
+              disabled={isGenerating || isLoadingSource || !previewBlobUrl}
               className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -261,7 +330,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
             <button
               type="button"
               onClick={handleDownload}
-              disabled={isGenerating || !previewBlobUrl}
+              disabled={isGenerating || isLoadingSource || !previewBlobUrl}
               className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
@@ -476,11 +545,11 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
               <button
                 type="button"
                 onClick={handleDownload}
-                disabled={isGenerating || !previewBlobUrl}
+                disabled={isGenerating || isLoadingSource || !previewBlobUrl}
                 className="w-full py-2.5 px-4 bg-gradient-to-r from-brand-red via-red-600 to-rose-700 hover:from-red-600 hover:to-brand-red text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-98"
               >
                 <Download className="w-4 h-4" />
-                <span>{isGenerating ? 'Đang tạo PDF...' : 'Tải File PDF Giáp Lai'}</span>
+                <span>{isLoadingSource ? 'Đang chuẩn bị tệp...' : isGenerating ? 'Đang dán tem...' : 'Tải File PDF Giáp Lai'}</span>
               </button>
             </div>
 
@@ -493,9 +562,9 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
             <div className="px-3 py-1.5 bg-slate-900 border border-slate-700/80 rounded-2xl flex items-center justify-between text-xs text-white mb-2 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-300 text-[11px]">Bản Xem Trước Văn Bản Đã Dán Tem:</span>
-                {isGenerating && (
+                {(isGenerating || isLoadingSource) && (
                   <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] rounded-full animate-pulse">
-                    Đang xử lý dán tem...
+                    {isLoadingSource ? 'Đang đọc tệp gốc...' : 'Đang xử lý dán tem...'}
                   </span>
                 )}
               </div>
@@ -526,7 +595,9 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                   <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs">Đang sinh bản PDF giáp lai an toàn lề...</p>
+                  <p className="text-xs">
+                    {isLoadingSource ? 'Đang tải và chuẩn hóa tệp gốc...' : 'Đang sinh bản PDF giáp lai an toàn lề...'}
+                  </p>
                 </div>
               )}
             </div>

@@ -155,8 +155,15 @@ export async function createFooterStampCanvas(
       try {
         const img = new Image();
         await new Promise<void>((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
+          const timer = setTimeout(resolve, 500);
+          img.onload = () => {
+            clearTimeout(timer);
+            resolve();
+          };
+          img.onerror = () => {
+            clearTimeout(timer);
+            resolve();
+          };
           img.src = signer.signatureImage!;
         });
         if (img.width > 0) {
