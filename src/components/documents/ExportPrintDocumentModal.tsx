@@ -88,6 +88,9 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-sm text-white">Xuất & In Phiếu Phê Duyệt Điện Tử</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 flex items-center gap-1">
+                  📄 Chuẩn vừa vặn 1 trang A4
+                </span>
                 {isFullyApproved ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-400" />
@@ -136,7 +139,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
               className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>In hồ sơ (Print / PDF)</span>
+              <span>In hồ sơ (1 Trang A4)</span>
             </button>
 
             {/* Close Button */}
@@ -152,9 +155,9 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
         </div>
 
         {/* Scrollable View Area */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-200/80 custom-scrollbar flex justify-center">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-200/80 custom-scrollbar flex justify-center">
           
-          {/* Printable A4 Paper Document Container */}
+          {/* Printable A4 Paper Document Container - Tối ưu vừa vặn 1 trang A4 */}
           <div 
             ref={printAreaRef}
             style={{ 
@@ -162,162 +165,155 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
               transformOrigin: 'top center',
               transition: 'transform 0.2s ease-out'
             }}
-            className="printable-document bg-white w-full max-w-[820px] shadow-xl p-8 sm:p-12 text-slate-900 font-sans border border-slate-300 rounded-sm min-h-[1100px] flex flex-col justify-between"
+            className="printable-document bg-white w-full max-w-[800px] shadow-xl p-5 sm:p-7 text-slate-900 font-sans border border-slate-300 rounded-sm flex flex-col justify-between"
           >
             <div>
               {/* TOP HEADER: Quốc hiệu & Tên Đơn vị */}
-              <div className="flex justify-between items-start gap-4 pb-4 border-b-2 border-slate-900">
+              <div className="flex justify-between items-start gap-4 pb-2 border-b-2 border-slate-900">
                 {/* Đơn vị trình ký */}
                 <div className="w-[48%] text-center space-y-0.5">
-                  <p className="font-extrabold text-[12px] sm:text-[13px] uppercase tracking-wider text-slate-900 leading-tight">
+                  <p className="font-extrabold text-[11px] sm:text-[12px] uppercase tracking-wider text-slate-900 leading-tight">
                     CTY CỔ PHẦN XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI
                   </p>
-                  <p className="font-bold text-[11px] uppercase text-brand-blue tracking-wide">
+                  <p className="font-bold text-[10px] uppercase text-brand-blue tracking-wide">
                     {doc.department || 'BAN QUẢN LÝ DỰ ÁN & VĂN PHÒNG'}
                   </p>
-                  <div className="w-24 h-0.5 bg-slate-800 mx-auto my-1" />
-                  <p className="font-mono text-[10.5px] text-slate-700 mt-1">
+                  <div className="w-20 h-0.5 bg-slate-800 mx-auto my-0.5" />
+                  <p className="font-mono text-[9.5px] text-slate-700">
                     Số: <strong>{doc.code}</strong>/TH-PK
                   </p>
                 </div>
 
                 {/* Quốc hiệu Tiêu ngữ */}
                 <div className="w-[50%] text-center space-y-0.5">
-                  <p className="font-bold text-[12px] sm:text-[13px] uppercase tracking-wider text-slate-900 leading-tight">
+                  <p className="font-bold text-[11px] sm:text-[12px] uppercase tracking-wider text-slate-900 leading-tight">
                     CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
                   </p>
-                  <p className="font-semibold text-[11px] italic text-slate-800">
+                  <p className="font-semibold text-[10px] italic text-slate-800">
                     Độc lập - Tự do - Hạnh phúc
                   </p>
-                  <div className="w-32 h-0.5 bg-slate-800 mx-auto my-1" />
-                  <p className="text-[10.5px] italic text-slate-600 mt-1 font-serif">
+                  <div className="w-24 h-0.5 bg-slate-800 mx-auto my-0.5" />
+                  <p className="text-[9.5px] italic text-slate-600 font-serif">
                     Hà Nội, ngày {day} tháng {month} năm {year}
                   </p>
                 </div>
               </div>
 
               {/* DOCUMENT MAIN TITLE */}
-              <div className="text-center my-6 space-y-1">
-                <h1 className="text-lg sm:text-xl font-black uppercase tracking-wide text-slate-950 font-serif">
+              <div className="text-center my-2.5 space-y-0.5">
+                <h1 className="text-sm sm:text-base font-black uppercase tracking-wide text-slate-950 font-serif leading-tight">
                   PHIẾU TRÌNH KÝ & KẾT QUẢ PHÊ DUYỆT ĐIỆN TỬ
                 </h1>
-                <p className="text-xs italic text-slate-600 font-serif">
+                <p className="text-[9.5px] italic text-slate-500 font-serif">
                   (Hệ thống Quản trị Quy trình Phê duyệt Điện tử BPM - Trung Hải CMS)
                 </p>
-                <div className="inline-block mt-1">
+                <div className="inline-block mt-0.5">
                   {isFullyApproved ? (
-                    <span className="px-3 py-1 bg-emerald-100 text-emerald-900 font-bold text-[11px] rounded-full border border-emerald-300 inline-flex items-center gap-1.5 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                    <span className="px-2.5 py-0.2 bg-emerald-100 text-emerald-900 font-bold text-[9.5px] rounded-full border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-700" />
                       HỒ SƠ ĐÃ HOÀN TẤT PHÊ DUYỆT ĐẦY ĐỦ CÁC CẤP
                     </span>
                   ) : (
-                    <span className="px-3 py-1 bg-amber-100 text-amber-900 font-bold text-[11px] rounded-full border border-amber-300 inline-flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-amber-700" />
-                      HỒ SƠ ĐANG TRONG TIẾN TRÌNH XÉT DUYỆT
+                    <span className="px-2.5 py-0.2 bg-amber-100 text-amber-900 font-bold text-[9.5px] rounded-full border border-amber-300 inline-flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-amber-700" />
+                      HỒ SƠ ĐANG TRONG TIẾN TRÌNH XÉT DUYỆT ({approvedSteps.length}/{doc.steps.length} BƯỚC)
                     </span>
                   )}
                 </div>
               </div>
 
               {/* SECTION I: THÔNG TIN HỒ SƠ */}
-              <div className="space-y-2 mb-6">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded border border-slate-300">
+              <div className="space-y-1 mb-2">
+                <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
                   I. THÔNG TIN CHUNG VỀ HỒ SƠ TRÌNH DUYỆT
                 </h2>
 
-                <div className="border border-slate-300 rounded overflow-hidden text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 border-b border-slate-200">
-                    <div className="p-2.5 bg-slate-50 border-r border-slate-200 font-semibold text-slate-600">
+                <div className="border border-slate-300 rounded overflow-hidden text-[9.5px] leading-tight">
+                  {/* Trích yếu */}
+                  <div className="grid grid-cols-4 border-b border-slate-200">
+                    <div className="p-1.5 bg-slate-50 border-r border-slate-200 font-semibold text-slate-600 col-span-1">
                       Tên / Trích yếu văn bản:
                     </div>
-                    <div className="p-2.5 font-bold text-slate-950 col-span-1 sm:col-span-1">
+                    <div className="p-1.5 font-bold text-slate-950 col-span-3">
                       {doc.title}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 border-b border-slate-200">
-                    <div className="p-2 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                  <div className="grid grid-cols-4 border-b border-slate-200">
+                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
                       Loại hồ sơ:
                     </div>
-                    <div className="p-2 font-bold text-slate-900 border-r border-slate-200">
+                    <div className="p-1.5 font-bold text-slate-900 border-r border-slate-200 truncate">
                       {doc.category}
                     </div>
-                    <div className="p-2 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
                       Dự án / Công trình:
                     </div>
-                    <div className="p-2 font-bold text-slate-900">
+                    <div className="p-1.5 font-bold text-slate-900 truncate">
                       {doc.project || 'Chung / Văn phòng'}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 border-b border-slate-200">
-                    <div className="p-2 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                  <div className="grid grid-cols-4 border-b border-slate-200">
+                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
                       Người khởi tạo:
                     </div>
-                    <div className="p-2 text-slate-900 border-r border-slate-200">
-                      <strong>{doc.creatorName}</strong> ({doc.creatorTitle || 'Chuyên viên'})
+                    <div className="p-1.5 text-slate-900 border-r border-slate-200 truncate">
+                      <strong>{cleanCreatorName}</strong> ({doc.creatorTitle || 'Chuyên viên'})
                     </div>
-                    <div className="p-2 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
                       Phòng ban đề xuất:
                     </div>
-                    <div className="p-2 font-bold text-brand-blue">
+                    <div className="p-1.5 font-bold text-brand-blue truncate">
                       {doc.department}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-4 border-b border-slate-200">
-                    <div className="p-2 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                  <div className="grid grid-cols-4">
+                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
                       Thời điểm lập hồ sơ:
                     </div>
-                    <div className="p-2 text-slate-900 border-r border-slate-200">
+                    <div className="p-1.5 text-slate-900 border-r border-slate-200 font-mono text-[9px]">
                       {formatDate(doc.createdAt)}
                     </div>
-                    <div className="p-2 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Hạn duyệt mong muốn:
+                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                      Mức độ & Kinh phí:
                     </div>
-                    <div className="p-2 font-bold text-slate-900">
-                      {formatDate(doc.desiredDeadline || doc.deadline)}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-4">
-                    <div className="p-2 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Giá trị đề xuất (VNĐ):
-                    </div>
-                    <div className="p-2 font-bold font-mono text-emerald-700 border-r border-slate-200">
-                      {doc.amount ? formatCurrency(doc.amount) : 'Phi tài chính'}
-                    </div>
-                    <div className="p-2 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Mức độ ưu tiên:
-                    </div>
-                    <div className="p-2">
-                      <span className={`px-2 py-0.5 rounded font-bold text-[10.5px] ${
+                    <div className="p-1.5 flex items-center justify-between">
+                      <span className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
                         doc.priority === 'VERY_URGENT' ? 'bg-red-100 text-red-900 font-black' :
                         doc.priority === 'URGENT' ? 'bg-amber-100 text-amber-900 font-bold' :
                         'bg-slate-100 text-slate-800'
                       }`}>
-                        {doc.priority === 'VERY_URGENT' ? '🔥 Hỏa tốc (Chia đều 8h)' :
-                         doc.priority === 'URGENT' ? '⚡ Khẩn (Chia đều 24h)' : 'Bình thường'}
+                        {doc.priority === 'VERY_URGENT' ? '🔥 Hỏa tốc (8h)' :
+                         doc.priority === 'URGENT' ? '⚡ Khẩn (24h)' : 'Bình thường'}
                       </span>
+                      {doc.amount ? (
+                        <span className="font-mono font-bold text-emerald-700 text-[9.5px]">
+                          {formatCurrency(doc.amount)}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-[9px]">Phi tài chính</span>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* SECTION II: NỘI DUNG TỜ TRÌNH / TÀI LIỆU */}
+              {/* SECTION II: NỘI DUNG TỜ TRÌNH / TÀI LIỆU (Rút gọn) */}
               {(doc.contentHtml || doc.description) && (
-                <div className="space-y-2 mb-6">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded border border-slate-300">
+                <div className="space-y-1 mb-2">
+                  <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
                     II. NỘI DUNG ĐỀ XUẤT / TRÍCH YẾU CHI TIẾT
                   </h2>
-                  <div className="p-4 border border-slate-300 rounded text-xs leading-relaxed text-slate-900 bg-white">
+                  <div className="p-2 border border-slate-300 rounded text-[9.5px] leading-relaxed text-slate-900 bg-white max-h-[60px] overflow-hidden">
                     {doc.contentHtml ? (
                       <div 
-                        className="prose prose-xs max-w-none text-slate-900 font-sans"
+                        className="prose prose-xs max-w-none text-slate-900 font-sans line-clamp-2"
                         dangerouslySetInnerHTML={{ __html: doc.contentHtml }} 
                       />
                     ) : (
-                      <p className="font-sans text-slate-800 whitespace-pre-wrap">{doc.description}</p>
+                      <p className="font-sans text-slate-800 whitespace-pre-wrap line-clamp-2">{doc.description}</p>
                     )}
                   </div>
                 </div>
@@ -325,50 +321,62 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
 
               {/* SECTION III: DANH MỤC ĐÍNH KÈM */}
               {doc.attachments && doc.attachments.length > 0 && (
-                <div className="space-y-2 mb-6">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-3 py-1.5 rounded border border-slate-300">
-                    III. HỒ SƠ & TÀI LIỆU ĐÍNH KÈM ({doc.attachments.length} tệp)
-                  </h2>
-                  <table className="w-full text-left text-xs border border-slate-300 rounded border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-300 text-[11px] text-slate-700">
-                        <th className="p-1.5 w-10 text-center border-r border-slate-300 font-bold">STT</th>
-                        <th className="p-1.5 border-r border-slate-300 font-bold">Tên tài liệu / Văn bản</th>
-                        <th className="p-1.5 w-24 text-right border-r border-slate-300 font-bold">Dung lượng</th>
-                        <th className="p-1.5 w-36 border-r border-slate-300 font-bold">Người tải lên</th>
-                        <th className="p-1.5 w-32 font-bold">Thời gian nộp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {doc.attachments.map((att, idx) => (
-                        <tr key={att.id} className="border-b border-slate-200">
-                          <td className="p-1.5 text-center border-r border-slate-200 font-semibold">{idx + 1}</td>
-                          <td className="p-1.5 border-r border-slate-200 font-medium text-slate-900">{att.name}</td>
-                          <td className="p-1.5 text-right border-r border-slate-200 font-mono text-[11px]">
-                            {Math.round(att.size / 1024)} KB
-                          </td>
-                          <td className="p-1.5 border-r border-slate-200 text-slate-700">{att.uploadedBy}</td>
-                          <td className="p-1.5 text-slate-600 font-mono text-[11px]">{formatDate(att.uploadedAt)}</td>
+                <div className="space-y-1 mb-2">
+                  <div className="flex items-center justify-between bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                    <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
+                      III. HỒ SƠ & TÀI LIỆU ĐÍNH KÈM ({doc.attachments.length} tệp)
+                    </h2>
+                    <span className="text-[8.5px] text-slate-500 font-mono">Đã lưu trữ số hóa trên DMS</span>
+                  </div>
+                  <div className="border border-slate-300 rounded overflow-hidden">
+                    <table className="w-full text-left text-[9px] border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-700">
+                          <th className="p-1 w-8 text-center border-r border-slate-200 font-bold">STT</th>
+                          <th className="p-1 border-r border-slate-200 font-bold">Tên tài liệu / Văn bản</th>
+                          <th className="p-1 w-20 text-right border-r border-slate-200 font-bold">Dung lượng</th>
+                          <th className="p-1 w-28 border-r border-slate-200 font-bold">Người nộp</th>
+                          <th className="p-1 w-24 font-bold">Thời gian nộp</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {doc.attachments.slice(0, 2).map((att, idx) => (
+                          <tr key={att.id} className="border-b border-slate-200 last:border-b-0">
+                            <td className="p-1 text-center border-r border-slate-200 font-semibold">{idx + 1}</td>
+                            <td className="p-1 border-r border-slate-200 font-medium text-slate-900 truncate max-w-[280px]">{att.name}</td>
+                            <td className="p-1 text-right border-r border-slate-200 font-mono text-[8.5px]">
+                              {Math.round(att.size / 1024)} KB
+                            </td>
+                            <td className="p-1 border-r border-slate-200 text-slate-700 truncate">{att.uploadedBy}</td>
+                            <td className="p-1 text-slate-600 font-mono text-[8.5px]">{formatDate(att.uploadedAt)}</td>
+                          </tr>
+                        ))}
+                        {doc.attachments.length > 2 && (
+                          <tr>
+                            <td colSpan={5} className="p-0.5 text-center text-slate-500 italic text-[8.5px] bg-slate-50">
+                              ... và {doc.attachments.length - 2} tệp đính kèm khác (Tra cứu đầy đủ trên hệ thống Trung Hải CMS)
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
               {/* SECTION IV: KẾT QUẢ KÝ DUYỆT CỦA CÁC BAN (CỐT LÕI) */}
-              <div className="space-y-3 mb-6 page-break-inside-avoid">
-                <div className="flex items-center justify-between bg-slate-100 px-3 py-1.5 rounded border border-slate-300">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              <div className="space-y-1 mb-2 page-break-inside-avoid">
+                <div className="flex items-center justify-between bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                  <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
                     IV. Ý KIẾN VÀ CHỮ KÝ PHÊ DUYỆT CỦA CÁC BAN DUYỆT ({doc.steps.length} BƯỚC)
                   </h2>
-                  <span className="text-[10.5px] font-mono text-slate-600">
+                  <span className="text-[9px] font-mono text-slate-600">
                     Xác thực số hóa tiêu chuẩn ISO/IEC 27001
                   </span>
                 </div>
 
                 {/* Grid of Signatures for all steps */}
-                <div className={`grid grid-cols-1 ${doc.steps.length <= 2 ? 'sm:grid-cols-2' : doc.steps.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-3`}>
+                <div className={`grid grid-cols-1 ${doc.steps.length <= 2 ? 'sm:grid-cols-2' : doc.steps.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-2`}>
                   {doc.steps.map((step, idx) => {
                     const isApproved = step.status === 'APPROVED';
                     const hasDrawSignature = step.signatureImage && step.signatureImage.startsWith('data:image');
@@ -377,67 +385,67 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                     return (
                       <div 
                         key={step.id || idx}
-                        className={`border-2 rounded-xl p-3 flex flex-col justify-between text-center relative overflow-hidden transition-all ${
+                        className={`border rounded-lg p-2 flex flex-col justify-between text-center relative overflow-hidden transition-all ${
                           isApproved 
-                            ? 'border-emerald-600 bg-white shadow-xs' 
+                            ? 'border-emerald-600 bg-white shadow-2xs' 
                             : 'border-slate-300 bg-slate-50/60 opacity-80'
                         }`}
                       >
                         {/* Header Box: Role / Department */}
                         <div>
-                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          <div className="text-[8.5px] font-bold text-slate-500 uppercase tracking-wider">
                             BƯỚC {idx + 1}
                           </div>
-                          <h3 className="font-extrabold text-[11.5px] text-slate-900 uppercase leading-snug line-clamp-2 mt-0.5" title={step.title}>
+                          <h3 className="font-extrabold text-[10px] text-slate-900 uppercase leading-snug line-clamp-1 mt-0.2" title={step.title}>
                             {step.title}
                           </h3>
-                          <p className="text-[10.5px] font-bold text-brand-blue truncate mt-0.5">
+                          <p className="text-[9px] font-bold text-brand-blue truncate">
                             {step.department}
                           </p>
 
                           {/* Ý kiến phê duyệt */}
                           {step.comment ? (
-                            <div className="mt-2 p-1.5 bg-slate-50 border border-slate-200 rounded text-[10.5px] italic text-slate-700 leading-tight">
+                            <div className="mt-1 p-1 bg-slate-50 border border-slate-200 rounded text-[9px] italic text-slate-700 leading-tight line-clamp-1">
                               "{step.comment}"
                             </div>
                           ) : isApproved ? (
-                            <div className="mt-2 p-1 bg-emerald-50 text-emerald-800 rounded text-[10px] italic">
-                              "Đồng ý phê duyệt"
+                            <div className="mt-1 p-0.5 bg-emerald-50 text-emerald-800 rounded text-[8.5px] italic">
+                              "Đã kiểm tra và phê duyệt"
                             </div>
                           ) : null}
 
                           {/* Kiểm tra nội bộ ban nếu có */}
                           {step.isInternalChecked && (
-                            <div className="mt-1.5 text-[9.5px] text-indigo-700 bg-indigo-50/80 p-1 rounded border border-indigo-100 flex items-center justify-center gap-1">
-                              <CheckCircle2 className="w-3 h-3 text-indigo-600 shrink-0" />
+                            <div className="mt-1 text-[8.5px] text-indigo-700 bg-indigo-50/80 p-0.5 rounded border border-indigo-100 flex items-center justify-center gap-1">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-indigo-600 shrink-0" />
                               <span className="truncate">KT nội bộ: {step.checkedByName || 'Chuyên viên ban'}</span>
                             </div>
                           )}
                         </div>
 
                         {/* Stamp / Signature Area */}
-                        <div className="my-3 py-2 border-y border-dashed border-slate-200 flex flex-col items-center justify-center min-h-[90px]">
+                        <div className="my-1 py-1 border-y border-dashed border-slate-200 flex flex-col items-center justify-center min-h-[60px]">
                           {isApproved ? (
                             step.autoApprovedBySystem ? (
                               /* Auto Approved Stamp */
-                              <div className="p-2 border-2 border-purple-600 rounded-lg text-purple-900 bg-purple-50/70 text-center space-y-0.5 max-w-[170px]">
-                                <Zap className="w-5 h-5 text-purple-700 mx-auto" />
-                                <span className="block font-black text-[9.5px] uppercase tracking-wide">
+                              <div className="p-1 border border-purple-600 rounded text-purple-900 bg-purple-50/70 text-center space-y-0.2 max-w-[150px]">
+                                <Zap className="w-3.5 h-3.5 text-purple-700 mx-auto" />
+                                <span className="block font-black text-[8.5px] uppercase tracking-wide">
                                   HỆ THỐNG DUYỆT TỰ ĐỘNG
                                 </span>
-                                <span className="block text-[8px] text-purple-700 font-mono">
+                                <span className="block text-[7.5px] text-purple-700 font-mono">
                                   (Quá hạn SLA {step.slaHours}h)
                                 </span>
-                                <span className="block text-[8.5px] font-mono text-purple-950 font-bold">
+                                <span className="block text-[8px] font-mono text-purple-950 font-bold">
                                   {formatDate(step.decisionDate)}
                                 </span>
                               </div>
                             ) : (
                               /* Official Red/Blue Digital Stamp */
-                              <div className="space-y-1 flex flex-col items-center">
+                              <div className="space-y-0.5 flex flex-col items-center">
                                 {/* If handwritten signature exists */}
                                 {hasDrawSignature || hasUrlSignature ? (
-                                  <div className="h-10 max-w-[140px] flex items-center justify-center overflow-hidden mb-1">
+                                  <div className="h-7 max-w-[120px] flex items-center justify-center overflow-hidden mb-0.5">
                                     <img 
                                       src={step.signatureImage} 
                                       alt="Chữ ký" 
@@ -447,21 +455,21 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                                 ) : null}
 
                                 {/* Corporate Red Verification Stamp (Chuẩn văn bản Việt Nam) */}
-                                <div className="px-2.5 py-1.5 border-2 border-brand-red rounded-lg text-brand-red bg-red-50/80 text-center space-y-0.5 shadow-2xs max-w-[180px]">
-                                  <div className="flex items-center justify-center gap-1 font-black text-[7.5px] uppercase tracking-wider border-b border-brand-red/40 pb-0.5">
-                                    <ShieldCheck className="w-3 h-3 text-brand-red shrink-0" />
+                                <div className="px-2 py-1 border border-brand-red rounded text-brand-red bg-red-50/80 text-center space-y-0.2 shadow-2xs max-w-[170px]">
+                                  <div className="flex items-center justify-center gap-1 font-black text-[7px] uppercase tracking-wider border-b border-brand-red/30 pb-0.2">
+                                    <ShieldCheck className="w-2.5 h-2.5 text-brand-red shrink-0" />
                                     <span>CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI</span>
                                   </div>
-                                  <p className="font-black text-[9.5px] uppercase tracking-wider pt-0.5">
+                                  <p className="font-black text-[8.5px] uppercase tracking-wider pt-0.2">
                                     ✓ ĐÃ KÝ ĐIỆN TỬ
                                   </p>
-                                  <p className="font-bold text-[9px] text-slate-900 truncate">
+                                  <p className="font-bold text-[8.5px] text-slate-900 truncate">
                                     {step.approverName}
                                   </p>
-                                  <p className="text-[8px] font-mono text-slate-600">
+                                  <p className="text-[7.5px] font-mono text-slate-600">
                                     {formatDate(step.decisionDate)}
                                   </p>
-                                  <p className="text-[7.5px] font-mono text-slate-400">
+                                  <p className="text-[7px] font-mono text-slate-400">
                                     AUTH: {step.id.slice(-6).toUpperCase()}
                                   </p>
                                 </div>
@@ -469,7 +477,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                             )
                           ) : (
                             /* Pending State */
-                            <div className="text-center text-slate-400 text-xs italic py-4">
+                            <div className="text-center text-slate-400 text-[10px] italic py-2">
                               (Chưa ký duyệt)
                             </div>
                           )}
@@ -477,10 +485,10 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
 
                         {/* Signer Footer Name */}
                         <div>
-                          <p className="font-bold text-xs text-slate-900 leading-tight">
+                          <p className="font-bold text-[10.5px] text-slate-900 leading-tight">
                             {step.approverName || 'Đại diện thẩm quyền'}
                           </p>
-                          <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                          <p className="text-[9px] text-slate-500 truncate mt-0.2">
                             {step.approverTitle || 'Người ký duyệt'}
                           </p>
                         </div>
@@ -490,34 +498,34 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                 </div>
 
                 {/* Signature of Creator */}
-                <div className="pt-3 border-t border-slate-200 flex justify-between items-end text-xs text-slate-700">
-                  <div className="text-center w-56 space-y-1">
-                    <p className="font-bold uppercase text-[11px] text-slate-900 font-sans tracking-wide">NGƯỜI LẬP HỒ SƠ</p>
-                    <p className="text-[10.5px] italic text-slate-500 font-sans">(Ký, ghi rõ họ tên)</p>
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-end text-xs text-slate-700">
+                  <div className="text-center w-52 space-y-0.5">
+                    <p className="font-bold uppercase text-[10px] text-slate-900 font-sans tracking-wide">NGƯỜI LẬP HỒ SƠ</p>
+                    <p className="text-[9px] italic text-slate-500 font-sans">(Ký, ghi rõ họ tên)</p>
                     
                     {/* Khu vực nét ký tay số hóa thanh thoát & chống lỗi font */}
-                    <div className="h-16 flex flex-col items-center justify-center my-1">
+                    <div className="h-10 flex flex-col items-center justify-center my-0.5">
                       <div className="relative flex flex-col items-center justify-center">
-                        <svg viewBox="0 0 140 45" className="w-32 h-10 overflow-visible" fill="none">
+                        <svg viewBox="0 0 140 40" className="w-28 h-7 overflow-visible" fill="none">
                           <path
-                            d="M15 28 C 25 12, 38 8, 48 22 C 58 35, 70 14, 82 24 C 95 34, 110 16, 125 20"
+                            d="M15 25 C 25 10, 38 6, 48 18 C 58 30, 70 12, 82 20 C 95 30, 110 14, 125 18"
                             stroke="#1d4ed8"
                             strokeWidth="2.2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           />
                           <path
-                            d="M28 32 Q 65 44 120 30"
+                            d="M28 28 Q 65 38 120 26"
                             stroke="#2563eb"
                             strokeWidth="1.8"
                             strokeLinecap="round"
                           />
                           <text
                             x="68"
-                            y="23"
+                            y="20"
                             textAnchor="middle"
                             fill="#1e40af"
-                            fontSize="15"
+                            fontSize="14"
                             fontWeight="bold"
                             fontStyle="italic"
                             style={{ fontFamily: "'Segoe Script', 'Brush Script MT', 'Dancing Script', cursive, sans-serif" }}
@@ -525,21 +533,21 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                             {creatorLastName}
                           </text>
                         </svg>
-                        <span className="text-[8px] font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 mt-0.5 font-semibold">
+                        <span className="text-[7.5px] font-mono text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 font-semibold leading-tight">
                           ✓ ĐÃ KÝ ĐIỆN TỬ
                         </span>
                       </div>
                     </div>
 
-                    <p className="font-bold text-slate-950 text-xs tracking-normal font-sans">
+                    <p className="font-bold text-slate-950 text-[10.5px] tracking-normal font-sans">
                       {cleanCreatorName}
                     </p>
-                    <p className="text-[10.5px] text-slate-600 font-sans">
+                    <p className="text-[9px] text-slate-600 font-sans">
                       {doc.creatorTitle || 'Chuyên viên'} • {doc.department}
                     </p>
                   </div>
 
-                  <div className="text-right text-[10.5px] text-slate-500 font-mono space-y-0.5 max-w-xs">
+                  <div className="text-right text-[8.5px] text-slate-500 font-mono space-y-0.2 max-w-xs">
                     <p className="text-slate-800 font-bold">XÁC THỰC TOÀN VẸN VĂN BẢN</p>
                     <p>Mã băm chứng thực: {verificationHash}</p>
                     <p>Đơn vị: CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI</p>
@@ -550,7 +558,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
             </div>
 
             {/* DOCUMENT FOOTER & LEGAL NOTICE */}
-            <div className="mt-8 pt-3 border-t-2 border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[9.5px] text-slate-600 font-mono gap-1">
+            <div className="mt-3 pt-1.5 border-t-2 border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[8px] text-slate-600 font-mono gap-1">
               <div>
                 <span>CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI • HỆ THỐNG TRÌNH KÝ & PHÊ DUYỆT ĐIỆN TỬ</span>
               </div>

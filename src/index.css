@@ -246,7 +246,7 @@ code, kbd, samp, pre, .font-mono {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 15mm 12mm 15mm;
+    margin: 8mm 10mm 8mm 10mm;
   }
 
   html, body {
@@ -285,6 +285,10 @@ code, kbd, samp, pre, .font-mono {
     border: none !important;
     transform: none !important;
     background: white !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   .page-break-inside-avoid {
