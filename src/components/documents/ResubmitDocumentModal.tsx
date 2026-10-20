@@ -25,6 +25,7 @@ import { QuillEditor } from '../common/QuillEditor';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { uploadFileToNAS } from '../../lib/nasStorageService';
 import { formatDate, formatCurrency } from '../../lib/storage';
+import { normalizeFileToPdf } from '../../lib/pdfFooterStamper';
 
 interface ResubmitDocumentModalProps {
   isOpen: boolean;
@@ -70,25 +71,40 @@ export const ResubmitDocumentModal: React.FC<ResubmitDocumentModalProps> = ({
     if (!e.target.files || e.target.files.length === 0) return;
     setIsUploading(true);
 
-    const files = Array.from(e.target.files);
+    const rawFiles = Array.from(e.target.files);
 
-    for (let idx = 0; idx < files.length; idx++) {
-      const file = files[idx];
-      const isPdf = file.name.toLowerCase().endsWith('.pdf');
-      const isImage = file.type.startsWith('image/');
+    for (let idx = 0; idx < rawFiles.length; idx++) {
+      const rawFile = rawFiles[idx];
+      let fileToUpload: File = rawFile;
+      let isPdf = rawFile.name.toLowerCase().endsWith('.pdf');
+      let isConverted = false;
 
-      const nasResult = await uploadFileToNAS(file);
-      const finalUrl = nasResult ? nasResult.url : URL.createObjectURL(file);
+      // Chuẩn hóa file sang PDF
+      try {
+        if (!isPdf) {
+          const normResult = await normalizeFileToPdf(rawFile);
+          if (normResult.isConverted) {
+            fileToUpload = new File([normResult.pdfBytes as any], normResult.fileName, { type: 'application/pdf' });
+            isPdf = true;
+            isConverted = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi chuẩn hóa file sang PDF:', err);
+      }
+
+      const nasResult = await uploadFileToNAS(fileToUpload);
+      const finalUrl = nasResult ? nasResult.url : URL.createObjectURL(fileToUpload);
 
       const newAtt: Attachment = {
         id: `att-resubmit-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-        name: file.name,
-        size: file.size,
-        type: file.type || (isPdf ? 'application/pdf' : isImage ? 'image/png' : 'application/octet-stream'),
+        name: fileToUpload.name,
+        size: fileToUpload.size,
+        type: fileToUpload.type || (isPdf ? 'application/pdf' : 'application/octet-stream'),
         url: finalUrl,
         uploadedAt: new Date().toISOString(),
         uploadedBy: activeUser?.name || 'Người lập',
-        isScan: file.name.toLowerCase().includes('scan') || isPdf,
+        isScan: fileToUpload.name.toLowerCase().includes('scan') || isPdf || isConverted,
       };
 
       setAttachments(prev => [...prev, newAtt]);

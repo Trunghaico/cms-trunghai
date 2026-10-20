@@ -32,6 +32,7 @@ import { QuillEditor } from '../common/QuillEditor';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { uploadFileToNAS } from '../../lib/nasStorageService';
 import { formatCurrency, formatDate } from '../../lib/storage';
+import { normalizeFileToPdf } from '../../lib/pdfFooterStamper';
 
 export type ApproverItem = 
   | { type: 'USER'; user: User; title?: string; slaHours?: number; originalSlaHours?: number; overdueAction?: OverdueAction }
@@ -632,30 +633,45 @@ export const CreateDocumentModal: React.FC = () => {
     setSelectedCcUsers(prev => prev.filter(u => u.id !== userId));
   };
 
-  // File upload
+  // File upload với tính năng chuẩn hóa sang chuẩn PDF tự động
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setIsUploading(true);
 
-    const files = Array.from(e.target.files);
+    const rawFiles = Array.from(e.target.files);
 
-    for (let idx = 0; idx < files.length; idx++) {
-      const file = files[idx];
-      const isPdf = file.name.toLowerCase().endsWith('.pdf');
-      const isImage = file.type.startsWith('image/');
+    for (let idx = 0; idx < rawFiles.length; idx++) {
+      const rawFile = rawFiles[idx];
+      let fileToUpload: File = rawFile;
+      let isPdf = rawFile.name.toLowerCase().endsWith('.pdf');
+      let isConverted = false;
 
-      const nasResult = await uploadFileToNAS(file);
-      const finalUrl = nasResult ? nasResult.url : URL.createObjectURL(file);
+      // Chuẩn hóa file văn phòng / hình ảnh sang chuẩn PDF phục vụ dán tem & giáp lai chân trang
+      try {
+        if (!isPdf) {
+          const normResult = await normalizeFileToPdf(rawFile);
+          if (normResult.isConverted) {
+            fileToUpload = new File([normResult.pdfBytes as any], normResult.fileName, { type: 'application/pdf' });
+            isPdf = true;
+            isConverted = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi chuẩn hóa tệp sang PDF, giữ nguyên tệp gốc:', err);
+      }
+
+      const nasResult = await uploadFileToNAS(fileToUpload);
+      const finalUrl = nasResult ? nasResult.url : URL.createObjectURL(fileToUpload);
 
       const newAtt: Attachment = {
         id: `att-upload-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-        name: file.name,
-        size: file.size,
-        type: file.type || (isPdf ? 'application/pdf' : isImage ? 'image/png' : 'application/octet-stream'),
+        name: fileToUpload.name,
+        size: fileToUpload.size,
+        type: fileToUpload.type || (isPdf ? 'application/pdf' : 'application/octet-stream'),
         url: finalUrl,
         uploadedAt: new Date().toISOString(),
         uploadedBy: activeUser.name,
-        isScan: file.name.toLowerCase().includes('scan') || isPdf,
+        isScan: fileToUpload.name.toLowerCase().includes('scan') || isPdf || isConverted,
       };
 
       setAttachments(prev => [...prev, newAtt]);
@@ -1764,9 +1780,14 @@ export const CreateDocumentModal: React.FC = () => {
           {/* SECTION 5: TỆP ĐÍNH KÈM & SCAN */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="font-bold text-slate-700 text-xs">
-                Tệp đính kèm & File scan (DMS)
-              </label>
+              <div>
+                <label className="font-bold text-slate-700 text-xs block">
+                  Tệp đính kèm & File scan (DMS)
+                </label>
+                <span className="text-[10px] text-blue-600 font-medium">
+                  Tự động chuẩn hóa (.docx, .xlsx, ảnh) sang chuẩn .PDF phục vụ đóng dấu & giáp lai chân trang
+                </span>
+              </div>
               <label className={`cursor-pointer px-3.5 py-1.5 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs active:scale-98 ${
                 isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-brand-blue hover:bg-brand-blue-dark shadow-glow-blue'
               }`}>
