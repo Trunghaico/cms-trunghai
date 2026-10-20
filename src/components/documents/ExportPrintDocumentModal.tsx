@@ -155,9 +155,9 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
         </div>
 
         {/* Scrollable View Area */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-200/80 custom-scrollbar flex justify-center">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-300/80 custom-scrollbar flex justify-center items-start">
           
-          {/* Printable A4 Paper Document Container - Tối ưu vừa vặn 1 trang A4 */}
+          {/* Printable A4 Paper Document Container - Chuẩn kích thước và tỷ lệ A4 */}
           <div 
             ref={printAreaRef}
             style={{ 
@@ -165,218 +165,231 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
               transformOrigin: 'top center',
               transition: 'transform 0.2s ease-out'
             }}
-            className="printable-document bg-white w-full max-w-[800px] shadow-xl p-5 sm:p-7 text-slate-900 font-sans border border-slate-300 rounded-sm flex flex-col justify-between"
+            className="printable-document bg-white w-full max-w-[794px] min-h-[1123px] shadow-2xl p-[14mm_16mm_12mm_16mm] text-slate-900 font-sans border border-slate-300 rounded-xs flex flex-col justify-between"
           >
-            <div>
-              {/* TOP HEADER: Quốc hiệu & Tên Đơn vị */}
-              <div className="flex justify-between items-start gap-4 pb-2 border-b-2 border-slate-900">
-                {/* Đơn vị trình ký */}
-                <div className="w-[48%] text-center space-y-0.5">
-                  <p className="font-extrabold text-[11px] sm:text-[12px] uppercase tracking-wider text-slate-900 leading-tight">
-                    CTY CỔ PHẦN XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI
-                  </p>
-                  <p className="font-bold text-[10px] uppercase text-brand-blue tracking-wide">
-                    {doc.department || 'BAN QUẢN LÝ DỰ ÁN & VĂN PHÒNG'}
-                  </p>
-                  <div className="w-20 h-0.5 bg-slate-800 mx-auto my-0.5" />
-                  <p className="font-mono text-[9.5px] text-slate-700">
-                    Số: <strong>{doc.code}</strong>/TH-PK
-                  </p>
-                </div>
-
-                {/* Quốc hiệu Tiêu ngữ */}
-                <div className="w-[50%] text-center space-y-0.5">
-                  <p className="font-bold text-[11px] sm:text-[12px] uppercase tracking-wider text-slate-900 leading-tight">
-                    CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-                  </p>
-                  <p className="font-semibold text-[10px] italic text-slate-800">
-                    Độc lập - Tự do - Hạnh phúc
-                  </p>
-                  <div className="w-24 h-0.5 bg-slate-800 mx-auto my-0.5" />
-                  <p className="text-[9.5px] italic text-slate-600 font-serif">
-                    Hà Nội, ngày {day} tháng {month} năm {year}
-                  </p>
-                </div>
-              </div>
-
-              {/* DOCUMENT MAIN TITLE */}
-              <div className="text-center my-2.5 space-y-0.5">
-                <h1 className="text-sm sm:text-base font-black uppercase tracking-wide text-slate-950 font-serif leading-tight">
-                  PHIẾU TRÌNH KÝ & KẾT QUẢ PHÊ DUYỆT ĐIỆN TỬ
-                </h1>
-                <p className="text-[9.5px] italic text-slate-500 font-serif">
-                  (Hệ thống Quản trị Quy trình Phê duyệt Điện tử BPM - Trung Hải CMS)
-                </p>
-                <div className="inline-block mt-0.5">
-                  {isFullyApproved ? (
-                    <span className="px-2.5 py-0.2 bg-emerald-100 text-emerald-900 font-bold text-[9.5px] rounded-full border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                      HỒ SƠ ĐÃ HOÀN TẤT PHÊ DUYỆT ĐẦY ĐỦ CÁC CẤP
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.2 bg-amber-100 text-amber-900 font-bold text-[9.5px] rounded-full border border-amber-300 inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-700" />
-                      HỒ SƠ ĐANG TRONG TIẾN TRÌNH XÉT DUYỆT ({approvedSteps.length}/{doc.steps.length} BƯỚC)
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* SECTION I: THÔNG TIN HỒ SƠ */}
-              <div className="space-y-1 mb-2">
-                <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
-                  I. THÔNG TIN CHUNG VỀ HỒ SƠ TRÌNH DUYỆT
-                </h2>
-
-                <div className="border border-slate-300 rounded overflow-hidden text-[9.5px] leading-tight">
-                  {/* Trích yếu */}
-                  <div className="grid grid-cols-4 border-b border-slate-200">
-                    <div className="p-1.5 bg-slate-50 border-r border-slate-200 font-semibold text-slate-600 col-span-1">
-                      Tên / Trích yếu văn bản:
-                    </div>
-                    <div className="p-1.5 font-bold text-slate-950 col-span-3">
-                      {doc.title}
-                    </div>
+            {/* Main Content Area - Phân bổ đều và cân đối các khối theo chiều dọc khổ giấy A4 */}
+            <div className="flex-1 flex flex-col justify-between space-y-2.5">
+              
+              {/* KHỐI 1: QUỐC HIỆU & TIÊU ĐỀ VĂN BẢN */}
+              <div className="space-y-2">
+                {/* TOP HEADER: Quốc hiệu & Tên Đơn vị */}
+                <div className="flex justify-between items-start gap-4 pb-2 border-b-2 border-slate-900">
+                  {/* Đơn vị trình ký */}
+                  <div className="w-[48%] text-center space-y-0.5">
+                    <p className="font-extrabold text-[11px] sm:text-[12px] uppercase tracking-wider text-slate-900 leading-tight">
+                      CTY CỔ PHẦN XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI
+                    </p>
+                    <p className="font-bold text-[10px] uppercase text-brand-blue tracking-wide">
+                      {doc.department || 'BAN QUẢN LÝ DỰ ÁN & VĂN PHÒNG'}
+                    </p>
+                    <div className="w-20 h-0.5 bg-slate-800 mx-auto my-0.5" />
+                    <p className="font-mono text-[9.5px] text-slate-700">
+                      Số: <strong>{doc.code}</strong>/TH-PK
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-4 border-b border-slate-200">
-                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Loại hồ sơ:
-                    </div>
-                    <div className="p-1.5 font-bold text-slate-900 border-r border-slate-200 truncate">
-                      {doc.category}
-                    </div>
-                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Dự án / Công trình:
-                    </div>
-                    <div className="p-1.5 font-bold text-slate-900 truncate">
-                      {doc.project || 'Chung / Văn phòng'}
-                    </div>
+                  {/* Quốc hiệu Tiêu ngữ */}
+                  <div className="w-[50%] text-center space-y-0.5">
+                    <p className="font-bold text-[11px] sm:text-[12px] uppercase tracking-wider text-slate-900 leading-tight">
+                      CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+                    </p>
+                    <p className="font-semibold text-[10px] italic text-slate-800">
+                      Độc lập - Tự do - Hạnh phúc
+                    </p>
+                    <div className="w-24 h-0.5 bg-slate-800 mx-auto my-0.5" />
+                    <p className="text-[10px] italic text-slate-700 font-sans">
+                      Hà Nội, ngày {day} tháng {month} năm {year}
+                    </p>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-4 border-b border-slate-200">
-                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Người khởi tạo:
-                    </div>
-                    <div className="p-1.5 text-slate-900 border-r border-slate-200 truncate">
-                      <strong>{cleanCreatorName}</strong> ({doc.creatorTitle || 'Chuyên viên'})
-                    </div>
-                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Phòng ban đề xuất:
-                    </div>
-                    <div className="p-1.5 font-bold text-brand-blue truncate">
-                      {doc.department}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-4">
-                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Thời điểm lập hồ sơ:
-                    </div>
-                    <div className="p-1.5 text-slate-900 border-r border-slate-200 font-mono text-[9px]">
-                      {formatDate(doc.createdAt)}
-                    </div>
-                    <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
-                      Mức độ & Kinh phí:
-                    </div>
-                    <div className="p-1.5 flex items-center justify-between">
-                      <span className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
-                        doc.priority === 'VERY_URGENT' ? 'bg-red-100 text-red-900 font-black' :
-                        doc.priority === 'URGENT' ? 'bg-amber-100 text-amber-900 font-bold' :
-                        'bg-slate-100 text-slate-800'
-                      }`}>
-                        {doc.priority === 'VERY_URGENT' ? '🔥 Hỏa tốc (8h)' :
-                         doc.priority === 'URGENT' ? '⚡ Khẩn (24h)' : 'Bình thường'}
+                {/* DOCUMENT MAIN TITLE - Sử dụng font-sans tracking-normal để tránh tách chữ PHIẾU, KẾT */}
+                <div className="text-center pt-0.5 space-y-0.5">
+                  <h1 className="text-base sm:text-lg font-black uppercase tracking-normal text-slate-950 font-sans leading-snug">
+                    PHIẾU TRÌNH KÝ &amp; KẾT QUẢ PHÊ DUYỆT ĐIỆN TỬ
+                  </h1>
+                  <p className="text-[10px] italic text-slate-600 font-sans">
+                    (Hệ thống Quản trị Quy trình Phê duyệt Điện tử BPM - Trung Hải CMS)
+                  </p>
+                  <div className="inline-block mt-0.5">
+                    {isFullyApproved ? (
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 font-bold text-[9.5px] rounded-full border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                        HỒ SƠ ĐÃ HOÀN TẤT PHÊ DUYỆT ĐẦY ĐỦ CÁC CẤP
                       </span>
-                      {doc.amount ? (
-                        <span className="font-mono font-bold text-emerald-700 text-[9.5px]">
-                          {formatCurrency(doc.amount)}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-[9px]">Phi tài chính</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION II: NỘI DUNG TỜ TRÌNH / TÀI LIỆU (Rút gọn) */}
-              {(doc.contentHtml || doc.description) && (
-                <div className="space-y-1 mb-2">
-                  <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
-                    II. NỘI DUNG ĐỀ XUẤT / TRÍCH YẾU CHI TIẾT
-                  </h2>
-                  <div className="p-2 border border-slate-300 rounded text-[9.5px] leading-relaxed text-slate-900 bg-white max-h-[60px] overflow-hidden">
-                    {doc.contentHtml ? (
-                      <div 
-                        className="prose prose-xs max-w-none text-slate-900 font-sans line-clamp-2"
-                        dangerouslySetInnerHTML={{ __html: doc.contentHtml }} 
-                      />
                     ) : (
-                      <p className="font-sans text-slate-800 whitespace-pre-wrap line-clamp-2">{doc.description}</p>
+                      <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 font-bold text-[9.5px] rounded-full border border-amber-300 inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-700" />
+                        HỒ SƠ ĐANG TRONG TIẾN TRÌNH XÉT DUYỆT ({approvedSteps.length}/{doc.steps.length} BƯỚC)
+                      </span>
                     )}
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* SECTION III: DANH MỤC ĐÍNH KÈM */}
-              {doc.attachments && doc.attachments.length > 0 && (
-                <div className="space-y-1 mb-2">
-                  <div className="flex items-center justify-between bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
-                    <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
-                      III. HỒ SƠ & TÀI LIỆU ĐÍNH KÈM ({doc.attachments.length} tệp)
-                    </h2>
-                    <span className="text-[8.5px] text-slate-500 font-mono">Đã lưu trữ số hóa trên DMS</span>
-                  </div>
-                  <div className="border border-slate-300 rounded overflow-hidden">
-                    <table className="w-full text-left text-[9px] border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-700">
-                          <th className="p-1 w-8 text-center border-r border-slate-200 font-bold">STT</th>
-                          <th className="p-1 border-r border-slate-200 font-bold">Tên tài liệu / Văn bản</th>
-                          <th className="p-1 w-20 text-right border-r border-slate-200 font-bold">Dung lượng</th>
-                          <th className="p-1 w-28 border-r border-slate-200 font-bold">Người nộp</th>
-                          <th className="p-1 w-24 font-bold">Thời gian nộp</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {doc.attachments.slice(0, 2).map((att, idx) => (
-                          <tr key={att.id} className="border-b border-slate-200 last:border-b-0">
-                            <td className="p-1 text-center border-r border-slate-200 font-semibold">{idx + 1}</td>
-                            <td className="p-1 border-r border-slate-200 font-medium text-slate-900 truncate max-w-[280px]">{att.name}</td>
-                            <td className="p-1 text-right border-r border-slate-200 font-mono text-[8.5px]">
-                              {Math.round(att.size / 1024)} KB
-                            </td>
-                            <td className="p-1 border-r border-slate-200 text-slate-700 truncate">{att.uploadedBy}</td>
-                            <td className="p-1 text-slate-600 font-mono text-[8.5px]">{formatDate(att.uploadedAt)}</td>
-                          </tr>
-                        ))}
-                        {doc.attachments.length > 2 && (
-                          <tr>
-                            <td colSpan={5} className="p-0.5 text-center text-slate-500 italic text-[8.5px] bg-slate-50">
-                              ... và {doc.attachments.length - 2} tệp đính kèm khác (Tra cứu đầy đủ trên hệ thống Trung Hải CMS)
-                            </td>
-                          </tr>
+              {/* KHỐI 2: CHI TIẾT HỒ SƠ & TÀI LIỆU */}
+              <div className="space-y-2">
+                {/* SECTION I: THÔNG TIN HỒ SƠ */}
+                <div className="space-y-1">
+                  <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                    I. THÔNG TIN CHUNG VỀ HỒ SƠ TRÌNH DUYỆT
+                  </h2>
+
+                  <div className="border border-slate-300 rounded overflow-hidden text-[9.5px] leading-tight">
+                    {/* Trích yếu */}
+                    <div className="grid grid-cols-4 border-b border-slate-200">
+                      <div className="p-1.5 bg-slate-50 border-r border-slate-200 font-semibold text-slate-600 col-span-1">
+                        Tên / Trích yếu văn bản:
+                      </div>
+                      <div className="p-1.5 font-bold text-slate-950 col-span-3">
+                        {doc.title}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 border-b border-slate-200">
+                      <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                        Loại hồ sơ:
+                      </div>
+                      <div className="p-1.5 font-bold text-slate-900 border-r border-slate-200 truncate">
+                        {doc.category}
+                      </div>
+                      <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                        Dự án / Công trình:
+                      </div>
+                      <div className="p-1.5 font-bold text-slate-900 truncate">
+                        {doc.project || 'Chung / Văn phòng'}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 border-b border-slate-200">
+                      <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                        Người khởi tạo:
+                      </div>
+                      <div className="p-1.5 text-slate-900 border-r border-slate-200 truncate">
+                        <strong>{cleanCreatorName}</strong> ({doc.creatorTitle || 'Chuyên viên'})
+                      </div>
+                      <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                        Phòng ban đề xuất:
+                      </div>
+                      <div className="p-1.5 font-bold text-brand-blue truncate">
+                        {doc.department}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4">
+                      <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                        Thời điểm lập hồ sơ:
+                      </div>
+                      <div className="p-1.5 text-slate-900 border-r border-slate-200 font-mono text-[9px]">
+                        {formatDate(doc.createdAt)}
+                      </div>
+                      <div className="p-1.5 bg-slate-50 font-semibold text-slate-600 border-r border-slate-200">
+                        Mức độ &amp; Kinh phí:
+                      </div>
+                      <div className="p-1.5 flex items-center justify-between">
+                        <span className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
+                          doc.priority === 'VERY_URGENT' ? 'bg-red-100 text-red-900 font-black' :
+                          doc.priority === 'URGENT' ? 'bg-amber-100 text-amber-900 font-bold' :
+                          'bg-slate-100 text-slate-800'
+                        }`}>
+                          {doc.priority === 'VERY_URGENT' ? '🔥 Hỏa tốc (8h)' :
+                           doc.priority === 'URGENT' ? '⚡ Khẩn (24h)' : 'Bình thường'}
+                        </span>
+                        {doc.amount ? (
+                          <span className="font-mono font-bold text-emerald-700 text-[9.5px]">
+                            {formatCurrency(doc.amount)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[9px]">Phi tài chính</span>
                         )}
-                      </tbody>
-                    </table>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* SECTION IV: KẾT QUẢ KÝ DUYỆT CỦA CÁC BAN (CỐT LÕI) */}
-              <div className="space-y-1 mb-2 page-break-inside-avoid">
+                {/* SECTION II: NỘI DUNG TỜ TRÌNH / TÀI LIỆU (Rút gọn) */}
+                {(doc.contentHtml || doc.description) && (
+                  <div className="space-y-1">
+                    <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                      II. NỘI DUNG ĐỀ XUẤT / TRÍCH YẾU CHI TIẾT
+                    </h2>
+                    <div className="p-2 border border-slate-300 rounded text-[9.5px] leading-relaxed text-slate-900 bg-white max-h-[60px] overflow-hidden">
+                      {doc.contentHtml ? (
+                        <div 
+                          className="prose prose-xs max-w-none text-slate-900 font-sans line-clamp-2"
+                          dangerouslySetInnerHTML={{ __html: doc.contentHtml }} 
+                        />
+                      ) : (
+                        <p className="font-sans text-slate-800 whitespace-pre-wrap line-clamp-2">{doc.description}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* SECTION III: DANH MỤC ĐÍNH KÈM */}
+                {doc.attachments && doc.attachments.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                      <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
+                        III. HỒ SƠ &amp; TÀI LIỆU ĐÍNH KÈM ({doc.attachments.length} tệp)
+                      </h2>
+                      <span className="text-[8.5px] text-slate-500 font-mono">Đã lưu trữ số hóa trên DMS</span>
+                    </div>
+                    <div className="border border-slate-300 rounded overflow-hidden">
+                      <table className="w-full text-left text-[9px] border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-700">
+                            <th className="p-1 w-8 text-center border-r border-slate-200 font-bold">STT</th>
+                            <th className="p-1 border-r border-slate-200 font-bold">Tên tài liệu / Văn bản</th>
+                            <th className="p-1 w-20 text-right border-r border-slate-200 font-bold">Dung lượng</th>
+                            <th className="p-1 w-28 border-r border-slate-200 font-bold">Người nộp</th>
+                            <th className="p-1 w-24 font-bold">Thời gian nộp</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {doc.attachments.slice(0, 2).map((att, idx) => (
+                            <tr key={att.id} className="border-b border-slate-200 last:border-b-0">
+                              <td className="p-1 text-center border-r border-slate-200 font-semibold">{idx + 1}</td>
+                              <td className="p-1 border-r border-slate-200 font-medium text-slate-900 truncate max-w-[280px]">{att.name}</td>
+                              <td className="p-1 text-right border-r border-slate-200 font-mono text-[8.5px]">
+                                {Math.round(att.size / 1024)} KB
+                              </td>
+                              <td className="p-1 border-r border-slate-200 text-slate-700 truncate">{att.uploadedBy}</td>
+                              <td className="p-1 text-slate-600 font-mono text-[8.5px]">{formatDate(att.uploadedAt)}</td>
+                            </tr>
+                          ))}
+                          {doc.attachments.length > 2 && (
+                            <tr>
+                              <td colSpan={5} className="p-0.5 text-center text-slate-500 italic text-[8.5px] bg-slate-50">
+                                ... và {doc.attachments.length - 2} tệp đính kèm khác (Tra cứu đầy đủ trên hệ thống Trung Hải CMS)
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* KHỐI 3: KẾT QUẢ KÝ DUYỆT CỦA CÁC BAN DUYỆT (CỐT LÕI) */}
+              <div className="space-y-1.5 page-break-inside-avoid">
                 <div className="flex items-center justify-between bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
                   <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
                     IV. Ý KIẾN VÀ CHỮ KÝ PHÊ DUYỆT CỦA CÁC BAN DUYỆT ({doc.steps.length} BƯỚC)
                   </h2>
-                  <span className="text-[9px] font-mono text-slate-600">
+                  <span className="text-[8.5px] font-mono text-slate-600">
                     Xác thực số hóa tiêu chuẩn ISO/IEC 27001
                   </span>
                 </div>
 
-                {/* Grid of Signatures for all steps */}
-                <div className={`grid grid-cols-1 ${doc.steps.length <= 2 ? 'sm:grid-cols-2' : doc.steps.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'} gap-2`}>
+                {/* Grid of Signatures for all steps - Phân bổ đều các cột */}
+                <div 
+                  className="grid gap-2.5"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(doc.steps.length, 3)}, minmax(0, 1fr))`
+                  }}
+                >
                   {doc.steps.map((step, idx) => {
                     const isApproved = step.status === 'APPROVED';
                     const hasDrawSignature = step.signatureImage && step.signatureImage.startsWith('data:image');
@@ -385,7 +398,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                     return (
                       <div 
                         key={step.id || idx}
-                        className={`border rounded-lg p-2 flex flex-col justify-between text-center relative overflow-hidden transition-all ${
+                        className={`border rounded-lg p-2.5 flex flex-col justify-between text-center relative overflow-hidden transition-all ${
                           isApproved 
                             ? 'border-emerald-600 bg-white shadow-2xs' 
                             : 'border-slate-300 bg-slate-50/60 opacity-80'
@@ -424,7 +437,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                         </div>
 
                         {/* Stamp / Signature Area */}
-                        <div className="my-1 py-1 border-y border-dashed border-slate-200 flex flex-col items-center justify-center min-h-[60px]">
+                        <div className="my-1.5 py-1 border-y border-dashed border-slate-200 flex flex-col items-center justify-center min-h-[60px]">
                           {isApproved ? (
                             step.autoApprovedBySystem ? (
                               /* Auto Approved Stamp */
@@ -485,10 +498,10 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
 
                         {/* Signer Footer Name */}
                         <div>
-                          <p className="font-bold text-[10.5px] text-slate-900 leading-tight">
+                          <p className="font-bold text-[10.5px] text-slate-900 leading-tight font-sans">
                             {step.approverName || 'Đại diện thẩm quyền'}
                           </p>
-                          <p className="text-[9px] text-slate-500 truncate mt-0.2">
+                          <p className="text-[9px] text-slate-500 truncate mt-0.2 font-sans">
                             {step.approverTitle || 'Người ký duyệt'}
                           </p>
                         </div>
@@ -496,75 +509,90 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                     );
                   })}
                 </div>
+              </div>
 
-                {/* Signature of Creator */}
-                <div className="pt-2 border-t border-slate-200 flex justify-between items-end text-xs text-slate-700">
-                  <div className="text-center w-52 space-y-0.5">
-                    <p className="font-bold uppercase text-[10px] text-slate-900 font-sans tracking-wide">NGƯỜI LẬP HỒ SƠ</p>
-                    <p className="text-[9px] italic text-slate-500 font-sans">(Ký, ghi rõ họ tên)</p>
-                    
-                    {/* Khu vực nét ký tay số hóa thanh thoát & chống lỗi font */}
-                    <div className="h-10 flex flex-col items-center justify-center my-0.5">
-                      <div className="relative flex flex-col items-center justify-center">
-                        <svg viewBox="0 0 140 40" className="w-28 h-7 overflow-visible" fill="none">
-                          <path
-                            d="M15 25 C 25 10, 38 6, 48 18 C 58 30, 70 12, 82 20 C 95 30, 110 14, 125 18"
-                            stroke="#1d4ed8"
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M28 28 Q 65 38 120 26"
-                            stroke="#2563eb"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                          />
-                          <text
-                            x="68"
-                            y="20"
-                            textAnchor="middle"
-                            fill="#1e40af"
-                            fontSize="14"
-                            fontWeight="bold"
-                            fontStyle="italic"
-                            style={{ fontFamily: "'Segoe Script', 'Brush Script MT', 'Dancing Script', cursive, sans-serif" }}
-                          >
-                            {creatorLastName}
-                          </text>
-                        </svg>
-                        <span className="text-[7.5px] font-mono text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 font-semibold leading-tight">
-                          ✓ ĐÃ KÝ ĐIỆN TỬ
-                        </span>
-                      </div>
+              {/* KHỐI 4: CHỮ KÝ NGƯỜI LẬP & XÁC THỰC TOÀN VẸN VĂN BẢN */}
+              <div className="pt-2 border-t border-slate-300 flex justify-between items-end text-xs text-slate-700 page-break-inside-avoid">
+                {/* Chữ ký người lập hồ sơ */}
+                <div className="text-center w-56 space-y-0.5">
+                  <p className="font-bold uppercase text-[10px] text-slate-900 font-sans tracking-wide">
+                    NGƯỜI LẬP HỒ SƠ
+                  </p>
+                  <p className="text-[9px] italic text-slate-500 font-sans">
+                    (Ký, ghi rõ họ tên)
+                  </p>
+                  
+                  {/* Khu vực nét ký số hóa thanh thoát */}
+                  <div className="h-10 flex flex-col items-center justify-center my-0.5">
+                    <div className="relative flex flex-col items-center justify-center">
+                      <svg viewBox="0 0 140 40" className="w-28 h-7 overflow-visible" fill="none">
+                        <path
+                          d="M15 25 C 25 10, 38 6, 48 18 C 58 30, 70 12, 82 20 C 95 30, 110 14, 125 18"
+                          stroke="#1d4ed8"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M28 28 Q 65 38 120 26"
+                          stroke="#2563eb"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                        <text
+                          x="68"
+                          y="20"
+                          textAnchor="middle"
+                          fill="#1e40af"
+                          fontSize="14"
+                          fontWeight="bold"
+                          fontStyle="italic"
+                          style={{ fontFamily: "'Segoe Script', 'Brush Script MT', 'Dancing Script', cursive, sans-serif" }}
+                        >
+                          {creatorLastName}
+                        </text>
+                      </svg>
+                      <span className="text-[7.5px] font-mono text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 font-semibold leading-tight">
+                        ✓ ĐÃ KÝ ĐIỆN TỬ
+                      </span>
                     </div>
-
-                    <p className="font-bold text-slate-950 text-[10.5px] tracking-normal font-sans">
-                      {cleanCreatorName}
-                    </p>
-                    <p className="text-[9px] text-slate-600 font-sans">
-                      {doc.creatorTitle || 'Chuyên viên'} • {doc.department}
-                    </p>
                   </div>
 
-                  <div className="text-right text-[8.5px] text-slate-500 font-mono space-y-0.2 max-w-xs">
-                    <p className="text-slate-800 font-bold">XÁC THỰC TOÀN VẸN VĂN BẢN</p>
-                    <p>Mã băm chứng thực: {verificationHash}</p>
-                    <p>Đơn vị: CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI</p>
-                    <p>Thời điểm in: {formatDate(new Date().toISOString())}</p>
-                  </div>
+                  <p className="font-bold text-slate-950 text-[10.5px] tracking-normal font-sans">
+                    {cleanCreatorName}
+                  </p>
+                  <p className="text-[9px] text-slate-600 font-sans">
+                    {doc.creatorTitle || 'Chuyên viên'} • {doc.department}
+                  </p>
+                </div>
+
+                {/* Khối xác thực toàn vẹn & thông tin in */}
+                <div className="text-right text-[8.5px] text-slate-600 font-sans space-y-0.5 max-w-xs">
+                  <p className="text-slate-900 font-bold uppercase tracking-wider text-[9px]">
+                    XÁC THỰC TOÀN VẸN VĂN BẢN
+                  </p>
+                  <p className="font-mono text-[8px] text-slate-700">
+                    Mã băm chứng thực: {verificationHash}
+                  </p>
+                  <p>
+                    Đơn vị: <strong>CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI</strong>
+                  </p>
+                  <p className="font-mono text-[8px] text-slate-500">
+                    Thời điểm in: {formatDate(new Date().toISOString())}
+                  </p>
                 </div>
               </div>
+
             </div>
 
-            {/* DOCUMENT FOOTER & LEGAL NOTICE */}
-            <div className="mt-3 pt-1.5 border-t-2 border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[8px] text-slate-600 font-mono gap-1">
-              <div>
-                <span>CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI • HỆ THỐNG TRÌNH KÝ & PHÊ DUYỆT ĐIỆN TỬ</span>
-              </div>
-              <div className="text-center sm:text-right">
-                <span>Văn bản điện tử được xác thực hợp lệ theo quy chế Cty CP Xây dựng và Đầu tư Trung Hải. Bản in có giá trị đối soát.</span>
-              </div>
+            {/* DOCUMENT FOOTER & LEGAL NOTICE - 1 dòng cân đối, không bị xuống dòng vụn vặt */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[7.5px] text-slate-600 font-sans shrink-0 mt-2">
+              <span className="font-semibold tracking-wide">
+                CTY CP XÂY DỰNG VÀ ĐẦU TƯ TRUNG HẢI • HỆ THỐNG TRÌNH KÝ &amp; PHÊ DUYỆT ĐIỆN TỬ
+              </span>
+              <span className="text-right">
+                Văn bản điện tử xác thực theo quy chế nội bộ Cty Trung Hải. Bản in có giá trị đối soát.
+              </span>
             </div>
 
           </div>
