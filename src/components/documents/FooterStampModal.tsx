@@ -20,6 +20,7 @@ import {
   Info,
   AlertCircle
 } from 'lucide-react';
+import { PDFDocument } from 'pdf-lib';
 import { DocumentItem } from '../../types';
 import { 
   stampPdfWithFooterSeal, 
@@ -245,6 +246,12 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
         if (!isCancelled && bytes) {
           setNonPdfError(null);
           setSourcePdfBytes(bytes);
+          try {
+            const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+            setTotalPages(pdfDoc.getPageCount());
+          } catch {
+            // ignore
+          }
         }
       } catch (err: any) {
         console.error('Lỗi khi nạp tệp PDF nguồn:', err);
@@ -626,6 +633,11 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                 {(isGenerating || isLoadingSource) && !nonPdfError && (
                   <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] rounded-full animate-pulse">
                     {isLoadingSource ? 'Đang đọc tệp gốc...' : 'Đang xử lý dán tem...'}
+                  </span>
+                )}
+                {!nonPdfError && !isLoadingSource && !isGenerating && (
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9.5px] font-semibold rounded-full hidden md:inline">
+                    Khổ dọc & Khổ ngang tự động
                   </span>
                 )}
               </div>

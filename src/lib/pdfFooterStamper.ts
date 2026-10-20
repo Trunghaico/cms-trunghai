@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 import { DocumentItem, ApprovalStep } from '../types';
 import { formatDate } from './storage';
 import { getSecureFileUrl } from './nasStorageService';
@@ -281,106 +281,147 @@ export async function stampPdfWithFooterSeal(
   const marginRight = options.customMarginRight ?? 20;
   const marginBottom = options.customMarginBottom ?? 12;
 
-  // =========================================================================
-  // KỊCH BẢN B: NỘI DUNG TRÀN SÁT MÉP (ZERO-MARGIN / BẢNG BIỂU EXCEL SÁT ĐÁY)
-  // Co nội dung gốc lại còn 94% và nâng nhẹ lên trên 38pt để lộ dải lề trắng tinh
-  // =========================================================================
-  if (options.marginMode === 'SAFE_SCALE') {
-    const outputDoc = await PDFDocument.create();
+  // Tạo tài liệu xuất chuẩn hóa, đồng bộ chiều hướng từng trang (khổ dọc / khổ ngang)
+  const outputDoc = await PDFDocument.create();
 
-    for (let i = 0; i < totalPages; i++) {
-      const sourcePage = sourceDoc.getPage(i);
-      const { width: pageWidth, height: pageHeight } = sourcePage.getSize();
-      const pageNumber = i + 1;
-      const isTargetPage = options.applyToAllPages || pageNumber === totalPages;
+  for (let i = 0; i < totalPages; i++) {
+    const sourcePage = sourceDoc.getPage(i);
+    const { width: rawW, height: rawH } = sourcePage.getSize();
+    const rot = (sourcePage.getRotation().angle % 360 + 360) % 360;
 
-      const [embeddedPage] = await outputDoc.embedPages([sourcePage]);
-      const newPage = outputDoc.addPage([pageWidth, pageHeight]);
+    // 1. Nhận diện chính xác kích thước và hướng nhìn thực tế của từng trang (Khổ dọc hay Khổ ngang)
+    const visualWidth = (rot === 90 || rot === 270) ? rawH : rawW;
+    const visualHeight = (rot === 90 || rot === 270) ? rawW : rawH;
+    const isLandscape = visualWidth > visualHeight; // true = Khổ ngang, false = Khổ dọc
 
-      if (isTargetPage) {
-        // Co nội dung lại 94% và nâng lên 38pt
-        const scale = 0.94;
-        const scaledW = pageWidth * scale;
-        const scaledH = pageHeight * scale;
-        const offsetX = (pageWidth - scaledW) / 2; // Căn giữa 2 bên
-        const offsetY = 38; // Nâng lên 38pt từ đáy để lộ dải lề trắng tinh
+    // 2. Tạo trang mới với kích thước chuẩn hóa theo đúng hướng hiển thị (rotation = 0)
+    const [embeddedPage] = await outputDoc.embedPages([sourcePage]);
+    const newPage = outputDoc.addPage([visualWidth, visualHeight]);
 
+    const pageNumber = i + 1;
+    const isTargetPage = options.applyToAllPages || pageNumber === totalPages;
+
+    if (isTargetPage) {
+      let scale = 1;
+      let scaledW = visualWidth;
+      let scaledH = visualHeight;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (options.marginMode === 'SAFE_SCALE') {
+        // Co lề an toàn:
+        // - Với khổ ngang (Landscape): Chiều cao trang nhỏ hơn (~595pt), co 92% và chừa 36pt đáy
+        // - Với khổ dọc (Portrait): Chiều cao trang lớn (~842pt), co 94% và chừa 38pt đáy
+        if (isLandscape) {
+          scale = 0.92;
+          scaledW = visualWidth * scale;
+          scaledH = visualHeight * scale;
+          offsetX = (visualWidth - scaledW) / 2;
+          offsetY = 36;
+        } else {
+          scale = 0.94;
+          scaledW = visualWidth * scale;
+          scaledH = visualHeight * scale;
+          offsetX = (visualWidth - scaledW) / 2;
+          offsetY = 38;
+        }
+      }
+
+      // Vẽ nội dung trang gốc đã chuẩn hóa theo góc xoay rot:
+      if (rot === 0) {
         newPage.drawPage(embeddedPage, {
           x: offsetX,
           y: offsetY,
           width: scaledW,
           height: scaledH,
         });
-
-        // Tạo tem giáp lai cho trang này (các phòng ban tách rời nhau, sắp xếp theo quy trình)
-        const stampDataUri = await createFooterStampCanvas(
-          signersToStamp,
-          options.documentCode,
-          pageNumber,
-          totalPages
-        );
-        const base64 = stampDataUri.replace(/^data:image\/png;base64,/, '');
-        const stampBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-        const stampImage = await outputDoc.embedPng(stampBytes);
-
-        // Đặt tem vào dải lề trắng an toàn ở chân trang
-        const stampX = Math.max(15, pageWidth - stampWidth - marginRight);
-        const stampY = 5;
-
-        newPage.drawImage(stampImage, {
-          x: stampX,
-          y: stampY,
-          width: stampWidth,
-          height: stampHeight,
+      } else if (rot === 90) {
+        newPage.drawPage(embeddedPage, {
+          x: offsetX,
+          y: offsetY + scaledH,
+          width: scaledH,
+          height: scaledW,
+          rotate: degrees(-90),
         });
-      } else {
-        // Trang không cần dán tem thì vẽ nguyên bản
+      } else if (rot === 180) {
+        newPage.drawPage(embeddedPage, {
+          x: offsetX + scaledW,
+          y: offsetY + scaledH,
+          width: scaledW,
+          height: scaledH,
+          rotate: degrees(180),
+        });
+      } else if (rot === 270) {
+        newPage.drawPage(embeddedPage, {
+          x: offsetX + scaledW,
+          y: offsetY,
+          width: scaledH,
+          height: scaledW,
+          rotate: degrees(90),
+        });
+      }
+
+      // 3. Tạo hình ảnh tem giáp lai chân trang (các phòng ban tách rời nhau, sắp xếp theo quy trình)
+      const stampDataUri = await createFooterStampCanvas(
+        signersToStamp,
+        options.documentCode,
+        pageNumber,
+        totalPages
+      );
+      const base64 = stampDataUri.replace(/^data:image\/png;base64,/, '');
+      const stampBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const stampImage = await outputDoc.embedPng(stampBytes);
+
+      // 4. Vị trí dán tem:
+      // - Nếu là KHỔ DỌC: dán ở đáy khổ dọc (X = visualWidth - stampW - marginRight, Y = 5 hoặc marginBottom)
+      // - Nếu là KHỔ NGANG: dán ở đáy khổ ngang (X = visualWidth - stampW - marginRight, Y = 5 hoặc marginBottom)
+      const stampX = Math.max(15, visualWidth - stampWidth - marginRight);
+      const stampY = options.marginMode === 'SAFE_SCALE' ? 5 : marginBottom;
+
+      newPage.drawImage(stampImage, {
+        x: stampX,
+        y: stampY,
+        width: stampWidth,
+        height: stampHeight,
+      });
+    } else {
+      // Trang không dán tem thì vẽ nguyên bản chuẩn hóa theo đúng hướng hiển thị
+      if (rot === 0) {
         newPage.drawPage(embeddedPage, {
           x: 0,
           y: 0,
-          width: pageWidth,
-          height: pageHeight,
+          width: visualWidth,
+          height: visualHeight,
+        });
+      } else if (rot === 90) {
+        newPage.drawPage(embeddedPage, {
+          x: 0,
+          y: visualHeight,
+          width: visualHeight,
+          height: visualWidth,
+          rotate: degrees(-90),
+        });
+      } else if (rot === 180) {
+        newPage.drawPage(embeddedPage, {
+          x: visualWidth,
+          y: visualHeight,
+          width: visualWidth,
+          height: visualHeight,
+          rotate: degrees(180),
+        });
+      } else if (rot === 270) {
+        newPage.drawPage(embeddedPage, {
+          x: visualWidth,
+          y: 0,
+          width: visualHeight,
+          height: visualWidth,
+          rotate: degrees(90),
         });
       }
     }
-
-    return await outputDoc.save();
   }
 
-  // =========================================================================
-  // KỊCH BẢN A: VĂN BẢN CÓ LỀ TIÊU CHUẨN (STANDARD MARGIN >= 1.5 - 2CM)
-  // Dán trực tiếp con dấu vào vùng đáy: X = Width - stampW - marginRight; Y = marginBottom
-  // =========================================================================
-  for (let i = 0; i < totalPages; i++) {
-    const pageNumber = i + 1;
-    const isTargetPage = options.applyToAllPages || pageNumber === totalPages;
-    if (!isTargetPage) continue;
-
-    const page = sourceDoc.getPage(i);
-    const { width: pageWidth } = page.getSize();
-
-    const stampDataUri = await createFooterStampCanvas(
-      signersToStamp,
-      options.documentCode,
-      pageNumber,
-      totalPages
-    );
-    const base64 = stampDataUri.replace(/^data:image\/png;base64,/, '');
-    const stampBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const stampImage = await sourceDoc.embedPng(stampBytes);
-
-    const stampX = Math.max(15, pageWidth - stampWidth - marginRight);
-    const stampY = marginBottom;
-
-    page.drawImage(stampImage, {
-      x: stampX,
-      y: stampY,
-      width: stampWidth,
-      height: stampHeight,
-    });
-  }
-
-  return await sourceDoc.save();
+  return await outputDoc.save();
 }
 
 /**
