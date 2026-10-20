@@ -55,18 +55,22 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
   const [previewStampDataUri, setPreviewStampDataUri] = useState<string>('');
   const previewBlobUrlRef = useRef<string | null>(null);
 
-  // 1. Lấy toàn bộ danh sách các phòng ban đã phê duyệt (được tính toán ổn định)
+  // 1. Lấy toàn bộ danh sách các phòng ban đã phê duyệt (luôn sắp xếp theo thứ tự quy trình)
   const availableSigners: FooterSignerInfo[] = useMemo(() => {
     const steps = doc?.steps || [];
     const approved = steps.filter(s => s.status === 'APPROVED');
     if (approved.length > 0) {
-      return approved.map(s => ({
-        name: s.approverName,
-        roleTitle: s.approverTitle,
-        department: s.department || s.title,
-        signatureImage: s.signatureImage,
-        signedAt: s.decisionDate,
-      }));
+      return approved
+        .slice()
+        .sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0))
+        .map((s, idx) => ({
+          name: s.approverName,
+          roleTitle: s.approverTitle,
+          department: s.department || s.title,
+          signatureImage: s.signatureImage,
+          signedAt: s.decisionDate,
+          stepOrder: s.stepOrder ?? idx + 1,
+        }));
     }
     // Mẫu mặc định nếu tài liệu mô phỏng chưa có bước duyệt
     return [
@@ -75,24 +79,28 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
         roleTitle: doc?.creatorTitle || 'Chuyên viên phụ trách',
         department: doc?.department || 'Phòng Kỹ thuật & Dự án',
         signedAt: doc?.createdAt || '2026-03-24T08:00:00.000Z',
+        stepOrder: 1,
       },
       {
         name: 'Trần Đình Đạo',
         roleTitle: 'Trưởng phòng Kỹ thuật',
         department: 'PHÒNG KỸ THUẬT THI CÔNG',
         signedAt: '2026-03-24T10:30:00.000Z',
+        stepOrder: 2,
       },
       {
         name: 'Lê Bá Trung',
         roleTitle: 'Kế toán trưởng',
         department: 'PHÒNG TÀI CHÍNH KẾ TOÁN',
         signedAt: '2026-03-24T14:45:00.000Z',
+        stepOrder: 3,
       },
       {
         name: 'Đỗ Trung Hải',
         roleTitle: 'Tổng Giám Đốc',
         department: 'BAN TỔNG GIÁM ĐỐC',
         signedAt: '2026-03-25T09:15:00.000Z',
+        stepOrder: 4,
       }
     ];
   }, [doc?.id, doc?.code, doc?.steps, doc?.creatorName, doc?.creatorTitle, doc?.department, doc?.createdAt]);
@@ -117,10 +125,15 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
   }, [isOpen, doc?.id, availableSigners.length]);
 
   const activeSigners = useMemo(() => {
-    const list = selectedDeptIndices
+    // Luôn luôn sắp xếp theo thứ tự quy trình phê duyệt (index tăng dần và stepOrder)
+    // kể cả khi người dùng bỏ chọn và tick chọn lại theo bất kỳ thứ tự nào
+    const sortedIndices = [...selectedDeptIndices].sort((a, b) => a - b);
+    const list = sortedIndices
       .map(i => availableSigners[i])
       .filter((s): s is FooterSignerInfo => !!s);
-    return list.length > 0 ? list : availableSigners;
+    return (list.length > 0 ? list : availableSigners)
+      .slice()
+      .sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0));
   }, [selectedDeptIndices, availableSigners]);
 
   const activeSignersKey = useMemo(() => {
@@ -490,10 +503,10 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                         onClick={() => {
                           if (isChecked) {
                             if (selectedDeptIndices.length > 1) {
-                              setSelectedDeptIndices(prev => prev.filter(i => i !== sIdx));
+                              setSelectedDeptIndices(prev => prev.filter(i => i !== sIdx).sort((a, b) => a - b));
                             }
                           } else {
-                            setSelectedDeptIndices(prev => [...prev, sIdx]);
+                            setSelectedDeptIndices(prev => [...prev, sIdx].sort((a, b) => a - b));
                           }
                         }}
                         className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
@@ -504,10 +517,13 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.2 bg-red-100 text-brand-red border border-red-200 text-[8.5px] font-extrabold rounded shrink-0">
+                              B{signer.stepOrder ?? sIdx + 1}
+                            </span>
                             <span className="font-bold text-xs text-brand-red truncate">
                               {signer.department || signer.roleTitle}
                             </span>
-                            <span className="px-1 py-0.2 bg-emerald-100 text-emerald-800 text-[8.5px] font-bold rounded">
+                            <span className="px-1 py-0.2 bg-emerald-100 text-emerald-800 text-[8.5px] font-bold rounded ml-auto shrink-0">
                               Đã duyệt
                             </span>
                           </div>
@@ -528,12 +544,21 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
 
                 {previewStampDataUri && (
                   <div className="pt-2 border-t border-slate-200">
-                    <span className="text-[10px] text-slate-500 block mb-1 font-medium">Mẫu tem giáp lai thực tế (Vector Canvas 3x):</span>
-                    <img 
-                      src={previewStampDataUri} 
-                      alt="Footer Stamp Preview" 
-                      className="w-full h-auto rounded border border-slate-300 shadow-2xs bg-white" 
-                    />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] text-slate-600 font-bold">
+                        Dấu phòng ban tách rời ({activeSigners.length} dấu độc lập):
+                      </span>
+                      <span className="text-[9px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                        Chuẩn quy trình
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-slate-100 rounded-xl border border-slate-200 overflow-x-auto flex items-center justify-center">
+                      <img 
+                        src={previewStampDataUri} 
+                        alt="Footer Stamp Preview" 
+                        className="h-auto max-w-full drop-shadow-xs" 
+                      />
+                    </div>
                   </div>
                 )}
               </div>

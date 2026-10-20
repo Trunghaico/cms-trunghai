@@ -24,6 +24,7 @@ export interface FooterSignerInfo {
   department?: string;
   signatureImage?: string;
   signedAt?: string;
+  stepOrder?: number;
 }
 
 export interface FooterStampOptions {
@@ -32,14 +33,43 @@ export interface FooterStampOptions {
   signers?: FooterSignerInfo[];
   documentCode: string;
   documentTitle?: string;
-  customMarginBottom?: number; // Mặc định 20pt
-  customMarginRight?: number;  // Mặc định 30pt
+  customMarginBottom?: number; // Mặc định 12pt
+  customMarginRight?: number;  // Mặc định 20pt
+}
+
+/**
+ * Helper luôn sắp xếp danh sách người ký theo đúng thứ tự quy trình phê duyệt (stepOrder)
+ */
+export function sortSignersByApprovalOrder(signers: FooterSignerInfo[]): FooterSignerInfo[] {
+  return signers.slice().sort((a, b) => (a.stepOrder ?? 0) - (b.stepOrder ?? 0));
+}
+
+/**
+ * Tính toán kích thước tem giáp lai chân trang (gọn gàng, thanh thoát, chuyên nghiệp)
+ * Mỗi con dấu phòng ban là một khối độc lập tách rời nhau bởi khoảng cách gap
+ */
+export function getFooterStampDimensions(signerCount: number): {
+  badgeW: number;
+  badgeH: number;
+  gap: number;
+  stampWidth: number;
+  stampHeight: number;
+} {
+  const count = Math.max(1, signerCount);
+  // Chiều rộng con dấu mỗi phòng ban: 1 ban: 138pt | 2 ban: 116pt | 3 ban: 108pt | 4+ ban: 100pt
+  const badgeW = count === 1 ? 138 : (count === 2 ? 116 : (count === 3 ? 108 : 100));
+  const badgeH = 28; // Chiều cao thu gọn 28pt (thay vì 38pt cồng kềnh trước đây)
+  const gap = 6;     // Khoảng cách trống hoàn toàn giữa các con dấu phòng ban tách rời nhau
+  const stampWidth = count === 1 ? badgeW : (count * badgeW + (count - 1) * gap);
+  const stampHeight = badgeH;
+  return { badgeW, badgeH, gap, stampWidth, stampHeight };
 }
 
 /**
  * 1. Tạo hình ảnh tem giáp lai chân trang (Footer Stamp Badge) bằng HTML5 Canvas
- * Hỗ trợ đóng dấu đơn lẻ hoặc đóng dấu giáp lai đa phòng ban phê duyệt cùng lúc
- * Render ở tỷ lệ 3x DPI siêu nét, hỗ trợ phông chữ tiếng Việt UTF-8 chuẩn xác 100%
+ * - Luôn sắp xếp theo thứ tự quy trình phê duyệt (B1, B2, B3...)
+ * - Mỗi dấu phòng ban TÁCH RỜI NHAU hoàn toàn (có khoảng trống trong suốt ở giữa)
+ * - Thu nhỏ gọn gàng (cao 28pt), hiển thị cực kỳ sắc nét ở tỷ lệ 3x DPI chuẩn tiếng Việt
  */
 export async function createFooterStampCanvas(
   signerOrSigners: FooterSignerInfo | FooterSignerInfo[],
@@ -47,110 +77,151 @@ export async function createFooterStampCanvas(
   pageIndex: number,
   totalPages: number
 ): Promise<string> {
-  const signers = Array.isArray(signerOrSigners) ? signerOrSigners : [signerOrSigners];
-  const isMultiSigner = signers.length > 1;
+  const rawList = Array.isArray(signerOrSigners) ? signerOrSigners : [signerOrSigners];
+  const signers = sortSignersByApprovalOrder(rawList);
+  const count = signers.length;
+
+  const { badgeW, badgeH, gap, stampWidth, stampHeight } = getFooterStampDimensions(count);
+  const scale = 3;
 
   const canvas = document.createElement('canvas');
-  // Kích thước chuẩn cho tem giáp lai chân trang:
-  // 1 người: 230pt x 36pt | 2 người: 340pt x 38pt | 3+ người: 460pt x 38pt
-  const baseW = isMultiSigner ? (signers.length >= 3 ? 460 : 340) : 230;
-  const baseH = isMultiSigner ? 38 : 36;
-  const scale = 3;
-  canvas.width = baseW * scale;
-  canvas.height = baseH * scale;
+  canvas.width = stampWidth * scale;
+  canvas.height = stampHeight * scale;
 
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
   ctx.scale(scale, scale);
 
-  // 1. Nền thẻ tem với hiệu ứng bo góc mờ nhẹ (Glassmorphism trang trọng)
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.97)';
-  ctx.strokeStyle = '#dc2626'; // Đỏ mộc chuẩn nhận diện Trung Hải
-  ctx.lineWidth = 1;
+  // Lưu ý: Nền canvas mặc định trong suốt (transparent) để giữa các con dấu phòng ban có khoảng hở tách rời nhau hoàn toàn!
 
-  const r = 4;
-  ctx.beginPath();
-  ctx.moveTo(r, 0);
-  ctx.lineTo(baseW - r, 0);
-  ctx.quadraticCurveTo(baseW, 0, baseW, r);
-  ctx.lineTo(baseW, baseH - r);
-  ctx.quadraticCurveTo(baseW, baseH, baseW - r, baseH);
-  ctx.lineTo(r, baseH);
-  ctx.quadraticCurveTo(0, baseH, 0, baseH - r);
-  ctx.lineTo(0, r);
-  ctx.quadraticCurveTo(0, 0, r, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+  for (let idx = 0; idx < count; idx++) {
+    const signer = signers[idx];
+    const badgeX = idx * (badgeW + gap);
+    const badgeY = 0;
+    const r = 3.5;
 
-  // Viền nét đứt bảo mật bên trong
-  ctx.setLineDash([3, 2]);
-  ctx.strokeStyle = 'rgba(220, 38, 38, 0.35)';
-  ctx.strokeRect(2, 2, baseW - 4, baseH - 4);
-  ctx.setLineDash([]);
+    // 1. Khung thẻ con dấu độc lập của phòng ban (nền trắng sạch, bo góc tinh tế, viền đỏ sang trọng)
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#dc2626'; // Đỏ mộc chuẩn nhận diện Trung Hải
+    ctx.lineWidth = 0.8;
 
-  // 2. Huy hiệu dấu mộc tròn bên trái
-  const circleX = 18;
-  const circleY = baseH / 2;
-  const circleR = 12;
+    ctx.beginPath();
+    ctx.moveTo(badgeX + r, badgeY);
+    ctx.lineTo(badgeX + badgeW - r, badgeY);
+    ctx.quadraticCurveTo(badgeX + badgeW, badgeY, badgeX + badgeW, badgeY + r);
+    ctx.lineTo(badgeX + badgeW, badgeY + badgeH - r);
+    ctx.quadraticCurveTo(badgeX + badgeW, badgeY + badgeH, badgeX + badgeW - r, badgeY + badgeH);
+    ctx.lineTo(badgeX + r, badgeY + badgeH);
+    ctx.quadraticCurveTo(badgeX, badgeY + badgeH, badgeX, badgeY + badgeH - r);
+    ctx.lineTo(badgeX, badgeY + r);
+    ctx.quadraticCurveTo(badgeX, badgeY, badgeX + r, badgeY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
-  ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
-  ctx.beginPath();
-  ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
-  ctx.fill();
+    // Viền bảo mật nét đứt mảnh bên trong từng con dấu
+    ctx.setLineDash([2, 1.5]);
+    ctx.strokeStyle = 'rgba(220, 38, 38, 0.25)';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(badgeX + 2, badgeY + 2, badgeW - 4, badgeH - 4);
+    ctx.setLineDash([]);
 
-  ctx.strokeStyle = '#dc2626';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
-  ctx.stroke();
+    // 2. Huy hiệu dấu mộc tròn vi mô bên trái con dấu (Micro Stamp Seal)
+    const circleX = badgeX + 11;
+    const circleY = badgeY + badgeH / 2;
+    const circleR = 7.5;
 
-  // Dấu tick xanh ở giữa
-  ctx.fillStyle = '#059669';
-  ctx.beginPath();
-  ctx.arc(circleX, circleY, 7, 0, Math.PI * 2);
-  ctx.fill();
+    // Vòng tròn mờ nền đỏ nhạt
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+    ctx.beginPath();
+    ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
+    ctx.fill();
 
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  ctx.moveTo(circleX - 3.5, circleY);
-  ctx.lineTo(circleX - 1, circleY + 2.5);
-  ctx.lineTo(circleX + 3.5, circleY - 2.5);
-  ctx.stroke();
+    // Vòng tròn đỏ mộc
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 0.85;
+    ctx.beginPath();
+    ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2);
+    ctx.stroke();
 
-  if (!isMultiSigner) {
-    // -------------------------------------------------------------
-    // TEM 1 NGƯỜI DUYỆT (ĐẠI DIỆN ĐƠN LẺ)
-    // -------------------------------------------------------------
-    const signer = signers[0] || {
-      name: 'ĐỖ TRUNG HẢI',
-      roleTitle: 'Tổng Giám Đốc',
-      department: 'Ban Tổng Giám Đốc',
-      signedAt: new Date().toISOString()
-    };
-    const textX = 35;
+    // Vòng tròn nét đứt bảo mật
+    ctx.strokeStyle = 'rgba(220, 38, 38, 0.4)';
+    ctx.lineWidth = 0.45;
+    ctx.beginPath();
+    ctx.arc(circleX, circleY, circleR - 2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Dấu tick xanh xác thực ở giữa
+    ctx.fillStyle = '#16a34a';
+    ctx.beginPath();
+    ctx.arc(circleX, circleY, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(circleX - 1.8, circleY);
+    ctx.lineTo(circleX - 0.4, circleY + 1.5);
+    ctx.lineTo(circleX + 1.8, circleY - 1.4);
+    ctx.stroke();
+
+    // 3. Nội dung thông tin phê duyệt của phòng ban (3 dòng sắc nét, thu nhỏ gọn gàng)
+    const textX = badgeX + 21.5;
     ctx.textAlign = 'left';
 
-    ctx.fillStyle = '#991b1b';
-    ctx.font = 'bold 7.5px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('CTY CP ĐẦU TƯ & XÂY DỰNG TRUNG HẢI', textX, 10);
+    // Dòng 1: [B1] TÊN PHÒNG BAN THEO QUY TRÌNH
+    const rawDept = signer.department || signer.roleTitle || 'PHÒNG DUYỆT';
+    let cleanDept = rawDept
+      .replace(/^PHÒNG\s+/i, 'P. ')
+      .replace(/PHÒNG TÀI CHÍNH KẾ TOÁN/i, 'P. TÀI CHÍNH KT')
+      .replace(/PHÒNG KỸ THUẬT THI CÔNG/i, 'P. KỸ THUẬT TC')
+      .replace(/PHÒNG KỸ THUẬT & DỰ ÁN/i, 'P. KỸ THUẬT DA')
+      .replace(/BAN TỔNG GIÁM ĐỐC/i, 'BAN TỔNG GIÁM ĐỐC')
+      .toUpperCase();
 
-    const signerTitle = signer.roleTitle || signer.department || 'Ban Phê Duyệt';
-    const signerName = signer.name || 'Đại diện Trung Hải';
+    if (cleanDept.length > 18) {
+      cleanDept = cleanDept.slice(0, 17) + '…';
+    }
+
+    const stepNum = signer.stepOrder ?? idx + 1;
+    ctx.fillStyle = '#b91c1c';
+    ctx.font = 'bold 5.8px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(`[B${stepNum}] ${cleanDept}`, textX, badgeY + 8);
+
+    // Dòng 2: Họ và tên người phê duyệt
+    let signerName = signer.name || 'Người phê duyệt';
+    if (signerName.length > 18) {
+      signerName = signerName.slice(0, 17) + '…';
+    }
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 8px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(`✓ ĐÃ KÝ: ${signerName} (${signerTitle})`, textX, 20);
+    ctx.font = 'bold 6.8px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(signerName, textX, badgeY + 16.5);
 
-    const timeStr = signer.signedAt 
-      ? formatDate(signer.signedAt) 
-      : new Date().toLocaleString('vi-VN', { hour12: false });
+    // Dòng 3: Chức vụ & Ngày duyệt
+    const roleTitle = (signer.roleTitle || 'Phê duyệt')
+      .replace(/^Trưởng phòng/i, 'TP.')
+      .replace(/^Tổng Giám Đốc/i, 'TGĐ')
+      .replace(/^Chuyên viên/i, 'CV.');
+
+    let dateStr = '';
+    if (signer.signedAt) {
+      try {
+        const d = new Date(signer.signedAt);
+        dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+      } catch {
+        dateStr = formatDate(signer.signedAt).split(' ')[0];
+      }
+    } else {
+      const now = new Date();
+      dateStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+    }
+
     ctx.fillStyle = '#64748b';
-    ctx.font = '500 6.5px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(`${timeStr} • ${docCode} • Trang ${pageIndex}/${totalPages}`, textX, 30);
+    ctx.font = '500 5.2px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(`${roleTitle} • ${dateStr}`, textX, badgeY + 24);
 
-    // Nếu có chữ ký tay vẽ dạng Base64
+    // Chữ ký tay nét mờ nếu có chữ ký ảnh riêng
     if (signer.signatureImage && signer.signatureImage.length > 50 && signer.signatureImage.startsWith('data:image')) {
       try {
         const img = new Image();
@@ -168,80 +239,14 @@ export async function createFooterStampCanvas(
         });
         if (img.width > 0) {
           ctx.save();
-          ctx.globalAlpha = 0.85;
-          ctx.drawImage(img, baseW - 55, 4, 48, 28);
+          ctx.globalAlpha = 0.22;
+          ctx.drawImage(img, badgeX + badgeW - 32, badgeY + 3, 30, 22);
           ctx.restore();
         }
       } catch {
         // Bỏ qua lỗi ảnh
       }
     }
-  } else {
-    // -------------------------------------------------------------
-    // TEM GIÁP LAI ĐA PHÒNG BAN PHÊ DUYỆT (MULTI-DEPARTMENT SEAL)
-    // -------------------------------------------------------------
-    const startX = 36;
-    const headerY = 9.5;
-
-    // Header chung phía trên
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#991b1b';
-    ctx.font = 'bold 6.5px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('CTY CP ĐẦU TƯ & XD TRUNG HẢI • DẤU GIÁP LAI ĐIỆN TỬ LIÊN PHÒNG BAN', startX, headerY);
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 6px "Segoe UI", monospace';
-    ctx.fillText(`${docCode} • Trang ${pageIndex}/${totalPages}`, baseW - 6, headerY);
-
-    // Đường gạch mảnh phân cách header
-    ctx.strokeStyle = 'rgba(220, 38, 38, 0.25)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(startX, 12);
-    ctx.lineTo(baseW - 6, 12);
-    ctx.stroke();
-
-    // Chia đều các cột cho từng phòng ban
-    const availW = baseW - startX - 6;
-    const colW = availW / signers.length;
-
-    signers.forEach((signer, idx) => {
-      const colX = startX + idx * colW;
-      
-      // Đường ngăn cách giữa các phòng ban
-      if (idx > 0) {
-        ctx.strokeStyle = 'rgba(203, 213, 225, 0.7)';
-        ctx.lineWidth = 0.6;
-        ctx.beginPath();
-        ctx.moveTo(colX, 14);
-        ctx.lineTo(colX, baseH - 4);
-        ctx.stroke();
-      }
-
-      const textColX = colX + (idx > 0 ? 5 : 0);
-      ctx.textAlign = 'left';
-
-      // Dòng 1: Tên phòng ban
-      const rawDept = signer.department || signer.roleTitle || 'PHÒNG DUYỆT';
-      const cleanDept = rawDept.replace(/^PHÒNG\s+/i, 'P. ').toUpperCase();
-      ctx.fillStyle = '#b91c1c';
-      ctx.font = 'bold 6.5px "Segoe UI", Arial, sans-serif';
-      ctx.fillText(`✓ ${cleanDept}`, textColX, 20);
-
-      // Dòng 2: Người ký duyệt
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 7.5px "Segoe UI", Arial, sans-serif';
-      ctx.fillText(signer.name, textColX, 28);
-
-      // Dòng 3: Chức vụ & Ngày ký
-      const timeStr = signer.signedAt 
-        ? formatDate(signer.signedAt).split(' ')[0] 
-        : new Date().toLocaleDateString('vi-VN');
-      ctx.fillStyle = '#64748b';
-      ctx.font = '500 5.5px "Segoe UI", Arial, sans-serif';
-      ctx.fillText(`${signer.roleTitle || 'Phê duyệt'} • ${timeStr}`, textColX, 35);
-    });
   }
 
   return canvas.toDataURL('image/png');
@@ -250,6 +255,7 @@ export async function createFooterStampCanvas(
 /**
  * 2. Backend Injection: Đọc toàn bộ các trang PDF, tính toán kích thước thực tế
  * và dán tem giáp lai chân trang (Footer Stamp) của các phòng ban phê duyệt
+ * (Các dấu phòng ban tách rời nhau, tự động sắp xếp theo thứ tự quy trình)
  */
 export async function stampPdfWithFooterSeal(
   pdfBytes: ArrayBuffer | Uint8Array,
@@ -258,25 +264,26 @@ export async function stampPdfWithFooterSeal(
   const sourceDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const totalPages = sourceDoc.getPageCount();
 
-  // Xác định danh sách các phòng ban ký duyệt
-  const signersToStamp: FooterSignerInfo[] = (options.signers && options.signers.length > 0)
+  // Xác định danh sách các phòng ban ký duyệt và luôn sắp xếp theo đúng quy trình phê duyệt
+  const rawSigners: FooterSignerInfo[] = (options.signers && options.signers.length > 0)
     ? options.signers
     : [{
         name: 'ĐỖ TRUNG HẢI',
         roleTitle: 'Tổng Giám Đốc',
         department: 'Ban Tổng Giám Đốc',
-        signedAt: new Date().toISOString()
+        signedAt: new Date().toISOString(),
+        stepOrder: 1,
       }];
 
-  const isMultiSigner = signersToStamp.length > 1;
-  const stampWidth = isMultiSigner ? (signersToStamp.length >= 3 ? 460 : 340) : 220;
-  const stampHeight = isMultiSigner ? 38 : 34;
-  const marginRight = options.customMarginRight ?? (isMultiSigner ? 16 : 30);
-  const marginBottom = options.customMarginBottom ?? 20;
+  const signersToStamp = sortSignersByApprovalOrder(rawSigners);
+  const count = signersToStamp.length;
+  const { stampWidth, stampHeight } = getFooterStampDimensions(count);
+  const marginRight = options.customMarginRight ?? 20;
+  const marginBottom = options.customMarginBottom ?? 12;
 
   // =========================================================================
   // KỊCH BẢN B: NỘI DUNG TRÀN SÁT MÉP (ZERO-MARGIN / BẢNG BIỂU EXCEL SÁT ĐÁY)
-  // Co nội dung gốc lại còn 94% và nâng nhẹ lên trên 40pt để lộ dải lề trắng tinh
+  // Co nội dung gốc lại còn 94% và nâng nhẹ lên trên 38pt để lộ dải lề trắng tinh
   // =========================================================================
   if (options.marginMode === 'SAFE_SCALE') {
     const outputDoc = await PDFDocument.create();
@@ -291,12 +298,12 @@ export async function stampPdfWithFooterSeal(
       const newPage = outputDoc.addPage([pageWidth, pageHeight]);
 
       if (isTargetPage) {
-        // Co nội dung lại 94% và nâng lên 40pt
+        // Co nội dung lại 94% và nâng lên 38pt
         const scale = 0.94;
         const scaledW = pageWidth * scale;
         const scaledH = pageHeight * scale;
         const offsetX = (pageWidth - scaledW) / 2; // Căn giữa 2 bên
-        const offsetY = 40; // Nâng lên 40pt từ đáy để lộ dải lề trắng tinh hoàn toàn không có chữ
+        const offsetY = 38; // Nâng lên 38pt từ đáy để lộ dải lề trắng tinh
 
         newPage.drawPage(embeddedPage, {
           x: offsetX,
@@ -305,7 +312,7 @@ export async function stampPdfWithFooterSeal(
           height: scaledH,
         });
 
-        // Tạo tem giáp lai cho trang này (bao gồm tất cả các phòng ban)
+        // Tạo tem giáp lai cho trang này (các phòng ban tách rời nhau, sắp xếp theo quy trình)
         const stampDataUri = await createFooterStampCanvas(
           signersToStamp,
           options.documentCode,
@@ -317,8 +324,8 @@ export async function stampPdfWithFooterSeal(
         const stampImage = await outputDoc.embedPng(stampBytes);
 
         // Đặt tem vào dải lề trắng an toàn ở chân trang
-        const stampX = Math.max(10, pageWidth - stampWidth - marginRight);
-        const stampY = 2;
+        const stampX = Math.max(15, pageWidth - stampWidth - marginRight);
+        const stampY = 5;
 
         newPage.drawImage(stampImage, {
           x: stampX,
@@ -342,7 +349,7 @@ export async function stampPdfWithFooterSeal(
 
   // =========================================================================
   // KỊCH BẢN A: VĂN BẢN CÓ LỀ TIÊU CHUẨN (STANDARD MARGIN >= 1.5 - 2CM)
-  // Dán trực tiếp con dấu nhỏ vào vùng đáy: X = Width - stampW - marginRight; Y = marginBottom
+  // Dán trực tiếp con dấu vào vùng đáy: X = Width - stampW - marginRight; Y = marginBottom
   // =========================================================================
   for (let i = 0; i < totalPages; i++) {
     const pageNumber = i + 1;
@@ -362,7 +369,7 @@ export async function stampPdfWithFooterSeal(
     const stampBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
     const stampImage = await sourceDoc.embedPng(stampBytes);
 
-    const stampX = Math.max(10, pageWidth - stampWidth - marginRight);
+    const stampX = Math.max(15, pageWidth - stampWidth - marginRight);
     const stampY = marginBottom;
 
     page.drawImage(stampImage, {
