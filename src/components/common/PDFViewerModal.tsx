@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  X, 
-  ZoomIn, 
-  ZoomOut, 
-  RotateCw, 
-  Download, 
-  Printer, 
-  Maximize2, 
-  Minimize2, 
-  ChevronLeft, 
-  ChevronRight, 
-  FileText, 
+import {
+  X,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Download,
+  Printer,
+  Maximize2,
+  Minimize2,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
   ShieldCheck,
   ExternalLink,
   CheckCircle2,
@@ -34,13 +34,13 @@ interface PDFViewerModalProps {
   onClose: () => void;
 }
 
-export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ 
-  attachment, 
+export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
+  attachment,
   documentTitle,
   documentCode,
   document: documentProp,
   steps: stepsProp,
-  onClose 
+  onClose
 }) => {
   const { documents, selectedDocument } = useDocument();
 
@@ -64,12 +64,12 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   const isOfficeDoc = /\.(docx|xlsx|pptx|doc|xls)$/i.test(fileNameLower);
 
   const hasRealFileContent = !!(
-    secureUrl && 
-    secureUrl !== '#' && 
+    secureUrl &&
+    secureUrl !== '#' &&
     (
-      secureUrl.startsWith('data:') || 
-      secureUrl.startsWith('blob:') || 
-      secureUrl.startsWith('http://') || 
+      secureUrl.startsWith('data:') ||
+      secureUrl.startsWith('blob:') ||
+      secureUrl.startsWith('http://') ||
       secureUrl.startsWith('https://') ||
       secureUrl.startsWith('/api/nas')
     )
@@ -217,10 +217,9 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   };
 
   const modalContent = (
-    <div 
-      className={`fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-1 sm:p-2 md:p-3 overflow-hidden pt-[max(env(safe-area-inset-top,0px),8px)] pb-safe ${
-        isClosing ? 'animate-backdrop-out pointer-events-none' : 'animate-backdrop-in'
-      }`}
+    <div
+      className={`fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-1 sm:p-2 md:p-3 overflow-hidden pt-[max(env(safe-area-inset-top,0px),8px)] pb-safe ${isClosing ? 'animate-backdrop-out pointer-events-none' : 'animate-backdrop-in'
+        }`}
       style={{ zIndex: 99999 }}
       onMouseDown={(e) => {
         mouseDownTargetRef.current = e.target;
@@ -231,17 +230,16 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         }
       }}
     >
-      <div 
-        className={`bg-slate-900 text-white rounded-3xl shadow-2xl border border-slate-700/80 flex flex-col transition-all duration-150 overflow-hidden ${
-          isFullscreen 
-            ? 'fixed inset-0 w-screen h-screen rounded-none z-[100000]' 
-            : 'w-[98vw] max-w-7xl h-[96vh]'
-        } ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`}
+      <div
+        className={`bg-slate-900 text-white rounded-3xl shadow-2xl border border-slate-700/80 flex flex-col transition-all duration-150 overflow-hidden ${isFullscreen
+          ? 'fixed inset-0 w-screen h-screen rounded-none z-[100000]'
+          : 'w-[98vw] max-w-7xl h-[96vh]'
+          } ${isClosing ? 'animate-modal-out' : 'animate-modal-in'}`}
       >
-        
+
         {/* COMPACT ALL-IN-ONE HEADER BAR (Height ~42px) */}
         <div className="px-4 py-2 bg-slate-850 border-b border-slate-700/80 flex items-center justify-between gap-2 shrink-0 select-none min-h-[44px]">
-          
+
           {/* Left: File Info & Badge */}
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-brand-blue to-cyan-500 flex items-center justify-center shrink-0 shadow-xs">
@@ -392,12 +390,11 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         </div>
 
         {/* EXPANDED PDF VIEWER BODY */}
-        <div className={`flex-1 min-h-0 min-w-0 bg-slate-950/95 relative flex ${
-          hasRealFileContent && isPdf
-            ? 'p-1 sm:p-2 overflow-hidden flex-col' 
-            : 'overflow-auto p-2 sm:p-4 items-start justify-center'
-        }`}>
-          
+        <div className={`flex-1 min-h-0 min-w-0 bg-slate-950/95 relative flex ${hasRealFileContent && isPdf
+          ? 'p-1 sm:p-2 overflow-hidden flex-col'
+          : 'overflow-auto p-2 sm:p-4 items-start justify-center'
+          }`}>
+
           {/* CASE 1: Real PDF file uploaded by user */}
           {hasRealFileContent && isPdf ? (
             <div className="w-full h-full flex-1 min-h-0 min-w-0 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-700/60 relative">
@@ -450,7 +447,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
             </div>
           ) : hasRealFileContent && isImage && !imageError ? (
             /* CASE 2: Image file uploaded by user */
-            <div 
+            <div
               className="flex items-center justify-center p-2 transition-transform duration-150 origin-top"
               style={{
                 transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
@@ -466,7 +463,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
             </div>
           ) : (
             /* CASE 3: Enterprise Form View for Sample/Mock Files */
-            <div 
+            <div
               className="bg-white text-slate-900 shadow-2xl rounded-2xl border border-slate-300 transition-transform duration-150 origin-top p-6 sm:p-12 max-w-4xl w-full min-h-[850px] relative select-text"
               style={{
                 transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
@@ -585,7 +582,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                       </span>
                     </div>
 
-                    <div 
+                    <div
                       className="grid gap-3.5 items-start"
                       style={{
                         gridTemplateColumns: `repeat(${Math.min(docSigners.length, 3)}, minmax(0, 1fr))`
@@ -597,15 +594,14 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                         const hasUrlSignature = signer.signatureImage && signer.signatureImage.startsWith('http');
 
                         return (
-                          <div 
+                          <div
                             key={signer.id || sIdx}
-                            className={`border rounded-xl p-3 flex flex-col justify-between text-center relative overflow-hidden transition-all ${
-                              isApproved 
-                                ? 'border-red-200 bg-red-50/20 shadow-2xs' 
-                                : signer.isCreator
+                            className={`border rounded-xl p-3 flex flex-col justify-between text-center relative overflow-hidden transition-all ${isApproved
+                              ? 'border-red-200 bg-red-50/20 shadow-2xs'
+                              : signer.isCreator
                                 ? 'border-blue-200 bg-blue-50/20 shadow-2xs'
                                 : 'border-slate-200 bg-slate-50/50 opacity-80'
-                            }`}
+                              }`}
                           >
                             {/* Header: Phòng ban / Chức vụ */}
                             <div>
@@ -621,22 +617,29 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                             <div className="my-2 py-1 flex flex-col items-center justify-center min-h-[75px]">
                               {isApproved ? (
                                 <div className="space-y-1 flex flex-col items-center w-full">
-                                  {/* Chữ ký vẽ tay nếu có */}
+                                  {/* Chữ ký vẽ tay sắc nét */}
                                   {(hasDrawSignature || hasUrlSignature) ? (
                                     <div className="h-8 max-w-[130px] flex items-center justify-center overflow-hidden mb-1">
-                                      <img 
-                                        src={signer.signatureImage} 
-                                        alt="Chữ ký" 
-                                        className="max-h-full object-contain filter contrast-125"
+                                      <img
+                                        src={signer.signatureImage}
+                                        alt="Chữ ký"
+                                        className="max-h-full object-contain filter contrast-150 brightness-95 mix-blend-multiply drop-shadow-2xs"
                                       />
                                     </div>
-                                  ) : null}
+                                  ) : (
+                                    <div className="h-8 max-w-[130px] flex flex-col items-center justify-center mb-1">
+                                      <span className="font-['Brush_Script_MT',cursive] italic font-bold text-blue-700 text-sm tracking-wide -rotate-3 select-none">
+                                        {(signer.name || 'Trung Hải').split(' ').pop()}
+                                      </span>
+                                      <div className="w-14 h-[1px] bg-blue-600/80 -mt-0.5 rounded-full" />
+                                    </div>
+                                  )}
 
                                   {/* Con dấu đỏ điện tử Trung Hải */}
                                   <div className="w-full px-2 py-1.5 border border-brand-red rounded-lg text-brand-red bg-red-50/90 text-center space-y-0.5 shadow-2xs">
                                     <div className="flex items-center justify-center gap-1 font-black text-[7.5px] uppercase tracking-wider border-b border-brand-red/30 pb-0.5">
                                       <ShieldCheck className="w-2.5 h-2.5 text-brand-red shrink-0" />
-                                      <span>CTY CP ĐẦU TƯ & XD TRUNG HẢI</span>
+                                      <span>CTY CP XÂY DỰNG & ĐẦU TƯ TRUNG HẢI</span>
                                     </div>
                                     <p className="font-black text-[8.5px] uppercase tracking-wider text-brand-red pt-0.5">
                                       ✓ ĐÃ KÝ ĐIỆN TỬ
@@ -654,7 +657,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                                 </div>
                               ) : signer.isCreator ? (
                                 <div className="h-16 flex items-center justify-center">
-                                  <span 
+                                  <span
                                     className="italic text-base text-brand-blue font-bold tracking-normal"
                                     style={{ fontFamily: "'Segoe Script', 'Brush Script MT', cursive, sans-serif" }}
                                   >
@@ -679,7 +682,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
                               {isApproved ? (
                                 <div className="inline-flex items-center gap-1 mt-1 text-[8px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                                   <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />
-                                  <span>Chữ ký số hợp lệ (VNPT-CA)</span>
+                                  <span>Chữ ký số hợp lệ</span>
                                 </div>
                               ) : signer.isCreator ? (
                                 <div className="inline-flex items-center gap-1 mt-1 text-[8px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
@@ -696,7 +699,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
                   {/* Security Hash Footer */}
                   <div className="pt-6 border-t border-slate-200 text-[10px] text-slate-400 font-mono flex items-center justify-between">
-                    <span>Mã lưu trữ: {displayDocCode} • SHA-256 Verified</span>
+                    <span>Mã lưu trữ: {displayDocCode} </span>
                     <span>Trang 2 / 2</span>
                   </div>
                 </div>
@@ -711,7 +714,7 @@ export const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         <div className="px-4 py-2 bg-slate-850 border-t border-slate-700/80 flex items-center justify-between text-[11px] shrink-0 min-h-[34px]">
           <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Chế độ xem bảo mật DMS • SSL 256-bit</span>
+            <span>Chế độ xem bảo mật DMS </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-slate-500 hidden sm:inline">Phím tắt: Esc để đóng</span>

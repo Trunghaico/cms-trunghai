@@ -456,16 +456,23 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                             ) : (
                               /* Official Red/Blue Digital Stamp */
                               <div className="space-y-0.5 flex flex-col items-center">
-                                {/* If handwritten signature exists */}
+                                {/* Chữ ký vẽ tay sắc nét */}
                                 {hasDrawSignature || hasUrlSignature ? (
                                   <div className="h-7 max-w-[120px] flex items-center justify-center overflow-hidden mb-0.5">
                                     <img 
                                       src={step.signatureImage} 
                                       alt="Chữ ký" 
-                                      className="max-h-full object-contain filter contrast-125"
+                                      className="max-h-full object-contain filter contrast-150 brightness-95 mix-blend-multiply drop-shadow-2xs"
                                     />
                                   </div>
-                                ) : null}
+                                ) : (
+                                  <div className="h-7 max-w-[120px] flex flex-col items-center justify-center mb-0.5">
+                                    <span className="font-['Brush_Script_MT',cursive] italic font-bold text-blue-700 text-xs tracking-wide -rotate-3 select-none">
+                                      {(step.approverName || 'Đã ký').split(' ').pop()}
+                                    </span>
+                                    <div className="w-12 h-[1px] bg-blue-600/70 -mt-0.5 rounded-full" />
+                                  </div>
+                                )}
 
                                 {/* Corporate Red Verification Stamp (Chuẩn văn bản Việt Nam) */}
                                 <div className="px-2 py-1 border border-brand-red rounded text-brand-red bg-red-50/80 text-center space-y-0.2 shadow-2xs max-w-[170px]">

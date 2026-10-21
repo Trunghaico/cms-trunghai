@@ -18,15 +18,19 @@ import {
   Maximize2,
   Minimize2,
   Info,
-  AlertCircle
+  AlertCircle,
+  Bot,
+  Sparkles
 } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { DocumentItem } from '../../types';
 import { 
   stampPdfWithFooterSeal, 
   createFooterStampCanvas, 
+  analyzePdfPagesOrientation,
   FooterStampOptions, 
-  FooterSignerInfo 
+  FooterSignerInfo,
+  PageOrientationResult
 } from '../../lib/pdfFooterStamper';
 import { formatDate } from '../../lib/storage';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
@@ -46,6 +50,10 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
 }) => {
   const [marginMode, setMarginMode] = useState<'SAFE_SCALE' | 'STANDARD'>('SAFE_SCALE');
   const [applyToAllPages, setApplyToAllPages] = useState<boolean>(true);
+  const [autoDetectTextOrientation, setAutoDetectTextOrientation] = useState<boolean>(true);
+  const [pageOrientationMode, setPageOrientationMode] = useState<'AUTO' | 'LANDSCAPE' | 'PORTRAIT'>('AUTO');
+  const [manualRotation, setManualRotation] = useState<number>(0);
+  const [pageOrientations, setPageOrientations] = useState<PageOrientationResult[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(2);
   const [zoom, setZoom] = useState<number>(100);
@@ -249,6 +257,11 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
           try {
             const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
             setTotalPages(pdfDoc.getPageCount());
+            // Phân tích hướng chữ trên toàn bộ các trang bằng AI
+            const orientations = await analyzePdfPagesOrientation(bytes, doc?.title);
+            if (!isCancelled) {
+              setPageOrientations(orientations);
+            }
           } catch {
             // ignore
           }
@@ -287,6 +300,11 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
           signers: activeSigners,
           documentCode: doc?.code || 'TH_DOC',
           documentTitle: doc?.title,
+          customMarginBottom: 18, // Lề an toàn tối thiểu 18pt chống cắt xén máy in
+          customMarginRight: 20,
+          autoDetectTextOrientation,
+          pageOrientationMode,
+          manualRotation,
         };
 
         const finalBytes = await stampPdfWithFooterSeal(sourcePdfBytes, options);
@@ -313,7 +331,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [isOpen, sourcePdfBytes, marginMode, applyToAllPages, activeSignersKey]);
+  }, [isOpen, sourcePdfBytes, marginMode, applyToAllPages, activeSignersKey, autoDetectTextOrientation, pageOrientationMode, manualRotation]);
 
   // Clean up Blob URL khi đóng modal hoặc unmount
   useEffect(() => {
@@ -435,13 +453,13 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                     />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-slate-900">Kịch bản B: Co lề an toàn 94%</span>
+                        <span className="font-bold text-xs text-slate-900">Kịch bản B: Co lề an toàn & Lề in 18pt</span>
                         <span className="px-1.5 py-0.2 bg-blue-600 text-white text-[9px] font-extrabold rounded-full">
                           Khuyên dùng
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-                        Tự động co tỷ lệ trang còn 94% và nâng nội dung lên trên 38pt, tạo dải lề trắng tinh ở chân trang. Đảm bảo <strong>100% không đè lên chữ</strong> hoặc bảng biểu Excel sát đáy.
+                        Tự động co tỷ lệ trang và nâng nội dung lên trên 52pt, chân tem đặt ở mức an toàn <strong>18pt (~6.5mm)</strong>. Đảm bảo <strong>100% không đè lên chữ</strong> và <strong>không bị máy in cắt mất viền dưới tem</strong>.
                       </p>
                     </div>
                   </div>
@@ -465,12 +483,128 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                       className="mt-1 text-blue-600 focus:ring-blue-500" 
                     />
                     <div>
-                      <span className="font-bold text-xs text-slate-900">Kịch bản A: Lề tiêu chuẩn (Margin 20pt)</span>
+                      <span className="font-bold text-xs text-slate-900">Kịch bản A: Lề tiêu chuẩn (Lề đáy 18pt an toàn in)</span>
                       <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-                        Dán trực tiếp tem vào góc dưới bên phải (X = Width - 250pt, Y = 20pt). Phù hợp với văn bản Word có khoảng trống chân trang sẵn từ 1.5 - 2cm.
+                        Dán trực tiếp tem vào góc dưới bên phải với lề đáy an toàn 18pt chống cắt xén. Phù hợp với văn bản Word có sẵn khoảng trống chân trang từ 1.5 - 2cm.
                       </p>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Khổ Trang & Hướng Hiển Thị (Orientation & 90-degree Rotation) */}
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Bot className="w-4 h-4 text-purple-600" />
+                    <span>Khổ Trang & Hướng Đóng Dấu</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setManualRotation(prev => (prev + 90) % 360)}
+                    title="Xoay trang 90° theo chiều kim đồng hồ"
+                    className="px-2 py-0.5 bg-slate-100 hover:bg-purple-100 text-purple-700 hover:text-purple-900 border border-purple-200 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                  >
+                    <RotateCw className="w-3 h-3 text-purple-600" />
+                    <span>Xoay 90°{manualRotation > 0 ? ` (${manualRotation}°)` : ''}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPageOrientationMode('AUTO');
+                      setAutoDetectTextOrientation(true);
+                    }}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      pageOrientationMode === 'AUTO'
+                        ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-2xs font-bold'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex justify-center mb-0.5">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    </div>
+                    <span className="text-[10.5px] block font-bold leading-tight">AI Tự Động</span>
+                    <span className="text-[9px] text-slate-500 block leading-tight">Theo chữ/bản scan</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPageOrientationMode('LANDSCAPE')}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      pageOrientationMode === 'LANDSCAPE'
+                        ? 'bg-amber-50 border-amber-500 text-amber-950 shadow-2xs font-bold'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex justify-center mb-0.5">
+                      <FileText className="w-3.5 h-3.5 text-amber-600 rotate-90" />
+                    </div>
+                    <span className="text-[10.5px] block font-bold leading-tight">Khổ Ngang</span>
+                    <span className="text-[9px] text-slate-500 block leading-tight">Bảng kê/Excel</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPageOrientationMode('PORTRAIT')}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      pageOrientationMode === 'PORTRAIT'
+                        ? 'bg-blue-50 border-blue-500 text-blue-900 shadow-2xs font-bold'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex justify-center mb-0.5">
+                      <FileText className="w-3.5 h-3.5 text-blue-600" />
+                    </div>
+                    <span className="text-[10.5px] block font-bold leading-tight">Khổ Dọc</span>
+                    <span className="text-[9px] text-slate-500 block leading-tight">Văn bản đứng</span>
+                  </button>
+                </div>
+
+                <div className={`p-2.5 rounded-xl border text-[10.5px] leading-relaxed transition-all ${
+                  pageOrientationMode === 'LANDSCAPE'
+                    ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                    : pageOrientationMode === 'PORTRAIT'
+                    ? 'bg-blue-50/80 border-blue-200 text-blue-900'
+                    : 'bg-purple-50/70 border-purple-200 text-slate-700'
+                }`}>
+                  <p>
+                    {pageOrientationMode === 'LANDSCAPE' && (
+                      <span>
+                        Đang chọn <strong>Khổ Ngang (Landscape)</strong>: Trang tự động xoay ngang chuẩn (842 x 595pt), tem giáp lai được dán <strong>ở dưới cùng bên phải</strong> dưới phần chữ ký!
+                      </span>
+                    )}
+                    {pageOrientationMode === 'PORTRAIT' && (
+                      <span>
+                        Đang chọn <strong>Khổ Dọc (Portrait)</strong>: Định dạng văn bản đứng chuẩn (595 x 842pt).
+                      </span>
+                    )}
+                    {pageOrientationMode === 'AUTO' && (
+                      <span>
+                        <strong>AI Text Matrix & Scanned OCR</strong>: Tự động nhận diện hướng bảng kê/bản scan để xoay khổ ngang và đặt tem đúng chân trang dưới các chữ ký.
+                      </span>
+                    )}
+                  </p>
+
+                  {pageOrientations.length > 0 && pageOrientationMode === 'AUTO' && (
+                    <div className="pt-1 mt-1 border-t border-purple-200/60 flex flex-wrap gap-1">
+                      {pageOrientations.map((po) => (
+                        <span 
+                          key={po.pageIndex}
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                            po.isLandscape
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : 'bg-indigo-100 text-indigo-900 border-indigo-300'
+                          }`}
+                          title={po.reason}
+                        >
+                          T{po.pageIndex + 1}: {po.isLandscape ? 'Khổ ngang' : 'Khổ dọc'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -627,7 +761,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
           <div className="flex-1 flex flex-col min-h-0 bg-slate-850 p-2 sm:p-4">
             
             {/* Viewport Toolbar */}
-            <div className="px-3 py-1.5 bg-slate-900 border border-slate-700/80 rounded-2xl flex items-center justify-between text-xs text-white mb-2 shrink-0">
+            <div className="px-3 py-1.5 bg-slate-900 border border-slate-700/80 rounded-2xl flex flex-wrap items-center justify-between text-xs text-white mb-2 shrink-0 gap-2">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-300 text-[11px]">Bản Xem Trước Văn Bản Đã Dán Tem:</span>
                 {(isGenerating || isLoadingSource) && !nonPdfError && (
@@ -636,16 +770,74 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                   </span>
                 )}
                 {!nonPdfError && !isLoadingSource && !isGenerating && (
-                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9.5px] font-semibold rounded-full hidden md:inline">
-                    Khổ dọc & Khổ ngang tự động
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9.5px] font-semibold rounded-full hidden md:inline-flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-emerald-400" />
+                    <span>
+                      {pageOrientationMode === 'LANDSCAPE'
+                        ? 'Khổ ngang (Landscape)'
+                        : pageOrientationMode === 'PORTRAIT'
+                        ? 'Khổ dọc (Portrait)'
+                        : `AI tự động (${pageOrientations.length} trang)`}
+                    </span>
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] text-slate-400 mr-2">
-                  Chế độ: <strong className="text-white">{marginMode === 'SAFE_SCALE' ? 'Co lề 94%' : 'Lề chuẩn'}</strong>
+              {/* Quick Orientation & Rotation Controls on Viewport */}
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPageOrientationMode('AUTO');
+                      setAutoDetectTextOrientation(true);
+                    }}
+                    className={`px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                      pageOrientationMode === 'AUTO' ? 'bg-purple-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="AI Tự động nhận diện khổ trang"
+                  >
+                    <Bot className="w-2.5 h-2.5" />
+                    <span>Tự động</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPageOrientationMode('LANDSCAPE')}
+                    className={`px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                      pageOrientationMode === 'LANDSCAPE' ? 'bg-amber-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Ép Khổ ngang (Landscape) - Dán tem dưới chữ ký"
+                  >
+                    <span>📑 Ngang</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPageOrientationMode('PORTRAIT')}
+                    className={`px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer ${
+                      pageOrientationMode === 'PORTRAIT' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Ép Khổ dọc (Portrait)"
+                  >
+                    <span>📄 Dọc</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setManualRotation(prev => (prev + 90) % 360)}
+                  title="Xoay trang 90° theo chiều kim đồng hồ"
+                  className="px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer active:scale-95"
+                >
+                  <RotateCw className="w-3 h-3 text-emerald-400" />
+                  <span>Xoay 90°{manualRotation > 0 ? ` (${manualRotation}°)` : ''}</span>
+                </button>
+
+                <div className="h-4 w-px bg-slate-700 mx-0.5 hidden sm:block" />
+
+                <span className="text-[10px] text-slate-400 hidden xl:inline">
+                  Chế độ: <strong className="text-white">{marginMode === 'SAFE_SCALE' ? 'Co an toàn 18pt' : 'Lề chuẩn'}</strong>
                 </span>
+
                 <button
                   type="button"
                   onClick={handlePrint}
