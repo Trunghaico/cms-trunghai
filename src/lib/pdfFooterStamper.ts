@@ -48,8 +48,10 @@ export interface FooterStampOptions {
   customMarginBottom?: number; // Mặc định 18pt (đảm bảo an toàn không bị máy in cắt lề dưới)
   customMarginRight?: number;  // Mặc định 20pt
   autoDetectTextOrientation?: boolean; // Tự động dùng AI nhận diện trang nằm ngang và nằm dọc theo chữ
-  pageOrientationMode?: 'AUTO' | 'LANDSCAPE' | 'PORTRAIT'; // 'AUTO': AI nhận diện | 'LANDSCAPE': Ép khổ ngang | 'PORTRAIT': Ép khổ dọc
-  manualRotation?: number; // Góc xoay bổ sung (0, 90, 180, 270)
+  pageOrientationMode?: 'AUTO' | 'LANDSCAPE' | 'PORTRAIT'; // 'AUTO': AI nhận diện từng trang riêng biệt | 'LANDSCAPE': Ép tất cả ngang | 'PORTRAIT': Ép tất cả dọc
+  pageOrientationOverrides?: Record<number, 'AUTO' | 'LANDSCAPE' | 'PORTRAIT'>; // Tùy chỉnh riêng cho từng trang
+  pageRotations?: Record<number, number>; // Góc xoay riêng từng trang (0, 90, 180, 270)
+  manualRotation?: number; // Góc xoay bổ sung đồng loạt (0, 90, 180, 270)
 }
 
 /**
@@ -343,25 +345,68 @@ async function detectImageOrientationFromBytes(bytes: Uint8Array): Promise<boole
 }
 
 /**
- * 2. AI TỰ ĐỘNG NHẬN DIỆN KHỔ TRANG NẰM NGANG & NẰM DỌC THEO HƯỚNG CHỮ (Text Stream Matrix)
- * Phân tích toán tử ma trận văn bản Tm, cm trong nội dung PDF để xác định chính xác:
+ * Trích xuất chuỗi ký tự trên trang PDF để phân tích ngữ cảnh (nhận diện bảng biểu vs văn bản hành chính)
+ */
+function extractPageTextSnippets(str: string): string {
+  let text = '';
+  const parenRegex = /\(([^()]{2,})\)/g;
+  const hexRegex = /<([0-9a-fA-F]{4,})>/g;
+  let match;
+  while ((match = parenRegex.exec(str)) !== null) {
+    text += ' ' + match[1];
+  }
+  while ((match = hexRegex.exec(str)) !== null) {
+    const hex = match[1];
+    let d = '';
+    for (let k = 0; k < hex.length - 1; k += 2) {
+      const code = parseInt(hex.substr(k, 2), 16);
+      if (code >= 32 && code <= 126) d += String.fromCharCode(code);
+    }
+    if (d.length >= 2) text += ' ' + d;
+  }
+  return text;
+}
+
+/**
+ * 2. AI TỰ ĐỘNG NHẬN DIỆN KHỔ TRANG NẰM NGANG & NẰM DỌC CHO TỪNG TRANG ĐỘC LẬP (Per-Page AI Analysis)
+ * Phân tích toán tử ma trận văn bản Tm, cm và cấu trúc nội dung của RIÊNG TRANG ĐÓ để xác định chính xác:
  * - Khổ dọc (Portrait) khi chữ đọc xuôi dòng theo chiều đứng
  * - Khổ ngang (Landscape) khi trang là bảng tính, bản vẽ có chữ quay ngang 90° hoặc trang khổ rộng
+ * Tuyệt đối không để 1 trang ngang làm xoay ngang toàn bộ các trang khác trong tệp.
  */
 export async function detectPageOrientationByText(
   sourcePage: any,
   context: any,
-  pageIndex: number = 0,
-  documentTitle?: string
+  pageIndex: number = 0
 ): Promise<PageOrientationResult> {
   const { width: rawW, height: rawH } = sourcePage.getSize();
   const pageRotation = (sourcePage.getRotation().angle % 360 + 360) % 360;
 
+  // Kích thước trực quan ban đầu theo góc xoay trang có sẵn trong tệp
+  const initialVisualW = (pageRotation === 90 || pageRotation === 270) ? rawH : rawW;
+  const initialVisualH = (pageRotation === 90 || pageRotation === 270) ? rawW : rawH;
+
+  // 1. Nếu bản thân trang đã có kích thước khổ ngang (chiều rộng > chiều cao):
+  if (initialVisualW > initialVisualH * 1.05) {
+    return {
+      pageIndex,
+      isLandscape: true,
+      finalRotation: pageRotation,
+      visualWidth: initialVisualW,
+      visualHeight: initialVisualH,
+      confidence: 0.99,
+      dominantAngle: 0,
+      method: 'Geometric Bounds',
+      reason: `Trang ${pageIndex + 1}: Khổ ngang chuẩn (${Math.round(initialVisualW)}x${Math.round(initialVisualH)}pt)`,
+    };
+  }
+
   let angleCounts: Record<number, number> = { 0: 0, 90: 0, 180: 0, 270: 0 };
   let hasText = false;
   let totalTextSamples = 0;
+  let pageTextSnippets = '';
 
-  // 1. Phân tích nội dung luồng dữ liệu (Contents stream)
+  // 2. Phân tích nội dung luồng dữ liệu (Contents stream) CỦA RIÊNG TRANG NÀY
   try {
     const contentsRef = sourcePage.node.get(PDFName.of('Contents'));
     if (contentsRef) {
@@ -402,6 +447,9 @@ export async function detectPageOrientationByText(
             str += String.fromCharCode(decodedBytes[b]);
           }
 
+          // Trích xuất các đoạn văn bản thực tế xuất hiện trên chính trang này
+          pageTextSnippets += ' ' + extractPageTextSnippets(str);
+
           // Phân tích ma trận chuyển đổi tọa độ Tm và cm: a b c d e f Tm / cm
           const matrixRegex = /(-?[\d\.]+)\s+(-?[\d\.]+)\s+(-?[\d\.]+)\s+(-?[\d\.]+)\s+(-?[\d\.]+)\s+(-?[\d\.]+)\s+(?:Tm|cm)/g;
           let match;
@@ -424,15 +472,10 @@ export async function detectPageOrientationByText(
       }
     }
   } catch (err) {
-    console.warn('Lỗi phân tích ma trận chữ:', err);
+    console.warn(`Lỗi phân tích ma trận chữ trang ${pageIndex + 1}:`, err);
   }
 
-  // Kích thước trực quan ban đầu theo góc xoay trang có sẵn trong tệp
-  const initialVisualW = (pageRotation === 90 || pageRotation === 270) ? rawH : rawW;
-  const initialVisualH = (pageRotation === 90 || pageRotation === 270) ? rawW : rawH;
-  const initialIsLandscape = initialVisualW > initialVisualH;
-
-  // Nếu trang có nội dung chữ xoay nghiêng 90° hoặc 270°
+  // 3. Phân tích góc xoay chữ thực tế trên trang:
   if (hasText && totalTextSamples > 0) {
     let dominantTextAngle = 0;
     let maxCount = angleCounts[0];
@@ -443,12 +486,10 @@ export async function detectPageOrientationByText(
       }
     }
 
-    // Góc chữ hiển thị thực tế trên màn hình (kết hợp góc xoay gốc của trang)
     const screenTextAngle = (dominantTextAngle + 360 - pageRotation) % 360;
 
+    // A. Nếu đa số chữ trên trang này xoay nghiêng 90° hoặc 270° (bảng tính, bản vẽ xoay ngang)
     if (screenTextAngle === 90 || screenTextAngle === 270) {
-      // Chữ đang xoay nghiêng 90° so với hướng nhìn (bảng tính ngang / bản vẽ ngang nằm trong khung dọc)
-      // Tự động nhận diện & xoay khổ trang sang Khổ Ngang theo hướng chữ đọc chuẩn
       const finalRotation = (pageRotation + (screenTextAngle === 90 ? 90 : 270)) % 360;
       return {
         pageIndex,
@@ -459,45 +500,61 @@ export async function detectPageOrientationByText(
         confidence: 0.98,
         dominantAngle: screenTextAngle,
         method: 'AI Text Stream Matrix',
-        reason: `AI phát hiện chữ/bảng tính xoay ${screenTextAngle}° • Nhận diện Khổ ngang (Landscape)`,
+        reason: `Trang ${pageIndex + 1}: AI phát hiện bảng tính xoay ${screenTextAngle}° • Khổ ngang (Landscape)`,
       };
     }
-  }
 
-  // 2. Phân tích theo ngữ cảnh tên tài liệu (ví dụ: Bảng kê chứng từ thanh toán, Bảng tính, Chi phí...)
-  if (documentTitle) {
-    const isTableDoc = /(?:bảng kê|bang ke|bảng tính|bang tinh|danh sách|danh sach|quyết toán|quyet toan|kê khai|ke khai|báo cáo tài chính|bao cao tai chinh|bản vẽ|ban ve|layout|landscape|sheet|chi phí|thanh toán|tam ung)/i.test(documentTitle);
-    if (isTableDoc && initialVisualW < initialVisualH) {
+    // B. Kiểm tra nội dung văn bản cụ thể trên chính trang này:
+    const isLetterPage = /(?:giấy đề nghị|giay de nghi|tờ trình|to trinh|đơn xin|don xin|quyết định|quyet dinh|thông báo|thong bao|kính gửi|kinh gui|cộng hòa xã hội|cong hoa xa hoi)/i.test(pageTextSnippets);
+    const isTablePage = /(?:bảng kê|bang ke|bảng tính|bang tinh|bảng tổng hợp|bang tong hop|danh sách chi tiết|danh sach chi tiet|báo cáo tài chính|bao cao tai chinh|bản vẽ|ban ve)/i.test(pageTextSnippets);
+
+    if (isLetterPage) {
+      // Trang văn bản hành chính đọc dọc
+      return {
+        pageIndex,
+        isLandscape: false,
+        finalRotation: pageRotation,
+        visualWidth: initialVisualW,
+        visualHeight: initialVisualH,
+        confidence: 0.99,
+        dominantAngle: 0,
+        method: 'AI Text Stream Matrix',
+        reason: `Trang ${pageIndex + 1}: Văn bản hành chính đọc chuẩn • Khổ dọc (Portrait)`,
+      };
+    }
+
+    if (isTablePage && !isLetterPage) {
+      // Trang bảng kê/bảng tính nằm ngang
       return {
         pageIndex,
         isLandscape: true,
         finalRotation: (pageRotation + 90) % 360,
         visualWidth: initialVisualH,
         visualHeight: initialVisualW,
-        confidence: 0.94,
+        confidence: 0.95,
         dominantAngle: 90,
         method: 'AI Text Stream Matrix',
-        reason: `AI nhận diện hồ sơ dạng bảng kê ("${documentTitle}") • Nhận diện Khổ ngang (Landscape)`,
+        reason: `Trang ${pageIndex + 1}: Bảng kê chi tiết • Khổ ngang (Landscape)`,
+      };
+    }
+
+    // Nếu chữ đọc xuôi 0° bình thường
+    if (angleCounts[0] >= 3) {
+      return {
+        pageIndex,
+        isLandscape: false,
+        finalRotation: pageRotation,
+        visualWidth: initialVisualW,
+        visualHeight: initialVisualH,
+        confidence: 0.98,
+        dominantAngle: 0,
+        method: 'AI Text Stream Matrix',
+        reason: `Trang ${pageIndex + 1}: Chữ đọc chuẩn • Khổ dọc (Portrait)`,
       };
     }
   }
 
-  // Nếu trang có nội dung chữ chuẩn 0°
-  if (hasText && totalTextSamples > 0) {
-    return {
-      pageIndex,
-      isLandscape: initialIsLandscape,
-      finalRotation: pageRotation,
-      visualWidth: initialVisualW,
-      visualHeight: initialVisualH,
-      confidence: 0.99,
-      dominantAngle: 0,
-      method: 'AI Text Stream Matrix',
-      reason: `AI phát hiện chữ đọc chuẩn • ${initialIsLandscape ? 'Khổ ngang (Landscape)' : 'Khổ dọc (Portrait)'}`,
-    };
-  }
-
-  // 2. Dự phòng: Kiểm tra ảnh quét (Scanned PDF Image XObject)
+  // 4. Kiểm tra ảnh quét (Scanned PDF Image XObject) trên riêng trang này
   try {
     const resRef = sourcePage.node.get(PDFName.of('Resources'));
     if (resRef) {
@@ -517,7 +574,7 @@ export async function detectPageOrientationByText(
                   const w = dict.get(PDFName.of('Width'))?.numberValue;
                   const h = dict.get(PDFName.of('Height'))?.numberValue;
                   if (w && h) {
-                    if (w > h * 1.1) {
+                    if (w > h * 1.15) {
                       return {
                         pageIndex,
                         isLandscape: true,
@@ -527,7 +584,7 @@ export async function detectPageOrientationByText(
                         confidence: 0.95,
                         dominantAngle: 0,
                         method: 'AI Scanned Image OCR',
-                        reason: `AI nhận diện ảnh quét khổ ngang (${w}x${h}px)`,
+                        reason: `Trang ${pageIndex + 1}: Bản scan đồ họa khổ ngang (${w}x${h}px)`,
                       };
                     }
                   }
@@ -541,13 +598,13 @@ export async function detectPageOrientationByText(
                         return {
                           pageIndex,
                           isLandscape: true,
-                          finalRotation: 90,
+                          finalRotation: (pageRotation + 90) % 360,
                           visualWidth: Math.max(initialVisualW, initialVisualH),
                           visualHeight: Math.min(initialVisualW, initialVisualH),
                           confidence: 0.96,
                           dominantAngle: 90,
                           method: 'AI Scanned Image OCR',
-                          reason: `AI phát hiện nội dung bảng tính ngang trong bản scan (${w}x${h}px)`,
+                          reason: `Trang ${pageIndex + 1}: Bảng tính ngang trong bản scan đứng (${w}x${h}px)`,
                         };
                       }
                     }
@@ -563,56 +620,37 @@ export async function detectPageOrientationByText(
     // ignore
   }
 
-  // 3. Phân tích theo ngữ cảnh tên tài liệu (ví dụ: Bảng kê thanh toán, Bảng tính, Chi phí...)
-  if (documentTitle) {
-    const isTableDoc = /(?:bảng kê|bang ke|bảng tính|bang tinh|danh sách|danh sach|quyết toán|quyet toan|kê khai|ke khai|báo cáo tài chính|bao cao tai chinh|bản vẽ|ban ve|layout|landscape|sheet|chi phí|thanh toán|tam ung)/i.test(documentTitle);
-    if (isTableDoc && initialVisualW < initialVisualH) {
-      return {
-        pageIndex,
-        isLandscape: true,
-        finalRotation: 90,
-        visualWidth: initialVisualH,
-        visualHeight: initialVisualW,
-        confidence: 0.94,
-        dominantAngle: 90,
-        method: 'AI Text Stream Matrix',
-        reason: `AI nhận diện tài liệu dạng bảng kê ("${documentTitle}") • Nhận diện Khổ ngang (Landscape)`,
-      };
-    }
-  }
-
-  // 4. Dự phòng theo kích thước hình học
+  // 5. Dự phòng theo hình học trang
   return {
     pageIndex,
-    isLandscape: initialIsLandscape,
+    isLandscape: false,
     finalRotation: pageRotation,
     visualWidth: initialVisualW,
     visualHeight: initialVisualH,
     confidence: 0.85,
     dominantAngle: 0,
     method: 'Geometric Bounds',
-    reason: `Kích thước chuẩn: ${initialIsLandscape ? 'Khổ ngang (Landscape)' : 'Khổ dọc (Portrait)'}`,
+    reason: `Trang ${pageIndex + 1}: Khổ dọc chuẩn (Portrait)`,
   };
 }
 
 /**
- * Quét toàn bộ các trang trong file PDF và trả về kết quả nhận diện khổ trang bằng AI
+ * Quét toàn bộ các trang trong file PDF và trả về kết quả nhận diện khổ trang bằng AI cho từng trang
  */
 export async function analyzePdfPagesOrientation(
-  pdfBytes: ArrayBuffer | Uint8Array,
-  documentTitle?: string
+  pdfBytes: ArrayBuffer | Uint8Array
 ): Promise<PageOrientationResult[]> {
   const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const total = doc.getPageCount();
   const results: PageOrientationResult[] = [];
   for (let i = 0; i < total; i++) {
-    results.push(await detectPageOrientationByText(doc.getPage(i), doc.context, i, documentTitle));
+    results.push(await detectPageOrientationByText(doc.getPage(i), doc.context, i));
   }
   return results;
 }
 
 /**
- * 3. Backend Injection: Đọc toàn bộ các trang PDF, nhận diện khổ ngang/dọc theo chữ bằng AI,
+ * 3. Backend Injection: Đọc toàn bộ các trang PDF, nhận diện khổ ngang/dọc độc lập cho từng trang bằng AI,
  * và dán tem giáp lai chân trang (Footer Stamp) với khoảng lề đáy an toàn chống mất tem khi in.
  */
 export async function stampPdfWithFooterSeal(
@@ -642,7 +680,7 @@ export async function stampPdfWithFooterSeal(
   // tuyệt đối không bị cắt mất chân tem khi in ra giấy!
   const safeMarginBottom = Math.max(18, options.customMarginBottom ?? 18);
 
-  // Tạo tài liệu xuất chuẩn hóa, đồng bộ chiều hướng từng trang (khổ dọc / khổ ngang)
+  // Tạo tài liệu xuất chuẩn hóa, đồng bộ chiều hướng từng trang độc lập (hỗ trợ trang dọc xen kẽ trang ngang)
   const outputDoc = await PDFDocument.create();
 
   for (let i = 0; i < totalPages; i++) {
@@ -650,22 +688,23 @@ export async function stampPdfWithFooterSeal(
     const { width: rawW, height: rawH } = sourcePage.getSize();
     const rawRot = (sourcePage.getRotation().angle % 360 + 360) % 360;
 
-    // 1. Nhận diện khổ trang và góc xoay chuẩn hóa
+    // 1. Nhận diện khổ trang và góc xoay chuẩn hóa CHO TỪNG TRANG RIÊNG BIỆT
     let isLandscape: boolean;
     let baseRotation: number;
 
-    const mode = options.pageOrientationMode || (options.autoDetectTextOrientation !== false ? 'AUTO' : 'SOURCE');
+    // Xem trang i này có bị ghi đè riêng không:
+    const pageOverride = options.pageOrientationOverrides?.[i];
+    const effectiveMode = pageOverride || options.pageOrientationMode || (options.autoDetectTextOrientation !== false ? 'AUTO' : 'SOURCE');
 
-    if (mode === 'LANDSCAPE') {
+    if (effectiveMode === 'LANDSCAPE') {
       isLandscape = true;
-      // Nếu trang gốc là khổ đứng (rawW < rawH), xoay 90° để nội dung hiển thị nằm ngang chuẩn
       baseRotation = rawW < rawH ? 90 : 0;
-    } else if (mode === 'PORTRAIT') {
+    } else if (effectiveMode === 'PORTRAIT') {
       isLandscape = false;
-      // Nếu trang gốc là khổ ngang (rawW > rawH), xoay 90° để thành khổ dọc
       baseRotation = rawW > rawH ? 90 : 0;
-    } else if (mode === 'AUTO') {
-      const aiResult = await detectPageOrientationByText(sourcePage, sourceDoc.context, i, options.documentTitle);
+    } else if (effectiveMode === 'AUTO') {
+      // Phân tích độc lập nội dung của chính trang i này:
+      const aiResult = await detectPageOrientationByText(sourcePage, sourceDoc.context, i);
       isLandscape = aiResult.isLandscape;
       baseRotation = aiResult.finalRotation;
     } else {
@@ -675,11 +714,11 @@ export async function stampPdfWithFooterSeal(
       baseRotation = rawRot;
     }
 
-    // Áp dụng góc xoay bổ sung do người dùng chỉ định thủ công (0°, 90°, 180°, 270°)
-    const manualRot = (options.manualRotation || 0) % 360;
-    const finalRot = (baseRotation + manualRot + 360) % 360;
+    // Góc xoay bổ sung riêng của trang i (nếu có) hoặc góc xoay chung
+    const pageRot = (options.pageRotations?.[i] ?? options.manualRotation ?? 0) % 360;
+    const finalRot = (baseRotation + pageRot + 360) % 360;
 
-    // Kích thước trực quan thực tế của trang xuất ra theo góc xoay finalRot
+    // Kích thước trực quan thực tế của trang i xuất ra theo góc xoay finalRot
     let visualWidth: number;
     let visualHeight: number;
     if (finalRot === 90 || finalRot === 270) {
@@ -690,7 +729,7 @@ export async function stampPdfWithFooterSeal(
       visualHeight = rawH;
     }
 
-    // 2. Tạo trang mới với kích thước chuẩn hóa theo đúng hướng hiển thị
+    // 2. Tạo trang mới với kích thước chuẩn hóa của riêng trang này (Dọc hoặc Ngang)
     const [embeddedPage] = await outputDoc.embedPages([sourcePage]);
     const newPage = outputDoc.addPage([visualWidth, visualHeight]);
 

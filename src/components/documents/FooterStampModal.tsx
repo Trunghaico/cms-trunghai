@@ -20,7 +20,8 @@ import {
   Info,
   AlertCircle,
   Bot,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { DocumentItem } from '../../types';
@@ -52,6 +53,8 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
   const [applyToAllPages, setApplyToAllPages] = useState<boolean>(true);
   const [autoDetectTextOrientation, setAutoDetectTextOrientation] = useState<boolean>(true);
   const [pageOrientationMode, setPageOrientationMode] = useState<'AUTO' | 'LANDSCAPE' | 'PORTRAIT'>('AUTO');
+  const [pageOrientationOverrides, setPageOrientationOverrides] = useState<Record<number, 'AUTO' | 'LANDSCAPE' | 'PORTRAIT'>>({});
+  const [pageRotations, setPageRotations] = useState<Record<number, number>>({});
   const [manualRotation, setManualRotation] = useState<number>(0);
   const [pageOrientations, setPageOrientations] = useState<PageOrientationResult[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -64,6 +67,67 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [previewStampDataUri, setPreviewStampDataUri] = useState<string>('');
   const previewBlobUrlRef = useRef<string | null>(null);
+
+  // Xác định khổ hiển thị thực tế của từng trang (hỗ trợ trang dọc và ngang xen kẽ)
+  const getEffectivePageOrientation = (idx: number): 'LANDSCAPE' | 'PORTRAIT' => {
+    const override = pageOrientationOverrides[idx];
+    if (override === 'LANDSCAPE') return 'LANDSCAPE';
+    if (override === 'PORTRAIT') return 'PORTRAIT';
+    if (pageOrientationMode === 'LANDSCAPE') return 'LANDSCAPE';
+    if (pageOrientationMode === 'PORTRAIT') return 'PORTRAIT';
+    const po = pageOrientations[idx];
+    if (po) {
+      return po.isLandscape ? 'LANDSCAPE' : 'PORTRAIT';
+    }
+    return 'PORTRAIT';
+  };
+
+  const togglePageOrientation = (idx: number) => {
+    const current = getEffectivePageOrientation(idx);
+    const next = current === 'LANDSCAPE' ? 'PORTRAIT' : 'LANDSCAPE';
+    setPageOrientationOverrides(prev => ({
+      ...prev,
+      [idx]: next,
+    }));
+  };
+
+  const rotatePage90 = (idx: number) => {
+    setPageRotations(prev => ({
+      ...prev,
+      [idx]: ((prev[idx] || 0) + 90) % 360,
+    }));
+  };
+
+  const resetPageToAuto = (idx: number) => {
+    setPageOrientationOverrides(prev => {
+      const copy = { ...prev };
+      delete copy[idx];
+      return copy;
+    });
+    setPageRotations(prev => {
+      const copy = { ...prev };
+      delete copy[idx];
+      return copy;
+    });
+  };
+
+  const summaryText = useMemo(() => {
+    if (pageOrientations.length === 0) return '';
+    let landscapeCount = 0;
+    let portraitCount = 0;
+    for (let i = 0; i < pageOrientations.length; i++) {
+      const ori = getEffectivePageOrientation(i);
+      if (ori === 'LANDSCAPE') landscapeCount++;
+      else portraitCount++;
+    }
+    if (landscapeCount > 0 && portraitCount > 0) {
+      return `Tự động hỗn hợp: ${portraitCount} trang dọc • ${landscapeCount} trang ngang`;
+    }
+    if (landscapeCount > 0) {
+      return `Tất cả ${landscapeCount} trang khổ ngang`;
+    }
+    return `Tất cả ${portraitCount} trang khổ dọc`;
+  }, [pageOrientations, pageOrientationOverrides, pageOrientationMode]);
 
   // 1. Lấy toàn bộ danh sách các phòng ban đã phê duyệt (luôn sắp xếp theo thứ tự quy trình)
   const availableSigners: FooterSignerInfo[] = useMemo(() => {
@@ -257,10 +321,12 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
           try {
             const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
             setTotalPages(pdfDoc.getPageCount());
-            // Phân tích hướng chữ trên toàn bộ các trang bằng AI
-            const orientations = await analyzePdfPagesOrientation(bytes, doc?.title);
+            // Phân tích hướng chữ trên toàn bộ các trang độc lập bằng AI
+            const orientations = await analyzePdfPagesOrientation(bytes);
             if (!isCancelled) {
               setPageOrientations(orientations);
+              setPageOrientationOverrides({});
+              setPageRotations({});
             }
           } catch {
             // ignore
@@ -304,6 +370,8 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
           customMarginRight: 20,
           autoDetectTextOrientation,
           pageOrientationMode,
+          pageOrientationOverrides,
+          pageRotations,
           manualRotation,
         };
 
@@ -331,7 +399,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [isOpen, sourcePdfBytes, marginMode, applyToAllPages, activeSignersKey, autoDetectTextOrientation, pageOrientationMode, manualRotation]);
+  }, [isOpen, sourcePdfBytes, marginMode, applyToAllPages, activeSignersKey, autoDetectTextOrientation, pageOrientationMode, pageOrientationOverrides, pageRotations, manualRotation]);
 
   // Clean up Blob URL khi đóng modal hoặc unmount
   useEffect(() => {
@@ -492,7 +560,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                 </div>
               </div>
 
-              {/* Khổ Trang & Hướng Hiển Thị (Orientation & 90-degree Rotation) */}
+              {/* Khổ Trang & Hướng Hiển Thị (Orientation & Mixed Page Manager) */}
               <div className="space-y-2 pt-2 border-t border-slate-200">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -502,20 +570,22 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setManualRotation(prev => (prev + 90) % 360)}
-                    title="Xoay trang 90° theo chiều kim đồng hồ"
+                    title="Xoay toàn bộ các trang 90° theo chiều kim đồng hồ"
                     className="px-2 py-0.5 bg-slate-100 hover:bg-purple-100 text-purple-700 hover:text-purple-900 border border-purple-200 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer active:scale-95"
                   >
                     <RotateCw className="w-3 h-3 text-purple-600" />
-                    <span>Xoay 90°{manualRotation > 0 ? ` (${manualRotation}°)` : ''}</span>
+                    <span>Xoay tất cả{manualRotation > 0 ? ` (${manualRotation}°)` : ''}</span>
                   </button>
                 </div>
 
+                {/* 3 Chế độ toàn cục */}
                 <div className="grid grid-cols-3 gap-1.5">
                   <button
                     type="button"
                     onClick={() => {
                       setPageOrientationMode('AUTO');
                       setAutoDetectTextOrientation(true);
+                      setPageOrientationOverrides({});
                     }}
                     className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
                       pageOrientationMode === 'AUTO'
@@ -527,7 +597,7 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                       <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                     </div>
                     <span className="text-[10.5px] block font-bold leading-tight">AI Tự Động</span>
-                    <span className="text-[9px] text-slate-500 block leading-tight">Theo chữ/bản scan</span>
+                    <span className="text-[9px] text-slate-500 block leading-tight">Nhận diện từng trang</span>
                   </button>
 
                   <button
@@ -542,8 +612,8 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                     <div className="flex justify-center mb-0.5">
                       <FileText className="w-3.5 h-3.5 text-amber-600 rotate-90" />
                     </div>
-                    <span className="text-[10.5px] block font-bold leading-tight">Khổ Ngang</span>
-                    <span className="text-[9px] text-slate-500 block leading-tight">Bảng kê/Excel</span>
+                    <span className="text-[10.5px] block font-bold leading-tight">Tất Cả Ngang</span>
+                    <span className="text-[9px] text-slate-500 block leading-tight">Ép khổ bảng kê</span>
                   </button>
 
                   <button
@@ -558,11 +628,12 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                     <div className="flex justify-center mb-0.5">
                       <FileText className="w-3.5 h-3.5 text-blue-600" />
                     </div>
-                    <span className="text-[10.5px] block font-bold leading-tight">Khổ Dọc</span>
-                    <span className="text-[9px] text-slate-500 block leading-tight">Văn bản đứng</span>
+                    <span className="text-[10.5px] block font-bold leading-tight">Tất Cả Dọc</span>
+                    <span className="text-[9px] text-slate-500 block leading-tight">Ép văn bản đứng</span>
                   </button>
                 </div>
 
+                {/* Thông tin mô tả hướng xử lý */}
                 <div className={`p-2.5 rounded-xl border text-[10.5px] leading-relaxed transition-all ${
                   pageOrientationMode === 'LANDSCAPE'
                     ? 'bg-amber-50/80 border-amber-200 text-amber-900'
@@ -573,39 +644,121 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                   <p>
                     {pageOrientationMode === 'LANDSCAPE' && (
                       <span>
-                        Đang chọn <strong>Khổ Ngang (Landscape)</strong>: Trang tự động xoay ngang chuẩn (842 x 595pt), tem giáp lai được dán <strong>ở dưới cùng bên phải</strong> dưới phần chữ ký!
+                        Đang chọn <strong>Tất cả khổ ngang (Landscape)</strong>: Toàn bộ các trang sẽ xuất ra khổ 842×595pt, tem đóng ở góc dưới cùng bên phải.
                       </span>
                     )}
                     {pageOrientationMode === 'PORTRAIT' && (
                       <span>
-                        Đang chọn <strong>Khổ Dọc (Portrait)</strong>: Định dạng văn bản đứng chuẩn (595 x 842pt).
+                        Đang chọn <strong>Tất cả khổ dọc (Portrait)</strong>: Toàn bộ các trang sẽ xuất ra khổ 595×842pt chuẩn đứng.
                       </span>
                     )}
                     {pageOrientationMode === 'AUTO' && (
                       <span>
-                        <strong>AI Text Matrix & Scanned OCR</strong>: Tự động nhận diện hướng bảng kê/bản scan để xoay khổ ngang và đặt tem đúng chân trang dưới các chữ ký.
+                        ✨ <strong>AI nhận diện độc lập từng trang</strong>: Hệ thống tự động phân tích ma trận chữ và bản scan của từng trang riêng biệt. Trang đề nghị/tờ trình giữ nguyên khổ dọc, trang bảng kê/bảng tính tự động chuyển khổ ngang và đóng dấu ở dưới chữ ký.
                       </span>
                     )}
                   </p>
-
-                  {pageOrientations.length > 0 && pageOrientationMode === 'AUTO' && (
-                    <div className="pt-1 mt-1 border-t border-purple-200/60 flex flex-wrap gap-1">
-                      {pageOrientations.map((po) => (
-                        <span 
-                          key={po.pageIndex}
-                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
-                            po.isLandscape
-                              ? 'bg-amber-100 text-amber-900 border-amber-300'
-                              : 'bg-indigo-100 text-indigo-900 border-indigo-300'
-                          }`}
-                          title={po.reason}
-                        >
-                          T{po.pageIndex + 1}: {po.isLandscape ? 'Khổ ngang' : 'Khổ dọc'}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
+
+                {/* Danh sách tương tác quản lý từng trang độc lập */}
+                {pageOrientations.length > 0 && (
+                  <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                        <Layers className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Trạng thái từng trang ({pageOrientations.length} trang):</span>
+                      </span>
+                      {Object.keys(pageOrientationOverrides).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPageOrientationOverrides({});
+                            setPageRotations({});
+                          }}
+                          className="text-[9.5px] text-purple-600 hover:text-purple-800 font-bold cursor-pointer"
+                        >
+                          Khôi phục tự động
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
+                      {pageOrientations.map((po, idx) => {
+                        const effectiveOri = getEffectivePageOrientation(idx);
+                        const isLandscape = effectiveOri === 'LANDSCAPE';
+                        const isOverridden = !!pageOrientationOverrides[idx];
+                        const pageRot = (pageRotations[idx] || 0) % 360;
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2 rounded-xl border text-xs transition-all ${
+                              isLandscape
+                                ? 'bg-amber-50/70 border-amber-200/90'
+                                : 'bg-blue-50/70 border-blue-200/90'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1.5 mb-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="px-1.5 py-0.2 bg-slate-800 text-white font-extrabold text-[9px] rounded shrink-0">
+                                  T{idx + 1}
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.2 rounded text-[9.5px] font-bold border shrink-0 flex items-center gap-1 ${
+                                    isLandscape
+                                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                      : 'bg-blue-100 text-blue-900 border-blue-300'
+                                  }`}
+                                >
+                                  <FileText className={`w-2.5 h-2.5 ${isLandscape ? 'rotate-90' : ''}`} />
+                                  {isLandscape ? 'Khổ Ngang (842×595)' : 'Khổ Dọc (595×842)'}
+                                </span>
+                                {pageRot > 0 && (
+                                  <span className="px-1 py-0.2 bg-purple-100 text-purple-800 border border-purple-200 text-[8.5px] font-bold rounded">
+                                    +{pageRot}°
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => togglePageOrientation(idx)}
+                                  title={`Chuyển sang ${isLandscape ? 'Khổ Dọc' : 'Khổ Ngang'} cho riêng trang này`}
+                                  className="px-1.5 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[9.5px] font-semibold transition-colors cursor-pointer"
+                                >
+                                  Đổi {isLandscape ? 'Dọc' : 'Ngang'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => rotatePage90(idx)}
+                                  title="Xoay riêng trang này 90°"
+                                  className="p-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[9.5px] font-semibold transition-colors cursor-pointer"
+                                >
+                                  <RotateCw className="w-2.5 h-2.5" />
+                                </button>
+                                {isOverridden && (
+                                  <button
+                                    type="button"
+                                    onClick={() => resetPageToAuto(idx)}
+                                    title="Khôi phục lại nhận diện tự động cho trang này"
+                                    className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors cursor-pointer"
+                                  >
+                                    <RefreshCw className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-[10px] text-slate-500 leading-tight truncate">
+                              {isOverridden ? '⚡ Tùy chỉnh thủ công bởi người dùng' : po.reason}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Scope Selection */}
@@ -769,16 +922,10 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                     {isLoadingSource ? 'Đang đọc tệp gốc...' : 'Đang xử lý dán tem...'}
                   </span>
                 )}
-                {!nonPdfError && !isLoadingSource && !isGenerating && (
+                {!nonPdfError && !isLoadingSource && !isGenerating && summaryText && (
                   <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9.5px] font-semibold rounded-full hidden md:inline-flex items-center gap-1">
                     <Sparkles className="w-3 h-3 text-emerald-400" />
-                    <span>
-                      {pageOrientationMode === 'LANDSCAPE'
-                        ? 'Khổ ngang (Landscape)'
-                        : pageOrientationMode === 'PORTRAIT'
-                        ? 'Khổ dọc (Portrait)'
-                        : `AI tự động (${pageOrientations.length} trang)`}
-                    </span>
+                    <span>{summaryText}</span>
                   </span>
                 )}
               </div>
@@ -791,32 +938,39 @@ export const FooterStampModal: React.FC<FooterStampModalProps> = ({
                     onClick={() => {
                       setPageOrientationMode('AUTO');
                       setAutoDetectTextOrientation(true);
+                      setPageOrientationOverrides({});
                     }}
                     className={`px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer ${
-                      pageOrientationMode === 'AUTO' ? 'bg-purple-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
+                      pageOrientationMode === 'AUTO' && Object.keys(pageOrientationOverrides).length === 0 ? 'bg-purple-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
                     }`}
-                    title="AI Tự động nhận diện khổ trang"
+                    title="Tự động nhận diện độc lập từng trang"
                   >
                     <Bot className="w-2.5 h-2.5" />
                     <span>Tự động</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPageOrientationMode('LANDSCAPE')}
+                    onClick={() => {
+                      setPageOrientationMode('LANDSCAPE');
+                      setPageOrientationOverrides({});
+                    }}
                     className={`px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer ${
-                      pageOrientationMode === 'LANDSCAPE' ? 'bg-amber-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
+                      pageOrientationMode === 'LANDSCAPE' && Object.keys(pageOrientationOverrides).length === 0 ? 'bg-amber-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
                     }`}
-                    title="Ép Khổ ngang (Landscape) - Dán tem dưới chữ ký"
+                    title="Ép tất cả Khổ ngang (Landscape)"
                   >
                     <span>📑 Ngang</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPageOrientationMode('PORTRAIT')}
+                    onClick={() => {
+                      setPageOrientationMode('PORTRAIT');
+                      setPageOrientationOverrides({});
+                    }}
                     className={`px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 cursor-pointer ${
-                      pageOrientationMode === 'PORTRAIT' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
+                      pageOrientationMode === 'PORTRAIT' && Object.keys(pageOrientationOverrides).length === 0 ? 'bg-blue-600 text-white font-bold shadow-xs' : 'text-slate-400 hover:text-white'
                     }`}
-                    title="Ép Khổ dọc (Portrait)"
+                    title="Ép tất cả Khổ dọc (Portrait)"
                   >
                     <span>📄 Dọc</span>
                   </button>
