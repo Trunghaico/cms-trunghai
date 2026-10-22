@@ -17,14 +17,25 @@ import {
   RefreshCw, 
   PenTool, 
   Trash2, 
-  Image as ImageIcon,
   CheckCheck,
   ShieldCheck,
-  Briefcase
+  Briefcase,
+  Image as ImageIcon,
+  Move,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  AlignCenter,
+  Maximize2
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { uploadFileToNAS } from '../../lib/nasStorageService';
-import { compressAndCropAvatar } from '../../lib/imageUtils';
+import { 
+  compressAndCropAvatar, 
+  drawAvatarCropPreview, 
+  exportCustomCroppedAvatar, 
+  loadImgToDataUrl 
+} from '../../lib/imageUtils';
 
 // Bộ sưu tập avatar phong cách công sở chuyên nghiệp có sẵn
 const PRESET_AVATARS = [
@@ -62,6 +73,20 @@ export const UserProfileModal: React.FC = () => {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sigFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Avatar Custom Adjuster State (Canh chỉnh vị trí, căn giữa & phóng to thu nhỏ)
+  const [isAdjusterOpen, setIsAdjusterOpen] = useState(false);
+  const [loadedAdjustImg, setLoadedAdjustImg] = useState<HTMLImageElement | null>(null);
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [rotation, setRotation] = useState<number>(0);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isApplyingCrop, setIsApplyingCrop] = useState<boolean>(false);
+
+  const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+  const miniPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const initialPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Password fields
   const [currentPass, setCurrentPass] = useState('');
@@ -119,7 +144,159 @@ export const UserProfileModal: React.FC = () => {
     setSuccessMessage('');
   };
 
-  // Avatar Upload Handler: Tự động nén, tải lên và lưu trực tiếp vào Database
+  // Mở bộ công cụ canh chỉnh ảnh đại diện
+  const handleOpenAdjuster = (src: string) => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setRotation(0);
+    setIsAdjusterOpen(true);
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      setLoadedAdjustImg(img);
+    };
+    img.src = src;
+  };
+
+  // Canh chỉnh ảnh đại diện hiện tại hoặc ảnh đã chọn
+  const handleOpenAdjustCurrentAvatar = async () => {
+    const currentSrc = avatarUrl || activeUser.avatar;
+    if (!currentSrc) return;
+    const dataUrl = await loadImgToDataUrl(currentSrc);
+    handleOpenAdjuster(dataUrl);
+  };
+
+  // Cập nhật Canvas xem trước khi các thông số thu phóng, di chuyển thay đổi
+  useEffect(() => {
+    if (isAdjusterOpen && loadedAdjustImg) {
+      if (cropCanvasRef.current) {
+        drawAvatarCropPreview(cropCanvasRef.current, loadedAdjustImg, zoom, pan, rotation, 280);
+      }
+      if (miniPreviewCanvasRef.current) {
+        drawAvatarCropPreview(miniPreviewCanvasRef.current, loadedAdjustImg, zoom, pan, rotation, 80);
+      }
+    }
+  }, [isAdjusterOpen, loadedAdjustImg, zoom, pan, rotation]);
+
+  // Mouse & Touch & Wheel Dragging Handlers
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    initialPanRef.current = { x: pan.x, y: pan.y };
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    setPan({
+      x: initialPanRef.current.x + dx,
+      y: initialPanRef.current.y + dy,
+    });
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleCanvasTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      initialPanRef.current = { x: pan.x, y: pan.y };
+    }
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStartRef.current.x;
+    const dy = e.touches[0].clientY - dragStartRef.current.y;
+    setPan({
+      x: initialPanRef.current.x + dx,
+      y: initialPanRef.current.y + dy,
+    });
+  };
+
+  const handleCanvasTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.08 : -0.08;
+    setZoom((prev) => Math.min(3, Math.max(0.7, Number((prev + delta).toFixed(2)))));
+  };
+
+  const handleResetAlignment = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setRotation(0);
+  };
+
+  const handleCenterImage = () => {
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleCenterOnFace = () => {
+    setPan({ x: 0, y: -34 });
+  };
+
+  const handleFitImage = () => {
+    if (loadedAdjustImg) {
+      const w = loadedAdjustImg.naturalWidth || loadedAdjustImg.width;
+      const h = loadedAdjustImg.naturalHeight || loadedAdjustImg.height;
+      const minScale = Math.min(280 / w, 280 / h);
+      const baseScale = Math.max(280 / w, 280 / h);
+      setZoom(Math.max(0.6, Number((minScale / baseScale).toFixed(2))));
+      setPan({ x: 0, y: 0 });
+    }
+  };
+
+  // Áp dụng ảnh đại diện đã cắt và lưu cập nhật
+  const handleApplyCrop = async () => {
+    if (!loadedAdjustImg) return;
+    setIsApplyingCrop(true);
+    setErrorMessage('');
+    try {
+      const res = await exportCustomCroppedAvatar(
+        loadedAdjustImg,
+        zoom,
+        pan,
+        rotation,
+        280,
+        256,
+        0.88
+      );
+
+      setAvatarUrl(res.dataUrl);
+
+      let finalAvatarUrl = res.dataUrl;
+      try {
+        const customFileName = `avatar_${activeUser.username}_${Date.now()}.webp`;
+        const nasRes = await uploadFileToNAS(res.blob, customFileName);
+        if (nasRes && nasRes.url) {
+          finalAvatarUrl = nasRes.url;
+          setAvatarUrl(finalAvatarUrl);
+        }
+      } catch (nasErr) {
+        console.warn('Tải ảnh đại diện qua NAS gặp lỗi:', nasErr);
+      }
+
+      updateMyProfile({ avatar: finalAvatarUrl });
+      setIsAdjusterOpen(false);
+      setSuccessMessage('Đã canh chỉnh và cập nhật ảnh đại diện thành công!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err: any) {
+      console.error('Lỗi khi canh chỉnh ảnh:', err);
+      setErrorMessage(err.message || 'Lỗi khi canh chỉnh ảnh đại diện.');
+    } finally {
+      setIsApplyingCrop(false);
+    }
+  };
+
+  // Avatar Upload Handler: Chọn ảnh từ máy tính -> Mở ngay trình canh chỉnh căn giữa
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
@@ -129,55 +306,22 @@ export const UserProfileModal: React.FC = () => {
       return;
     }
 
-    // Check size < 10MB
     if (file.size > 10 * 1024 * 1024) {
       setErrorMessage('Dung lượng ảnh đại diện không được vượt quá 10MB.');
       return;
     }
 
-    setIsUploadingAvatar(true);
     setErrorMessage('');
-    setSuccessMessage('');
-
-    try {
-      // 1. Tự động cắt vuông và nén ảnh siêu nhẹ (< 30KB) để hiển thị tức thì và chống đầy LocalStorage
-      const { blob, dataUrl } = await compressAndCropAvatar(file, 256, 0.85);
-      
-      // Hiển thị ngay ảnh preview
-      setAvatarUrl(dataUrl);
-
-      let finalAvatarUrl = dataUrl;
-
-      // 2. Thử tải lên MinIO NAS Storage nếu có kết nối
-      try {
-        const customFileName = `avatar_${activeUser.username}_${Date.now()}.webp`;
-        const nasRes = await uploadFileToNAS(blob, customFileName);
-        if (nasRes && nasRes.url) {
-          finalAvatarUrl = nasRes.url;
-          setAvatarUrl(finalAvatarUrl);
-        }
-      } catch (nasErr) {
-        console.warn('Tải ảnh đại diện qua NAS gặp lỗi, lưu trữ cục bộ tối ưu:', nasErr);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        handleOpenAdjuster(dataUrl);
       }
-
-      // 3. TỰ ĐỘNG LƯU TRỰC TIẾP VÀO DATABASE & LOCALSTORAGE
-      const res = updateMyProfile({ avatar: finalAvatarUrl });
-      if (res.success) {
-        setSuccessMessage('Đã tải lên và tự động lưu ảnh đại diện vào cơ sở dữ liệu thành công!');
-        setTimeout(() => {
-          setSuccessMessage('');
-        }, 3500);
-      } else {
-        setErrorMessage(res.message || 'Lỗi khi tự động lưu ảnh vào cơ sở dữ liệu.');
-      }
-    } catch (err: any) {
-      console.error('Lỗi khi xử lý ảnh đại diện:', err);
-      setErrorMessage(err.message || 'Lỗi khi xử lý file ảnh. Vui lòng thử lại.');
-    } finally {
-      setIsUploadingAvatar(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -232,10 +376,8 @@ export const UserProfileModal: React.FC = () => {
 
     setIsSubmitting(false);
     if (res.success) {
-      setSuccessMessage('Đã cập nhật thông tin hồ sơ và ảnh đại diện thành công!');
-      setTimeout(() => {
-        setSuccessMessage('');
-      }, 3500);
+      // Đóng bảng thiết lập trở ra ngoài ngay sau khi lưu thành công theo yêu cầu
+      handleClose();
     } else {
       setErrorMessage(res.message || 'Lỗi khi cập nhật thông tin.');
     }
@@ -534,17 +676,19 @@ export const UserProfileModal: React.FC = () => {
                         onClick={() => fileInputRef.current?.click()}
                         className="px-4 py-2 bg-gradient-to-r from-brand-blue to-indigo-600 hover:from-brand-blue-dark hover:to-indigo-700 text-white font-bold rounded-xl shadow-glow-blue transition-all flex items-center gap-1.5 cursor-pointer text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        {isUploadingAvatar ? (
-                          <>
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            <span>Đang nén & Lưu vào DB...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-3.5 w-3.5" />
-                            <span>Tải Ảnh Từ Máy Tính</span>
-                          </>
-                        )}
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>Tải Ảnh Từ Máy Tính</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isUploadingAvatar}
+                        onClick={handleOpenAdjustCurrentAvatar}
+                        className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-brand-blue font-bold rounded-xl border border-brand-blue/30 transition-colors text-xs cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                        title="Canh chỉnh vị trí, căn giữa hoặc phóng to thu nhỏ ảnh hiện tại"
+                      >
+                        <Move className="h-3.5 w-3.5 text-brand-blue" />
+                        <span>Canh Chỉnh Lại Ảnh</span>
                       </button>
 
                       <button
@@ -557,7 +701,7 @@ export const UserProfileModal: React.FC = () => {
                       </button>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Hỗ trợ định dạng JPG, PNG, WEBP. Ảnh được tự động nén tối ưu và lưu vĩnh viễn vào Database không bị mất khi cập nhật dữ liệu.
+                      Hỗ trợ định dạng JPG, PNG, WEBP. Cho phép kéo rê để căn giữa ảnh, thu phóng và tự động nén tối ưu lưu trữ an toàn trong Database.
                     </p>
                   </div>
                 </div>
@@ -924,6 +1068,209 @@ export const UserProfileModal: React.FC = () => {
         </div>
 
       </div>
+
+      {/* MODAL CANH CHỈNH & CĂN GIỮA ẢNH ĐẠI DIỆN */}
+      {isAdjusterOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[95vh] text-white">
+            
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-sky-500/20 text-sky-400 rounded-xl border border-sky-500/30">
+                  <Move className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Canh Chỉnh & Căn Giữa Ảnh Đại Diện</h3>
+                  <p className="text-[11px] text-slate-400">Kéo thả để căn ảnh vào giữa khung hình tròn theo ý bạn</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdjusterOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-5 overflow-y-auto space-y-4 flex flex-col items-center custom-scrollbar">
+              
+              {/* Instructions */}
+              <div className="w-full text-center px-3 py-1.5 bg-sky-950/40 border border-sky-800/40 rounded-xl text-sky-300 text-[11px] flex items-center justify-center gap-1.5">
+                <span>👆 Giữ chuột & kéo để di chuyển ảnh • Lăn chuột để thu phóng</span>
+              </div>
+
+              {/* Viewport & Canvas */}
+              <div className="relative rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-950 shadow-2xl flex items-center justify-center select-none">
+                <canvas
+                  ref={cropCanvasRef}
+                  width={280}
+                  height={280}
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseUp={handleCanvasMouseUp}
+                  onMouseLeave={handleCanvasMouseUp}
+                  onTouchStart={handleCanvasTouchStart}
+                  onTouchMove={handleCanvasTouchMove}
+                  onTouchEnd={handleCanvasTouchEnd}
+                  onWheel={handleCanvasWheel}
+                  className={`w-[280px] h-[280px] block ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} touch-none`}
+                />
+              </div>
+
+              {/* Zoom Slider Control */}
+              <div className="w-full max-w-sm space-y-2 bg-slate-800/50 p-3 rounded-2xl border border-slate-700/60">
+                <div className="flex items-center justify-between text-xs text-slate-300 font-medium">
+                  <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                    <ZoomIn className="h-3.5 w-3.5 text-sky-400" />
+                    <span>Độ thu phóng (Zoom):</span>
+                  </span>
+                  <span className="font-mono font-bold text-sky-400 bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-700/40 text-[11px]">
+                    {Math.round(zoom * 100)}%
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setZoom((z) => Math.max(0.7, Number((z - 0.1).toFixed(2))))}
+                    className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition-colors cursor-pointer"
+                    title="Thu nhỏ"
+                  >
+                    <ZoomOut className="h-3.5 w-3.5" />
+                  </button>
+
+                  <input
+                    type="range"
+                    min="0.7"
+                    max="3"
+                    step="0.05"
+                    value={zoom}
+                    onChange={(e) => setZoom(Number(e.target.value))}
+                    className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setZoom((z) => Math.min(3, Number((z + 0.1).toFixed(2))))}
+                    className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition-colors cursor-pointer"
+                    title="Phóng to"
+                  >
+                    <ZoomIn className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Alignment Pills */}
+              <div className="w-full max-w-sm space-y-1.5">
+                <span className="block text-[10.5px] font-bold text-slate-400 uppercase tracking-wider text-center">
+                  Căn chỉnh vị trí nhanh:
+                </span>
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleCenterImage}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Căn chính giữa khung tròn"
+                  >
+                    <AlignCenter className="h-3 w-3 text-sky-400" />
+                    <span>Căn giữa</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCenterOnFace}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Dịch lên trên một chút để khuôn mặt vào giữa"
+                  >
+                    <UserIcon className="h-3 w-3 text-amber-400" />
+                    <span>Căn khuôn mặt</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleFitImage}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Thu nhỏ vừa trọn khung"
+                  >
+                    <Maximize2 className="h-3 w-3 text-emerald-400" />
+                    <span>Vừa khung</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRotation((r) => (r + 90) % 360)}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Xoay góc 90 độ"
+                  >
+                    <RotateCw className="h-3 w-3 text-indigo-400" />
+                    <span>Xoay 90°</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetAlignment}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Đặt lại trạng thái ban đầu"
+                  >
+                    <RefreshCw className="h-3 w-3 text-slate-400" />
+                    <span>Đặt lại</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mini Preview Component */}
+              <div className="flex items-center gap-3 p-3 bg-slate-800/40 border border-slate-700/50 rounded-2xl w-full max-w-sm">
+                <canvas
+                  ref={miniPreviewCanvasRef}
+                  width={80}
+                  height={80}
+                  className="w-12 h-12 rounded-full border-2 border-white/80 shadow-md ring-2 ring-sky-500/30 shrink-0"
+                />
+                <div className="text-left min-w-0 flex-1">
+                  <span className="block text-[11px] font-bold text-white">Xem trước hiển thị</span>
+                  <p className="text-[10px] text-slate-400 leading-tight">Ảnh sẽ hiển thị tròn như trên tại thanh tiêu đề và hồ sơ</p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-900/90 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isApplyingCrop}
+                onClick={() => setIsAdjusterOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
+              >
+                Hủy Bỏ
+              </button>
+
+              <button
+                type="button"
+                disabled={isApplyingCrop}
+                onClick={handleApplyCrop}
+                className="px-5 py-2 bg-gradient-to-r from-sky-500 to-brand-blue hover:from-sky-400 hover:to-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                {isApplyingCrop ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Đang xử lý...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Áp Dụng & Cập Nhật Ảnh</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };
