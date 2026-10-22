@@ -177,9 +177,26 @@ export const UserProfileModal: React.FC = () => {
     }
   }, [isAdjusterOpen, loadedAdjustImg, zoom, pan, rotation]);
 
-  // Mouse & Touch & Wheel Dragging Handlers
+  // Native Non-Passive Wheel Event Listener cho Canvas thu phóng mượt mà không lỗi passive listener
+  useEffect(() => {
+    const canvas = cropCanvasRef.current;
+    if (!canvas || !isAdjusterOpen) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.cancelable) e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.08 : -0.08;
+      setZoom((prev) => Math.min(3, Math.max(0.7, Number((prev + delta).toFixed(2)))));
+    };
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [isAdjusterOpen]);
+
+  // Mouse & Touch Dragging Handlers
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     initialPanRef.current = { x: pan.x, y: pan.y };
@@ -219,12 +236,6 @@ export const UserProfileModal: React.FC = () => {
 
   const handleCanvasTouchEnd = () => {
     setIsDragging(false);
-  };
-
-  const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const delta = e.deltaY < 0 ? 0.08 : -0.08;
-    setZoom((prev) => Math.min(3, Math.max(0.7, Number((prev + delta).toFixed(2)))));
   };
 
   const handleResetAlignment = () => {
@@ -1115,7 +1126,6 @@ export const UserProfileModal: React.FC = () => {
                   onTouchStart={handleCanvasTouchStart}
                   onTouchMove={handleCanvasTouchMove}
                   onTouchEnd={handleCanvasTouchEnd}
-                  onWheel={handleCanvasWheel}
                   className={`w-[280px] h-[280px] block ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} touch-none`}
                 />
               </div>
