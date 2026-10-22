@@ -1,4 +1,4 @@
-import { DocumentItem, User, WorkflowTemplate, NotificationItem, DepartmentItem, JobTitleItem } from '../types';
+import { DocumentItem, User, WorkflowTemplate, NotificationItem, DepartmentItem, JobTitleItem, DocumentCategoryItem } from '../types';
 import { ROLE_PRESET_PERMISSIONS } from './permissions';
 
 export const USERS: User[] = [
@@ -958,6 +958,73 @@ export const INITIAL_JOB_TITLES: JobTitleItem[] = [
     department: 'Phòng CNTT & Hạ tầng',
     defaultRole: 'ADMIN',
     description: 'Quản trị người dùng, phân quyền chi tiết và cấu hình hệ thống.',
+    createdAt: '2026-01-01T08:00:00+07:00'
+  }
+];
+
+export const INITIAL_DOCUMENT_CATEGORIES: DocumentCategoryItem[] = [
+  {
+    id: 'cat-contract',
+    name: 'Hợp đồng kinh tế',
+    code: 'HĐ',
+    description: 'Hợp đồng mua sắm vật tư, thiết bị, gói thầu dịch vụ, hợp đồng thương mại',
+    defaultSlaHours: 48,
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'cat-proposal',
+    name: 'Tờ trình phê duyệt',
+    code: 'TTr',
+    description: 'Tờ trình mua sắm nội bộ, dự toán ngân sách, bổ nhiệm, phê duyệt kế hoạch',
+    defaultSlaHours: 24,
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'cat-payment',
+    name: 'Đề xuất thanh toán',
+    code: 'ĐXTT',
+    description: 'Hồ sơ đề xuất và ủy nhiệm thanh toán, tạm ứng, hoàn ứng tiền hàng',
+    defaultSlaHours: 16,
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'cat-payment-doc',
+    name: 'Hồ sơ thanh toán',
+    code: 'HSTT',
+    description: 'Bộ chứng từ thanh toán tiền hàng nhà cung cấp, thanh quyết toán hợp đồng',
+    defaultSlaHours: 16,
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'cat-acceptance',
+    name: 'Biên bản nghiệm thu',
+    code: 'BBNT',
+    description: 'Biên bản nghiệm thu kỹ thuật, khối lượng hoàn thành, bàn giao thiết bị',
+    defaultSlaHours: 24,
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'cat-internal',
+    name: 'Văn bản nội bộ',
+    code: 'VBNB',
+    description: 'Quyết định, thông báo điều hành, quy chế, nội quy công ty ban hành',
+    defaultSlaHours: 24,
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'cat-bidding',
+    name: 'Hồ sơ đấu thầu & Dự toán',
+    code: 'HSDT',
+    description: 'Hồ sơ dự thầu, hồ sơ mời thầu, bảng bóc tách khối lượng và dự toán chi phí',
+    defaultSlaHours: 48,
+    createdAt: '2026-01-01T08:00:00+07:00'
+  },
+  {
+    id: 'cat-technical',
+    name: 'Tài liệu kỹ thuật & Thiết kế',
+    code: 'TLKT',
+    description: 'Bản vẽ kỹ thuật, hồ sơ giải pháp công nghệ, thuyết minh phương án thi công',
+    defaultSlaHours: 48,
     createdAt: '2026-01-01T08:00:00+07:00'
   }
 ];

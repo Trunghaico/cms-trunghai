@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog, WorkflowTemplate, WorkflowStep, OverdueAction, DocumentComment, DocumentCommentAttachment } from '../types';
+import { DocumentItem, ApprovalStep, NotificationItem, User, DocumentStatus, StepStatus, UserRole, PermissionId, PermissionPreset, DepartmentItem, JobTitleItem, UserPosition, ResubmitMode, AuditLog, WorkflowTemplate, WorkflowStep, OverdueAction, DocumentComment, DocumentCommentAttachment, DocumentCategoryItem } from '../types';
 import {
   loadDocuments,
   saveDocuments,
@@ -17,6 +17,8 @@ import {
   savePermissionPresets,
   loadWorkflowTemplates,
   saveWorkflowTemplates,
+  loadDocumentCategories,
+  saveDocumentCategories,
   loadDeletedUserIds,
   addDeletedUserId,
   removeDeletedUserId,
@@ -32,6 +34,9 @@ import {
   loadDeletedWorkflowTemplateIds,
   addDeletedWorkflowTemplateId,
   removeDeletedWorkflowTemplateId,
+  loadDeletedCategoryIds,
+  addDeletedCategoryId,
+  removeDeletedCategoryId,
   loadDeletedDocumentIds,
   addDeletedDocumentId,
   removeDeletedDocumentId,
@@ -41,10 +46,12 @@ import {
   deduplicateJobTitles,
   deduplicatePresets,
   deduplicateWorkflowTemplates,
+  deduplicateCategories,
   formatDate,
   exportFullDatabaseJson,
   importFullDatabaseJson
 } from '../lib/storage';
+
 import {
   saveDatabaseToNAS,
   fetchDatabaseFromNAS,
@@ -136,6 +143,12 @@ interface DocumentContextType {
   updateWorkflowTemplate: (id: string, templateData: Partial<WorkflowTemplate>) => { success: boolean; message?: string };
   deleteWorkflowTemplate: (id: string) => { success: boolean; message?: string };
   resetWorkflowTemplatesToDefault: () => void;
+
+  // Document Categories (Loại hồ sơ áp dụng)
+  documentCategories: DocumentCategoryItem[];
+  createDocumentCategory: (categoryData: { name: string; code: string; description?: string; defaultSlaHours?: number }) => { success: boolean; message?: string; category?: DocumentCategoryItem };
+  updateDocumentCategory: (id: string, categoryData: Partial<DocumentCategoryItem>) => { success: boolean; message?: string };
+  deleteDocumentCategory: (id: string, force?: boolean) => { success: boolean; message?: string; affectedDocumentsCount?: number; affectedWorkflowsCount?: number };
 
 
   documents: DocumentItem[];
@@ -236,7 +249,8 @@ const calculateStateFingerprint = (
   jobs: JobTitleItem[],
   presets: PermissionPreset[],
   wfs: WorkflowTemplate[],
-  notifs: NotificationItem[]
+  notifs: NotificationItem[],
+  cats: DocumentCategoryItem[] = []
 ): string => {
   const dSig = (docs || []).map(d => `${d.id}:${d.status}:${d.updatedAt || d.createdAt}:${d.currentStepIndex}:${(d.steps || []).map(s => s.status).join(',')}`).join(';');
   const uSig = (usrs || []).map(u => `${u.id}:${u.pass}:${u.role}:${u.department}:${u.name}:${u.avatar || ''}:${u.email || ''}:${u.signatureUrl || ''}:${u.currentMobileSessionId || ''}:${u.lastMobileLoginAt || ''}:${u.currentWebSessionId || ''}:${u.lastWebLoginAt || ''}`).join(';');
@@ -244,8 +258,9 @@ const calculateStateFingerprint = (
   const jSig = (jobs || []).map(j => `${j.id}:${j.name}`).join(';');
   const pSig = (presets || []).map(p => `${p.id}:${p.name}`).join(';');
   const wSig = (wfs || []).map(w => `${w.id}:${w.category}:${w.steps?.length}`).join(';');
+  const cSig = (cats || []).map(c => `${c.id}:${c.name}:${c.code}`).join(';');
   const nSig = (notifs || []).length;
-  return `${dSig}#${uSig}#${dpSig}#${jSig}#${pSig}#${wSig}#${nSig}`;
+  return `${dSig}#${uSig}#${dpSig}#${jSig}#${pSig}#${wSig}#${cSig}#${nSig}`;
 };
 
 // Kênh BroadcastChannel đồng bộ tức thì giữa các tab trình duyệt và PWA trên cùng thiết bị
@@ -261,9 +276,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [jobTitles, setJobTitles] = useState<JobTitleItem[]>(() => loadJobTitles());
   const [permissionPresets, setPermissionPresets] = useState<PermissionPreset[]>(() => loadPermissionPresets());
   const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>(() => loadWorkflowTemplates());
+  const [documentCategories, setDocumentCategories] = useState<DocumentCategoryItem[]>(() => loadDocumentCategories());
   const [activeUser, setActiveUserState] = useState<User | null>(() => loadActiveUser());
   const [documents, setDocuments] = useState<DocumentItem[]>(() => loadDocuments());
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => loadNotifications());
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null);
@@ -322,6 +339,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveWorkflowTemplates(workflowTemplates);
   }, [workflowTemplates]);
 
+  // Sync document categories to storage
+  useEffect(() => {
+    saveDocumentCategories(documentCategories);
+  }, [documentCategories]);
+
   // Sync documents to storage
   useEffect(() => {
     saveDocuments(documents);
@@ -348,10 +370,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setPermissionPresets(deduplicatePresets(data.permissionPresets));
       } else if (data.type === 'WF_UPDATED' && Array.isArray(data.workflowTemplates)) {
         setWorkflowTemplates(deduplicateWorkflowTemplates(data.workflowTemplates));
+      } else if (data.type === 'CAT_UPDATED' && Array.isArray(data.documentCategories)) {
+        setDocumentCategories(deduplicateCategories(data.documentCategories));
       } else if (data.type === 'DOCUMENTS_UPDATED' && Array.isArray(data.documents)) {
         setDocuments(deduplicateDocuments(data.documents));
       }
     };
+
     syncBroadcastChannel.addEventListener('message', handleBroadcast);
     return () => {
       syncBroadcastChannel.removeEventListener('message', handleBroadcast);
@@ -477,6 +502,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (Array.isArray(snapshot.deletedWorkflowTemplateIds)) {
       snapshot.deletedWorkflowTemplateIds.forEach(id => addDeletedWorkflowTemplateId(id));
     }
+    if (Array.isArray(snapshot.deletedDocumentCategoryIds)) {
+      snapshot.deletedDocumentCategoryIds.forEach(id => addDeletedCategoryId(id));
+    }
 
     const cleanDocs = deduplicateDocuments(snapshot.documents || []);
     let cleanUsers = deduplicateUsers(snapshot.users || []);
@@ -484,7 +512,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const cleanJobs = deduplicateJobTitles(snapshot.jobTitles || []);
     const cleanPresets = deduplicatePresets(snapshot.permissionPresets || []);
     const cleanWfs = deduplicateWorkflowTemplates(snapshot.workflowTemplates || []);
+    const cleanCats = deduplicateCategories(snapshot.documentCategories || []);
     const cleanNotifs = snapshot.notifications || [];
+
 
     // Bảo vệ phiên đăng nhập mới của thiết bị này nếu snapshot nhận từ NAS cũ hơn thời điểm đăng nhập của máy
     const localSessionId = localStorage.getItem('trunghai_active_session_id');
@@ -552,6 +582,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setWorkflowTemplates(cleanWfs);
       saveWorkflowTemplates(cleanWfs);
     }
+    if (cleanCats.length > 0) {
+      setDocumentCategories(cleanCats);
+      saveDocumentCategories(cleanCats);
+    }
+
 
     // Tự động phát hiện thông báo mới và kích hoạt Push Notification / Rung chuông thiết bị
     setNotifications(prevNotifs => {
@@ -802,7 +837,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return { success: false, message: 'Đang có tiến trình đồng bộ khác chạy' };
     }
 
-    const currentFp = calculateStateFingerprint(documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications);
+    const currentFp = calculateStateFingerprint(documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, documentCategories);
 
     // Nếu là tự động sao lưu mà dữ liệu KHÔNG HỀ THAY ĐỔI -> Bỏ qua ngay lập tức để không tốn dung lượng NAS
     if (isAuto && currentFp === lastSavedFingerprintRef.current && lastSavedFingerprintRef.current !== '') {
@@ -819,6 +854,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const cleanJobs = deduplicateJobTitles(jobTitles);
       const cleanPresets = deduplicatePresets(permissionPresets);
       const cleanWfs = deduplicateWorkflowTemplates(workflowTemplates);
+      const cleanCats = deduplicateCategories(documentCategories);
 
       const res = await saveDatabaseToNAS({
         documents,
@@ -827,12 +863,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         jobTitles: cleanJobs,
         permissionPresets: cleanPresets,
         workflowTemplates: cleanWfs,
+        documentCategories: cleanCats,
         notifications,
         deletedUserIds: loadDeletedUserIds(),
         deletedDepartmentIds: loadDeletedDeptIds(),
         deletedJobTitleIds: loadDeletedJobIds(),
         deletedPresetIds: loadDeletedPresetIds(),
         deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
+        deletedDocumentCategoryIds: loadDeletedCategoryIds(),
         savedBy: isAuto ? 'Tự động sao lưu hệ thống' : (activeUser?.name || 'Tài khoản quản trị'),
         createTimestampedBackup: !isAuto, // Chỉ tạo file backup timestamp riêng khi người dùng bấm thủ công "Sao lưu ngay"
       });
@@ -872,7 +910,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isSyncInProgress.current = false;
       return { success: false, message: e.message || 'Lỗi không xác định khi đồng bộ lên NAS' };
     }
-  }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, activeUser, autoBackupConfig.intervalMinutes]);
+  }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, documentCategories, notifications, activeUser, autoBackupConfig.intervalMinutes]);
 
   // Lưu tức thời và đồng bộ vào Database (MinIO NAS + localStorage)
   const persistStateToDatabase = useCallback(async (overrides?: {
@@ -881,6 +919,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     jobTitles?: JobTitleItem[];
     permissionPresets?: PermissionPreset[];
     workflowTemplates?: WorkflowTemplate[];
+    documentCategories?: DocumentCategoryItem[];
     documents?: DocumentItem[];
     notifications?: NotificationItem[];
     actionDescription?: string;
@@ -890,10 +929,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const targetJobs = deduplicateJobTitles(overrides?.jobTitles || jobTitles);
     const targetPresets = deduplicatePresets(overrides?.permissionPresets || permissionPresets);
     const targetWorkflowTemplates = deduplicateWorkflowTemplates(overrides?.workflowTemplates || workflowTemplates);
+    const targetCategories = deduplicateCategories(overrides?.documentCategories || documentCategories);
     const targetDocs = overrides?.documents || documents;
     const targetNotifs = overrides?.notifications || notifications;
 
-    const newFp = calculateStateFingerprint(targetDocs, targetUsers, targetDepts, targetJobs, targetPresets, targetWorkflowTemplates, targetNotifs);
+    const newFp = calculateStateFingerprint(targetDocs, targetUsers, targetDepts, targetJobs, targetPresets, targetWorkflowTemplates, targetNotifs, targetCategories);
 
     // 1. Lưu tức thời vào LocalStorage
     if (overrides?.users) saveUsers(targetUsers);
@@ -901,6 +941,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (overrides?.jobTitles) saveJobTitles(targetJobs);
     if (overrides?.permissionPresets) savePermissionPresets(targetPresets);
     if (overrides?.workflowTemplates) saveWorkflowTemplates(targetWorkflowTemplates);
+    if (overrides?.documentCategories) saveDocumentCategories(targetCategories);
     if (overrides?.documents) saveDocuments(targetDocs);
     if (overrides?.notifications) saveNotifications(targetNotifs);
 
@@ -915,6 +956,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         jobTitles: targetJobs,
         permissionPresets: targetPresets,
         workflowTemplates: targetWorkflowTemplates,
+        documentCategories: targetCategories,
         notifications: targetNotifs,
         deletedDocumentIds: loadDeletedDocumentIds(),
         deletedUserIds: loadDeletedUserIds(),
@@ -922,9 +964,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         deletedJobTitleIds: loadDeletedJobIds(),
         deletedPresetIds: loadDeletedPresetIds(),
         deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
+        deletedDocumentCategoryIds: loadDeletedCategoryIds(),
         savedBy: overrides?.actionDescription || (activeUser?.name ? `${activeUser.name} (${activeUser.roleTitle})` : 'Tài khoản quản trị'),
         createTimestampedBackup: false,
       });
+
       if (res.success) {
         const nowStr = res.lastModified || new Date().toISOString();
         const newETag = res.eTag || nowStr;
@@ -1071,7 +1115,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     mutationDebounceTimerRef.current = setTimeout(() => {
-      const currentFp = calculateStateFingerprint(documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications);
+      const currentFp = calculateStateFingerprint(documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, documentCategories);
       if (currentFp !== lastSavedFingerprintRef.current && lastSavedFingerprintRef.current !== '') {
         syncToNAS(true).catch(err => console.warn('Auto backup on change error:', err));
       }
@@ -1082,7 +1126,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         clearTimeout(mutationDebounceTimerRef.current);
       }
     };
-  }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, notifications, autoBackupConfig.backupOnChange, syncToNAS]);
+  }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, documentCategories, notifications, autoBackupConfig.backupOnChange, syncToNAS]);
+
 
   // 4. Remote Polling & Real-time Synchronization across Devices (Ultra-fast 2s Polling + Event Driven - Luôn chạy liên tục)
   useEffect(() => {
@@ -1932,6 +1977,173 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       actionDescription: 'Khôi phục quy trình ký hệ thống về mặc định'
     });
   };
+
+  // Document Category Management (Loại hồ sơ áp dụng)
+  const createDocumentCategory = (categoryData: {
+    name: string;
+    code: string;
+    description?: string;
+    defaultSlaHours?: number;
+  }): { success: boolean; message?: string; category?: DocumentCategoryItem } => {
+    const trimmedName = categoryData.name.trim();
+    const trimmedCode = categoryData.code.trim().toUpperCase();
+    if (!trimmedName || !trimmedCode) {
+      return { success: false, message: 'Vui lòng nhập đầy đủ Tên loại hồ sơ và Mã viết tắt.' };
+    }
+    if (documentCategories.some(c => c.name.toLowerCase() === trimmedName.toLowerCase())) {
+      return { success: false, message: `Loại hồ sơ "${trimmedName}" đã tồn tại.` };
+    }
+    if (documentCategories.some(c => c.code.toUpperCase() === trimmedCode)) {
+      return { success: false, message: `Mã loại hồ sơ "${trimmedCode}" đã được sử dụng.` };
+    }
+
+    removeDeletedCategoryId(trimmedCode);
+    removeDeletedCategoryId(trimmedName);
+
+    const newCategory: DocumentCategoryItem = {
+      id: `cat-${Date.now()}`,
+      name: trimmedName,
+      code: trimmedCode,
+      description: categoryData.description?.trim() || '',
+      defaultSlaHours: categoryData.defaultSlaHours ? Number(categoryData.defaultSlaHours) : 24,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = deduplicateCategories([...documentCategories, newCategory]);
+    setDocumentCategories(updated);
+    saveDocumentCategories(updated);
+
+    if (syncBroadcastChannel) {
+      syncBroadcastChannel.postMessage({ type: 'CAT_UPDATED', documentCategories: updated });
+    }
+
+    persistStateToDatabase({
+      documentCategories: updated,
+      actionDescription: `Thêm loại hồ sơ áp dụng: ${newCategory.name} (${newCategory.code})`
+    });
+
+    return { success: true, category: newCategory };
+  };
+
+  const updateDocumentCategory = (
+    id: string,
+    categoryData: Partial<DocumentCategoryItem>
+  ): { success: boolean; message?: string } => {
+    const target = documentCategories.find(c => c.id === id || c.code.toUpperCase() === id.toUpperCase());
+    if (!target) return { success: false, message: 'Không tìm thấy loại hồ sơ.' };
+
+    const oldName = target.name;
+    let newName = oldName;
+
+    if (categoryData.name) {
+      const trimmedName = categoryData.name.trim();
+      if (documentCategories.some(c => c.id !== target.id && c.name.toLowerCase() === trimmedName.toLowerCase())) {
+        return { success: false, message: `Tên loại hồ sơ "${trimmedName}" đã được sử dụng.` };
+      }
+      newName = trimmedName;
+    }
+
+    if (categoryData.code) {
+      const trimmedCode = categoryData.code.trim().toUpperCase();
+      if (documentCategories.some(c => c.id !== target.id && c.code.toUpperCase() === trimmedCode)) {
+        return { success: false, message: `Mã loại hồ sơ "${trimmedCode}" đã được sử dụng.` };
+      }
+    }
+
+    const updatedCategories = documentCategories.map(c => {
+      if (c.id !== target.id) return c;
+      return {
+        ...c,
+        ...categoryData,
+        name: categoryData.name ? categoryData.name.trim() : c.name,
+        code: categoryData.code ? categoryData.code.trim().toUpperCase() : c.code,
+        description: categoryData.description !== undefined ? categoryData.description.trim() : c.description,
+        defaultSlaHours: categoryData.defaultSlaHours !== undefined ? Number(categoryData.defaultSlaHours) : c.defaultSlaHours,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    // Nếu đổi tên Loại hồ sơ -> Tự động đồng bộ cập nhật tên mới vào tất cả Quy trình (WorkflowTemplates) & Hồ sơ (Documents) đang dùng
+    let updatedWfs = workflowTemplates;
+    let updatedDocs = documents;
+
+    if (newName !== oldName) {
+      const affectedWfs = workflowTemplates.filter(w => w.category === oldName);
+      if (affectedWfs.length > 0) {
+        updatedWfs = workflowTemplates.map(w => w.category === oldName ? { ...w, category: newName } : w);
+        setWorkflowTemplates(updatedWfs);
+        saveWorkflowTemplates(updatedWfs);
+      }
+      const affectedDocs = documents.filter(d => d.category === oldName);
+      if (affectedDocs.length > 0) {
+        updatedDocs = documents.map(d => d.category === oldName ? { ...d, category: newName } : d);
+        setDocuments(updatedDocs);
+        saveDocuments(updatedDocs);
+      }
+    }
+
+    setDocumentCategories(updatedCategories);
+    saveDocumentCategories(updatedCategories);
+
+    if (syncBroadcastChannel) {
+      syncBroadcastChannel.postMessage({ 
+        type: 'CAT_UPDATED', 
+        documentCategories: updatedCategories,
+        workflowTemplates: updatedWfs,
+        documents: updatedDocs
+      });
+    }
+
+    persistStateToDatabase({
+      documentCategories: updatedCategories,
+      workflowTemplates: updatedWfs,
+      documents: updatedDocs,
+      actionDescription: `Cập nhật loại hồ sơ: ${target.name} -> ${newName}`
+    });
+
+    return { success: true };
+  };
+
+  const deleteDocumentCategory = (
+    id: string,
+    force: boolean = false
+  ): { success: boolean; message?: string; affectedDocumentsCount?: number; affectedWorkflowsCount?: number } => {
+    const target = documentCategories.find(c => c.id === id || c.code.toUpperCase() === id.toUpperCase());
+    if (!target) return { success: false, message: 'Không tìm thấy loại hồ sơ.' };
+
+    const affectedWorkflowsCount = workflowTemplates.filter(w => w.category.trim().toLowerCase() === target.name.trim().toLowerCase()).length;
+    const affectedDocumentsCount = documents.filter(d => d.category.trim().toLowerCase() === target.name.trim().toLowerCase()).length;
+
+    if (!force && (affectedWorkflowsCount > 0 || affectedDocumentsCount > 0)) {
+      return {
+        success: false,
+        message: `Loại hồ sơ "${target.name}" đang được áp dụng cho ${affectedWorkflowsCount} quy trình và ${affectedDocumentsCount} hồ sơ thực tế. Bạn có chắc chắn muốn xóa không?`,
+        affectedWorkflowsCount,
+        affectedDocumentsCount
+      };
+    }
+
+    addDeletedCategoryId(target.id);
+    addDeletedCategoryId(target.code);
+    addDeletedCategoryId(target.name);
+
+    const updated = documentCategories.filter(c => c.id !== target.id);
+    setDocumentCategories(updated);
+    saveDocumentCategories(updated);
+
+    if (syncBroadcastChannel) {
+      syncBroadcastChannel.postMessage({ type: 'CAT_UPDATED', documentCategories: updated });
+    }
+
+    persistStateToDatabase({
+      documentCategories: updated,
+      actionDescription: `Xóa loại hồ sơ áp dụng: ${target.name} (${target.code})`
+    });
+
+    return { success: true, affectedWorkflowsCount, affectedDocumentsCount };
+  };
+
 
 
   const markNotificationAsRead = (id: string) => {
@@ -3064,6 +3276,10 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateWorkflowTemplate,
         deleteWorkflowTemplate,
         resetWorkflowTemplatesToDefault,
+        documentCategories,
+        createDocumentCategory,
+        updateDocumentCategory,
+        deleteDocumentCategory,
         documents: accessibleDocuments,
 
         notifications: userNotifications,

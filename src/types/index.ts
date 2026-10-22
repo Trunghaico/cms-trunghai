@@ -289,3 +289,14 @@ export interface JobTitleItem {
   createdAt: string;
 }
 
+export interface DocumentCategoryItem {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  defaultSlaHours?: number; // SLA phê duyệt khuyến nghị (giờ)
+  createdAt: string;
+  updatedAt?: string;
+}
+
+

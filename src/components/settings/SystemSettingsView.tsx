@@ -28,10 +28,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  FolderKanban,
+  FileText
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { DepartmentItem, JobTitleItem, PermissionPreset, OverdueAction } from '../../types';
+import { DepartmentItem, JobTitleItem, PermissionPreset, OverdueAction, DocumentCategoryItem } from '../../types';
 import { PermissionPresetModal } from '../users/PermissionPresetModal';
 import { ALL_PERMISSIONS, PERMISSION_CATEGORIES } from '../../lib/permissions';
 import { NASBackupItem, MINIO_ENDPOINT, MINIO_BUCKET, MINIO_ACCESS_KEY, uploadFileToNAS } from '../../lib/nasStorageService';
@@ -76,6 +78,11 @@ export const SystemSettingsView: React.FC = () => {
     permissionPresets,
     users, 
     documents,
+    workflowTemplates,
+    documentCategories,
+    createDocumentCategory,
+    updateDocumentCategory,
+    deleteDocumentCategory,
     createDepartment, 
     updateDepartment, 
     deleteDepartment, 
@@ -99,7 +106,7 @@ export const SystemSettingsView: React.FC = () => {
 
   const canManageCategory = hasPermission('category.manage') || activeUser?.role === 'ADMIN';
 
-  const [activeSubTab, setActiveSubTab] = useState<'departments' | 'job-titles' | 'permission-presets' | 'nas-storage'>('departments');
+  const [activeSubTab, setActiveSubTab] = useState<'departments' | 'job-titles' | 'document-categories' | 'permission-presets' | 'nas-storage'>('departments');
   const [searchTerm, setSearchTerm] = useState('');
   
   // Tự động chuyển về tab Phòng Ban nếu không phải Quản trị viên
@@ -185,6 +192,14 @@ export const SystemSettingsView: React.FC = () => {
   const [jobCode, setJobCode] = useState('');
   const [jobDepartment, setJobDepartment] = useState('');
 
+  // Document Category Modal State
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<DocumentCategoryItem | null>(null);
+  const [catName, setCatName] = useState('');
+  const [catCode, setCatCode] = useState('');
+  const [catSlaHours, setCatSlaHours] = useState<number>(24);
+  const [catDescription, setCatDescription] = useState('');
+
   // Status message
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -224,6 +239,16 @@ export const SystemSettingsView: React.FC = () => {
       (p.description && p.description.toLowerCase().includes(term))
     );
   }, [permissionPresets, searchTerm]);
+
+  const filteredCategories = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return documentCategories;
+    return documentCategories.filter(c => 
+      c.name.toLowerCase().includes(term) || 
+      c.code.toLowerCase().includes(term) ||
+      (c.description && c.description.toLowerCase().includes(term))
+    );
+  }, [documentCategories, searchTerm]);
 
   const [deptOverdueAction, setDeptOverdueAction] = useState<OverdueAction>('WARN_AND_RETURN');
 
@@ -362,6 +387,81 @@ export const SystemSettingsView: React.FC = () => {
       const res = deleteJobTitle(job.id);
       if (res.success) {
         showNotification('success', `Đã xóa chức vụ "${job.name}" thành công.`);
+      } else {
+        showNotification('error', res.message || 'Xóa thất bại.');
+      }
+    }
+  };
+
+  // Document Category Modal Handlers
+  const handleOpenCreateCat = () => {
+    setEditingCat(null);
+    setCatName('');
+    setCatCode('');
+    setCatSlaHours(24);
+    setCatDescription('');
+    setIsCatModalOpen(true);
+  };
+
+  const handleOpenEditCat = (cat: DocumentCategoryItem) => {
+    setEditingCat(cat);
+    setCatName(cat.name);
+    setCatCode(cat.code);
+    setCatSlaHours(cat.defaultSlaHours || 24);
+    setCatDescription(cat.description || '');
+    setIsCatModalOpen(true);
+  };
+
+  const handleSaveCat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catName.trim() || !catCode.trim()) {
+      showNotification('error', 'Vui lòng điền đầy đủ tên loại hồ sơ và mã ký hiệu viết tắt.');
+      return;
+    }
+
+    if (editingCat) {
+      const res = updateDocumentCategory(editingCat.id, {
+        name: catName.trim(),
+        code: catCode.trim().toUpperCase(),
+        defaultSlaHours: Number(catSlaHours) || 24,
+        description: catDescription.trim()
+      });
+      if (res.success) {
+        showNotification('success', `Đã cập nhật loại hồ sơ "${catName.trim()}" thành công!`);
+        setIsCatModalOpen(false);
+      } else {
+        showNotification('error', res.message || 'Cập nhật thất bại.');
+      }
+    } else {
+      const res = createDocumentCategory({
+        name: catName.trim(),
+        code: catCode.trim().toUpperCase(),
+        defaultSlaHours: Number(catSlaHours) || 24,
+        description: catDescription.trim()
+      });
+      if (res.success) {
+        showNotification('success', `Đã tạo mới loại hồ sơ "${catName.trim()}" thành công!`);
+        setIsCatModalOpen(false);
+      } else {
+        showNotification('error', res.message || 'Tạo mới thất bại.');
+      }
+    }
+  };
+
+  const handleDeleteCat = (cat: DocumentCategoryItem) => {
+    const associatedWfs = workflowTemplates.filter(w => w.category === cat.name || w.category === cat.code);
+    const associatedDocs = documents.filter(d => d.category === cat.name || d.category === cat.code);
+    const totalAssociations = associatedWfs.length + associatedDocs.length;
+
+    let confirmMsg = `Bạn có chắc chắn muốn xóa loại hồ sơ "${cat.name}" (${cat.code})?`;
+    if (totalAssociations > 0) {
+      confirmMsg = `CẢNH BÁO: Loại hồ sơ "${cat.name}" đang được áp dụng trong ${associatedWfs.length} quy trình BPM và ${associatedDocs.length} hồ sơ thực tế trong hệ thống!\n\nNếu xóa, các hồ sơ và quy trình hiện hữu vẫn hoạt động bình thường nhưng danh mục này sẽ bị gỡ bỏ khỏi danh sách lựa chọn chuẩn.\n\nBạn có chắc chắn muốn xóa không?`;
+    }
+
+    if (window.confirm(confirmMsg)) {
+      const res = deleteDocumentCategory(cat.id, true);
+      if (res.success) {
+        showNotification('success', `Đã xóa loại hồ sơ "${cat.name}" thành công.`);
       } else {
         showNotification('error', res.message || 'Xóa thất bại.');
       }
@@ -558,6 +658,17 @@ export const SystemSettingsView: React.FC = () => {
                 <span>Chức Vụ ({jobTitles.length})</span>
               </button>
               <button
+                onClick={() => { setActiveSubTab('document-categories'); setSearchTerm(''); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  activeSubTab === 'document-categories'
+                    ? 'bg-white text-brand-blue shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FolderKanban className="w-4 h-4 text-emerald-600" />
+                <span>Loại Hồ Sơ ({documentCategories.length})</span>
+              </button>
+              <button
                 onClick={() => { setActiveSubTab('permission-presets'); setSearchTerm(''); }}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   activeSubTab === 'permission-presets'
@@ -603,6 +714,16 @@ export const SystemSettingsView: React.FC = () => {
                   <span>Thêm Chức Vụ</span>
                 </button>
               )
+            ) : activeSubTab === 'document-categories' ? (
+              canManageCategory && (
+                <button
+                  onClick={handleOpenCreateCat}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Thêm Loại Hồ Sơ</span>
+                </button>
+              )
             ) : activeSubTab === 'permission-presets' ? (
               <button
                 onClick={() => { setSelectedPresetIdForModal(''); setIsPresetModalOpen(true); }}
@@ -635,14 +756,14 @@ export const SystemSettingsView: React.FC = () => {
         </div>
 
         {/* Quick Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-5 border-t border-slate-100">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 mt-6 pt-5 border-t border-slate-100">
           <div className="flex items-center gap-3.5 p-3.5 rounded-lg bg-blue-50/50 border border-blue-100">
             <div className="p-2 bg-blue-100 text-blue-700 rounded-md">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
               <div className="text-lg font-bold text-slate-900">{departments.length}</div>
-              <div className="text-[11px] font-medium text-slate-500">Tổng số phòng ban</div>
+              <div className="text-[11px] font-medium text-slate-500">Phòng ban</div>
             </div>
           </div>
 
@@ -652,28 +773,38 @@ export const SystemSettingsView: React.FC = () => {
             </div>
             <div>
               <div className="text-lg font-bold text-slate-900">{jobTitles.length}</div>
-              <div className="text-[11px] font-medium text-slate-500">Tổng chức vụ định danh</div>
+              <div className="text-[11px] font-medium text-slate-500">Chức vụ định danh</div>
             </div>
           </div>
 
           <div className="flex items-center gap-3.5 p-3.5 rounded-lg bg-emerald-50/50 border border-emerald-100">
             <div className="p-2 bg-emerald-100 text-emerald-700 rounded-md">
+              <FolderKanban className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-lg font-bold text-slate-900">{documentCategories.length}</div>
+              <div className="text-[11px] font-medium text-slate-500">Loại hồ sơ áp dụng</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3.5 p-3.5 rounded-lg bg-purple-50/50 border border-purple-100">
+            <div className="p-2 bg-purple-100 text-purple-700 rounded-md">
               <Users className="w-5 h-5" />
             </div>
             <div>
               <div className="text-lg font-bold text-slate-900">{users.length}</div>
-              <div className="text-[11px] font-medium text-slate-500">Nhân sự trong hệ thống</div>
+              <div className="text-[11px] font-medium text-slate-500">Nhân sự hệ thống</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5 p-3.5 rounded-lg bg-amber-50/50 border border-amber-200">
+          <div className="flex items-center gap-3.5 p-3.5 rounded-lg bg-amber-50/50 border border-amber-200 col-span-2 sm:col-span-1">
             <div className="p-2 bg-amber-100 text-amber-800 rounded-md">
               <HardDrive className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-xs font-bold text-slate-900">MinIO NAS Online</span>
+                <span className="text-xs font-bold text-slate-900">MinIO Online</span>
               </div>
               <div className="text-[10.5px] font-medium text-slate-500 truncate max-w-[140px]" title="crm.trunghaico.vn">
                 Bucket: {MINIO_BUCKET}
@@ -696,7 +827,9 @@ export const SystemSettingsView: React.FC = () => {
                   ? 'Tìm theo tên, mã phòng ban...' 
                   : activeSubTab === 'job-titles'
                     ? 'Tìm theo tên chức vụ, mã, phòng ban...'
-                    : 'Tìm theo tên mẫu, chức danh, mô tả...'
+                    : activeSubTab === 'document-categories'
+                      ? 'Tìm theo tên loại hồ sơ, mã ký hiệu, mô tả...'
+                      : 'Tìm theo tên mẫu, chức danh, mô tả...'
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -719,7 +852,9 @@ export const SystemSettingsView: React.FC = () => {
                 ? filteredDepartments.length 
                 : activeSubTab === 'job-titles' 
                   ? filteredJobTitles.length 
-                  : filteredPermissionPresets.length}
+                  : activeSubTab === 'document-categories'
+                    ? filteredCategories.length
+                    : filteredPermissionPresets.length}
             </span>
             <span>mục</span>
           </div>
@@ -890,6 +1025,106 @@ export const SystemSettingsView: React.FC = () => {
                                 onClick={() => handleDeleteJob(job)}
                                 className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                                 title="Xóa chức vụ"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">Chỉ xem</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* TAB 3: DOCUMENT CATEGORIES */}
+        {activeSubTab === 'document-categories' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4 w-14 text-center">STT</th>
+                  <th className="py-3 px-4 w-32">Ký Hiệu</th>
+                  <th className="py-3 px-4">Tên Loại Hồ Sơ Áp Dụng</th>
+                  <th className="py-3 px-4 text-center w-36">SLA Chuẩn</th>
+                  <th className="py-3 px-4 text-center w-36">Quy trình BPM</th>
+                  <th className="py-3 px-4 text-center w-36">Hồ sơ phát sinh</th>
+                  <th className="py-3 px-4 text-right w-28">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700 font-normal">
+                {filteredCategories.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                      <FolderKanban className="w-10 h-10 mx-auto mb-2 text-slate-300 stroke-1" />
+                      <p className="text-sm font-medium">Không tìm thấy loại hồ sơ nào phù hợp</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Vui lòng thử tìm với từ khóa khác hoặc bấm "Thêm Loại Hồ Sơ"</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCategories.map((cat, idx) => {
+                    const associatedWfs = workflowTemplates.filter(w => w.category === cat.name || w.category === cat.code);
+                    const associatedDocs = documents.filter(d => d.category === cat.name || d.category === cat.code);
+                    return (
+                      <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-mono text-slate-400 text-center">{idx + 1}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
+                            {cat.code}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-semibold text-slate-900 text-sm">{cat.name}</div>
+                          {cat.description && (
+                            <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{cat.description}</div>
+                          )}
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {cat.id}</div>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold font-mono">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            <span>{formatSlaBadge(cat.defaultSlaHours || 24)}</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            associatedWfs.length > 0 
+                              ? 'bg-blue-50 text-brand-blue border border-blue-200' 
+                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            <Zap className="w-3 h-3" />
+                            {associatedWfs.length} mẫu
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            associatedDocs.length > 0 
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200' 
+                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}>
+                            <FileText className="w-3 h-3" />
+                            {associatedDocs.length} hồ sơ
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {canManageCategory ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenEditCat(cat)}
+                                className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                                title="Chỉnh sửa loại hồ sơ"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCat(cat)}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                                title="Xóa loại hồ sơ"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1759,6 +1994,153 @@ export const SystemSettingsView: React.FC = () => {
                     className="px-4 py-2 text-xs font-semibold text-white bg-brand-blue hover:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer"
                   >
                     {editingJob ? 'Cập Nhật' : 'Tạo Mới Chức Vụ'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: Thêm / Chỉnh sửa Loại Hồ Sơ Áp Dụng */}
+      <AnimatePresence>
+        {isCatModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-t-3xl sm:rounded-xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden max-h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:max-h-[90vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
+                    <FolderKanban className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">
+                      {editingCat ? 'Chỉnh Sửa Loại Hồ Sơ Áp Dụng' : 'Thêm Loại Hồ Sơ Áp Dụng Mới'}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {editingCat ? `Cập nhật thông tin cho loại hồ sơ ${editingCat.code}` : 'Khai báo loại văn bản/hồ sơ áp dụng cho quy trình phê duyệt'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCatModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveCat} className="p-6 space-y-4 overflow-y-auto">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Tên loại hồ sơ áp dụng <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Hợp đồng kinh tế, Tờ trình phê duyệt, Đề xuất thanh toán..."
+                    value={catName}
+                    onChange={(e) => setCatName(e.target.value)}
+                    className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Tên loại hồ sơ này sẽ hiển thị trong dropdown chọn loại văn bản và mẫu quy trình BPM
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Mã ký hiệu văn bản (Viết tắt) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: HĐ, TTr, ĐXTT, BBNT, DA, VBNB..."
+                    value={catCode}
+                    onChange={(e) => setCatCode(e.target.value.toUpperCase())}
+                    className="w-full px-3.5 py-2 text-xs uppercase font-mono font-bold border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Mã này sẽ dùng làm tiền tố tự động sinh mã số hồ sơ (VD: HĐ-2026/TH-123)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Thời hạn SLA chuẩn khuyến nghị (Giờ) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="720"
+                      value={catSlaHours}
+                      onChange={(e) => setCatSlaHours(Math.max(1, Number(e.target.value)))}
+                      className="w-32 px-3.5 py-2 text-xs font-bold font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue"
+                    />
+                    <span className="text-xs text-slate-500 font-medium">{formatSlaHelpText(catSlaHours)}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[8, 12, 24, 48, 72, 120].map(h => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => setCatSlaHours(h)}
+                        className={`px-2 py-0.5 text-[11px] rounded border transition-colors cursor-pointer ${
+                          catSlaHours === h
+                            ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {formatSlaPresetLabel(h)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Mô tả phạm vi & căn cứ áp dụng
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ghi chú về tính chất loại văn bản, đối tượng hoặc trường hợp áp dụng..."
+                    value={catDescription}
+                    onChange={(e) => setCatDescription(e.target.value)}
+                    className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue resize-none"
+                  />
+                </div>
+
+                {editingCat && (
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
+                    <div className="font-semibold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Tự động cập nhật đồng bộ</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-amber-700">
+                      Khi đổi tên loại hồ sơ, toàn bộ các quy trình BPM và hồ sơ hiện có thuộc loại này sẽ tự động được cập nhật đồng bộ để duy trì liên kết chuẩn.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsCatModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors cursor-pointer"
+                  >
+                    {editingCat ? 'Cập Nhật' : 'Tạo Mới Loại Hồ Sơ'}
                   </button>
                 </div>
               </form>

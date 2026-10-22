@@ -1,5 +1,5 @@
-import { DocumentItem, NotificationItem, User, DepartmentItem, JobTitleItem, PermissionPreset, WorkflowTemplate } from '../types';
-import { INITIAL_DOCUMENTS, INITIAL_NOTIFICATIONS, USERS, INITIAL_DEPARTMENTS, INITIAL_JOB_TITLES, WORKFLOW_TEMPLATES } from './initialData';
+import { DocumentItem, NotificationItem, User, DepartmentItem, JobTitleItem, PermissionPreset, WorkflowTemplate, DocumentCategoryItem } from '../types';
+import { INITIAL_DOCUMENTS, INITIAL_NOTIFICATIONS, USERS, INITIAL_DEPARTMENTS, INITIAL_JOB_TITLES, WORKFLOW_TEMPLATES, INITIAL_DOCUMENT_CATEGORIES } from './initialData';
 import { ROLE_PRESET_PERMISSIONS, DEFAULT_PERMISSION_PRESETS } from './permissions';
 
 const STORAGE_KEY_DOCS = 'trunghai_documents_v1';
@@ -10,12 +10,14 @@ const STORAGE_KEY_DEPTS = 'trunghai_departments_v1';
 const STORAGE_KEY_JOB_TITLES = 'trunghai_job_titles_v1';
 const STORAGE_KEY_PRESETS = 'trunghai_permission_presets_v1';
 const STORAGE_KEY_WF_TEMPLATES = 'trunghai_workflow_templates_v1';
+const STORAGE_KEY_DOC_CATEGORIES = 'trunghai_doc_categories_v1';
 const STORAGE_KEY_DELETED_USERS = 'trunghai_deleted_users_v1';
 const STORAGE_KEY_DELETED_DEPTS = 'trunghai_deleted_depts_v1';
 const STORAGE_KEY_DELETED_JOBS = 'trunghai_deleted_jobs_v1';
 const STORAGE_KEY_DELETED_PRESETS = 'trunghai_deleted_presets_v1';
 const STORAGE_KEY_DELETED_DOCS = 'trunghai_deleted_documents_v1';
 const STORAGE_KEY_DELETED_WF_TEMPLATES = 'trunghai_deleted_wf_templates_v1';
+const STORAGE_KEY_DELETED_DOC_CATEGORIES = 'trunghai_deleted_doc_categories_v1';
 
 
 export const loadDeletedDocumentIds = (): string[] => {
@@ -203,6 +205,38 @@ export const removeDeletedWorkflowTemplateId = (id: string) => {
     console.error('Failed to remove deleted workflow template id', e);
   }
 };
+
+export const loadDeletedCategoryIds = (): string[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_DELETED_DOC_CATEGORIES);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const addDeletedCategoryId = (idOrNameOrCode: string) => {
+  try {
+    if (!idOrNameOrCode) return;
+    const current = new Set(loadDeletedCategoryIds().map(s => s.toLowerCase()));
+    current.add(idOrNameOrCode.toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DELETED_DOC_CATEGORIES, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.error('Failed to save deleted category id', e);
+  }
+};
+
+export const removeDeletedCategoryId = (idOrNameOrCode: string) => {
+  try {
+    if (!idOrNameOrCode) return;
+    const current = new Set(loadDeletedCategoryIds().map(s => s.toLowerCase()));
+    current.delete(idOrNameOrCode.toLowerCase());
+    localStorage.setItem(STORAGE_KEY_DELETED_DOC_CATEGORIES, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.error('Failed to remove deleted category id', e);
+  }
+};
+
 
 
 /**
@@ -517,6 +551,76 @@ export const saveWorkflowTemplates = (templates: WorkflowTemplate[]) => {
   }
 };
 
+/**
+ * Chuẩn hóa và loại bỏ trùng lặp trong danh sách Loại hồ sơ (Document Categories).
+ * Lọc bỏ các loại hồ sơ đã bị người dùng xóa.
+ */
+export const deduplicateCategories = (categoriesList: DocumentCategoryItem[]): DocumentCategoryItem[] => {
+  if (!Array.isArray(categoriesList)) return [];
+  const deletedSet = new Set(loadDeletedCategoryIds().map(s => s.toLowerCase()));
+  const map = new Map<string, DocumentCategoryItem>();
+
+  for (const c of categoriesList) {
+    if (!c || !c.name) continue;
+    const key = (c.id || c.name).trim().toLowerCase();
+    const nameLower = c.name.trim().toLowerCase();
+    const codeLower = (c.code || '').trim().toLowerCase();
+    if (deletedSet.has(key) || deletedSet.has(nameLower) || (codeLower && deletedSet.has(codeLower))) {
+      continue;
+    }
+    map.set(nameLower, c);
+  }
+  return Array.from(map.values());
+};
+
+export const loadDocumentCategories = (): DocumentCategoryItem[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_DOC_CATEGORIES);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const deletedSet = new Set(loadDeletedCategoryIds().map(s => s.toLowerCase()));
+        const map = new Map<string, DocumentCategoryItem>();
+
+        // 1. Nạp baseline các loại hồ sơ mặc định ban đầu
+        for (const def of INITIAL_DOCUMENT_CATEGORIES) {
+          const key = (def.id || def.name).trim().toLowerCase();
+          const nameLower = def.name.trim().toLowerCase();
+          if (!deletedSet.has(key) && !deletedSet.has(nameLower)) {
+            map.set(nameLower, def);
+          }
+        }
+        // 2. Ghi đè các cập nhật hoặc loại hồ sơ mới do người dùng lưu
+        for (const c of parsed) {
+          if (c && c.name) {
+            const key = (c.id || c.name).trim().toLowerCase();
+            const nameLower = c.name.trim().toLowerCase();
+            if (!deletedSet.has(key) && !deletedSet.has(nameLower)) {
+              map.set(nameLower, c);
+            }
+          }
+        }
+        return Array.from(map.values());
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load document categories', e);
+  }
+  const initial = deduplicateCategories(INITIAL_DOCUMENT_CATEGORIES);
+  saveDocumentCategories(initial);
+  return initial;
+};
+
+export const saveDocumentCategories = (categories: DocumentCategoryItem[]) => {
+  try {
+    const clean = deduplicateCategories(categories);
+    localStorage.setItem(STORAGE_KEY_DOC_CATEGORIES, JSON.stringify(clean));
+  } catch (e) {
+    console.error('Failed to save document categories', e);
+  }
+};
+
+
 
 export const deduplicateDocuments = (docsList: DocumentItem[]): DocumentItem[] => {
   if (!Array.isArray(docsList)) return [];
@@ -678,6 +782,7 @@ export const exportFullDatabaseJson = (exportedBy?: string): string => {
   const jobs = loadJobTitles();
   const presets = loadPermissionPresets();
   const templates = loadWorkflowTemplates();
+  const categories = loadDocumentCategories();
   const docs = loadDocuments();
   const notifs = loadNotifications();
   const deletedDocs = loadDeletedDocumentIds();
@@ -686,6 +791,7 @@ export const exportFullDatabaseJson = (exportedBy?: string): string => {
   const deletedJobs = loadDeletedJobIds();
   const deletedPresets = loadDeletedPresetIds();
   const deletedTemplates = loadDeletedWorkflowTemplateIds();
+  const deletedCategories = loadDeletedCategoryIds();
 
   const backupObject = {
     system: "CMS Phê Duyệt Văn Bản & Trình Ký Điện Tử - Công Ty TNHH Thiết Bị Khoa Học Kỹ Thuật Trung Hải",
@@ -699,6 +805,7 @@ export const exportFullDatabaseJson = (exportedBy?: string): string => {
       totalJobTitles: jobs.length,
       totalPermissionPresets: presets.length,
       totalWorkflowTemplates: templates.length,
+      totalDocumentCategories: categories.length,
       totalDocuments: docs.length,
       totalNotifications: notifs.length,
     },
@@ -708,6 +815,7 @@ export const exportFullDatabaseJson = (exportedBy?: string): string => {
       jobTitles: jobs,
       permissionPresets: presets,
       workflowTemplates: templates,
+      documentCategories: categories,
       documents: docs,
       notifications: notifs,
       deletedUserIds: deletedUsers,
@@ -715,6 +823,7 @@ export const exportFullDatabaseJson = (exportedBy?: string): string => {
       deletedJobTitleIds: deletedJobs,
       deletedPresetIds: deletedPresets,
       deletedWorkflowTemplateIds: deletedTemplates,
+      deletedDocumentCategoryIds: deletedCategories,
       deletedDocumentIds: deletedDocs
     }
   };
@@ -749,6 +858,9 @@ export const importFullDatabaseJson = (jsonContent: string): { success: boolean;
     if (Array.isArray(db.workflowTemplates)) {
       saveWorkflowTemplates(db.workflowTemplates);
     }
+    if (Array.isArray(db.documentCategories)) {
+      saveDocumentCategories(db.documentCategories);
+    }
     if (Array.isArray(db.documents)) {
       saveDocuments(db.documents);
     }
@@ -772,15 +884,19 @@ export const importFullDatabaseJson = (jsonContent: string): { success: boolean;
     if (Array.isArray(db.deletedWorkflowTemplateIds)) {
       localStorage.setItem(STORAGE_KEY_DELETED_WF_TEMPLATES, JSON.stringify(db.deletedWorkflowTemplateIds));
     }
+    if (Array.isArray(db.deletedDocumentCategoryIds)) {
+      localStorage.setItem(STORAGE_KEY_DELETED_DOC_CATEGORIES, JSON.stringify(db.deletedDocumentCategoryIds));
+    }
     if (Array.isArray(db.deletedDocumentIds)) {
       localStorage.setItem(STORAGE_KEY_DELETED_DOCS, JSON.stringify(db.deletedDocumentIds));
     }
 
     return { 
       success: true, 
-      message: `Khôi phục thành công! Đã nạp ${db.users?.length || 0} nhân sự, ${db.departments?.length || 0} phòng ban, ${db.documents?.length || 0} hồ sơ.`,
+      message: `Khôi phục thành công! Đã nạp ${db.users?.length || 0} nhân sự, ${db.departments?.length || 0} phòng ban, ${db.documentCategories?.length || 0} loại hồ sơ, ${db.documents?.length || 0} hồ sơ.`,
       data: db
     };
+
   } catch (e: any) {
     return { success: false, message: `Lỗi đọc file JSON sao lưu: ${e.message || 'Lỗi cú pháp'}` };
   }

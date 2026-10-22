@@ -67,7 +67,8 @@ export const CreateDocumentModal: React.FC = () => {
     activeUser, 
     users, 
     departments: systemDepts,
-    workflowTemplates = []
+    workflowTemplates = [],
+    documentCategories = []
   } = useDocument();
 
   // 1. Loại hồ sơ & Mẫu quy trình BPM
@@ -216,18 +217,27 @@ export const CreateDocumentModal: React.FC = () => {
     return { updatedApprovers: updated };
   }, [allDepartments, getDeptDefaultSla]);
 
-  // Danh sách các loại hồ sơ khả dụng (Bao gồm các mẫu mới được thêm vào)
+  // Danh sách các loại hồ sơ khả dụng (Lấy động từ danh mục quản lý Document Categories và Workflow Templates)
   const availableCategories = useMemo(() => {
-    const defaultList = [
-      'Hợp đồng kinh tế',
-      'Tờ trình phê duyệt',
-      'Đề xuất thanh toán',
-      'Biên bản nghiệm thu',
-      'Văn bản nội bộ'
-    ];
-    const fromWf = workflowTemplates.map(w => w.category).filter(Boolean);
-    return Array.from(new Set([...defaultList, ...fromWf]));
-  }, [workflowTemplates]);
+    const fromCat = (documentCategories || []).map(c => c.name).filter(Boolean);
+    const fromWf = (workflowTemplates || []).map(w => w.category).filter(Boolean);
+    const combined = Array.from(new Set([...fromCat, ...fromWf]));
+    if (combined.length === 0) {
+      return ['Hợp đồng kinh tế', 'Tờ trình phê duyệt', 'Đề xuất thanh toán', 'Biên bản nghiệm thu', 'Văn bản nội bộ'];
+    }
+    return combined;
+  }, [documentCategories, workflowTemplates]);
+
+  // Helper sinh mã tiền tố viết tắt tương ứng với loại hồ sơ
+  const getCategoryPrefix = useCallback((catName: string): string => {
+    const found = documentCategories?.find(c => c.name.toLowerCase() === catName.toLowerCase());
+    if (found?.code) return found.code;
+    if (catName.includes('Hợp đồng')) return 'HĐ';
+    if (catName.includes('Tờ trình')) return 'TTr';
+    if (catName.includes('thanh toán') || catName.includes('Đề xuất')) return 'ĐXTT';
+    if (catName.includes('nghiệm thu')) return 'BBNT';
+    return 'VB';
+  }, [documentCategories]);
 
   // Helper kiểm tra xem phòng ban đã được chọn trong chuỗi duyệt chưa (loại trừ bước hiện tại nếu đang sửa)
   const isDepartmentAlreadyChosen = useCallback((deptName: string, excludeIdx: number = -1): boolean => {
@@ -265,9 +275,7 @@ export const CreateDocumentModal: React.FC = () => {
 
     // Cập nhật loại hồ sơ theo mẫu
     setCategory(tpl.category);
-    const prefix = tpl.category.includes('Hợp đồng') ? 'HĐ' :
-                   tpl.category.includes('Tờ trình') ? 'TTr' :
-                   tpl.category.includes('thanh toán') ? 'BB' : 'VB';
+    const prefix = getCategoryPrefix(tpl.category);
     setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
 
     // Tự động điền chuỗi duyệt từ mẫu (Tự động lọc bỏ các phòng ban bị trùng lặp trong cấu hình mẫu)
@@ -322,9 +330,7 @@ export const CreateDocumentModal: React.FC = () => {
   // Hàm reset trắng toàn bộ dữ liệu form tạo hồ sơ mới (Mặc định để trống chuỗi duyệt cho người lập tự chọn)
   const resetForm = useCallback(() => {
     const initialCategory = availableCategories[0] || 'Hợp đồng kinh tế';
-    const prefix = initialCategory.includes('Hợp đồng') ? 'HĐ' :
-                   initialCategory.includes('Tờ trình') ? 'TTr' :
-                   initialCategory.includes('thanh toán') ? 'BB' : 'VB';
+    const prefix = getCategoryPrefix(initialCategory);
     setCategory(initialCategory);
     setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
     setTitle('');
@@ -347,7 +353,7 @@ export const CreateDocumentModal: React.FC = () => {
     setPreviewAttachment(null);
     setErrorMsg('');
     setIsSubmitting(false);
-  }, [availableCategories, activeUser?.department, systemDepts, getDefaultDeadline]);
+  }, [availableCategories, getCategoryPrefix, activeUser?.department, systemDepts, getDefaultDeadline]);
 
   // Khi mở modal tạo hồ sơ mới, luôn reset sạch sẽ dữ liệu cũ để tránh lưu vết hồ sơ trước
   const prevOpenRef = useRef(false);
@@ -386,9 +392,7 @@ export const CreateDocumentModal: React.FC = () => {
 
   const handleCategoryChange = (newCat: string) => {
     setCategory(newCat);
-    const prefix = newCat.includes('Hợp đồng') ? 'HĐ' :
-                   newCat.includes('Tờ trình') ? 'TTr' :
-                   newCat.includes('thanh toán') ? 'BB' : 'VB';
+    const prefix = getCategoryPrefix(newCat);
     setCode(`${prefix}-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
     setSelectedTemplateId(''); // Giữ nguyên chuỗi duyệt do người lập tự chọn, không tự động đè mẫu
   };

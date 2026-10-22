@@ -6,7 +6,7 @@ import {
   ListObjectsV2Command,
   HeadObjectCommand
 } from '@aws-sdk/client-s3';
-import { DocumentItem, User, DepartmentItem, JobTitleItem, NotificationItem, PermissionPreset, WorkflowTemplate } from '../types';
+import { DocumentItem, User, DepartmentItem, JobTitleItem, NotificationItem, PermissionPreset, WorkflowTemplate, DocumentCategoryItem } from '../types';
 
 export const MINIO_ENDPOINT = import.meta.env.VITE_MINIO_ENDPOINT || 'http://trunghaico.synology.me:9000';
 export const MINIO_BUCKET = import.meta.env.VITE_MINIO_BUCKET || 'crm.trunghaico.vn';
@@ -23,6 +23,7 @@ export interface DatabaseSnapshot {
   jobTitles: JobTitleItem[];
   permissionPresets?: PermissionPreset[];
   workflowTemplates?: WorkflowTemplate[];
+  documentCategories?: DocumentCategoryItem[];
   notifications?: NotificationItem[];
   deletedDocumentIds?: string[];
   deletedUserIds?: string[];
@@ -30,6 +31,7 @@ export interface DatabaseSnapshot {
   deletedJobTitleIds?: string[];
   deletedPresetIds?: string[];
   deletedWorkflowTemplateIds?: string[];
+  deletedDocumentCategoryIds?: string[];
   meta?: {
     totalDocuments: number;
     totalUsers: number;
@@ -282,6 +284,7 @@ export const saveDatabaseToNAS = async (
     jobTitles: JobTitleItem[];
     permissionPresets?: PermissionPreset[];
     workflowTemplates?: WorkflowTemplate[];
+    documentCategories?: DocumentCategoryItem[];
     notifications?: NotificationItem[];
     deletedDocumentIds?: string[];
     deletedUserIds?: string[];
@@ -289,6 +292,7 @@ export const saveDatabaseToNAS = async (
     deletedJobTitleIds?: string[];
     deletedPresetIds?: string[];
     deletedWorkflowTemplateIds?: string[];
+    deletedDocumentCategoryIds?: string[];
     savedBy?: string;
     createTimestampedBackup?: boolean;
   }
@@ -331,6 +335,7 @@ export const saveDatabaseToNAS = async (
       jobTitles: snapshotData.jobTitles,
       permissionPresets: snapshotData.permissionPresets || [],
       workflowTemplates: snapshotData.workflowTemplates || [],
+      documentCategories: snapshotData.documentCategories || [],
       notifications: snapshotData.notifications || [],
       deletedDocumentIds: snapshotData.deletedDocumentIds || [],
       deletedUserIds: snapshotData.deletedUserIds || [],
@@ -338,6 +343,7 @@ export const saveDatabaseToNAS = async (
       deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],
       deletedPresetIds: snapshotData.deletedPresetIds || [],
       deletedWorkflowTemplateIds: snapshotData.deletedWorkflowTemplateIds || [],
+      deletedDocumentCategoryIds: snapshotData.deletedDocumentCategoryIds || [],
       meta: {
         totalDocuments: snapshotData.documents.length,
         totalUsers: snapshotData.users.length,

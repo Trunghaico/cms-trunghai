@@ -23,10 +23,12 @@ import {
   Sparkles,
   ArrowUp,
   ArrowDown,
-  Info
+  Info,
+  Tag,
+  FolderKanban
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { WorkflowTemplate, WorkflowStep, UserRole, OverdueAction } from '../../types';
+import { WorkflowTemplate, WorkflowStep, UserRole, OverdueAction, DocumentCategoryItem } from '../../types';
 
 export const WorkflowConfigView: React.FC = () => {
   const { 
@@ -35,6 +37,11 @@ export const WorkflowConfigView: React.FC = () => {
     updateWorkflowTemplate, 
     deleteWorkflowTemplate, 
     resetWorkflowTemplatesToDefault,
+    documentCategories,
+    createDocumentCategory,
+    updateDocumentCategory,
+    deleteDocumentCategory,
+    documents,
     departments,
     jobTitles,
     hasPermission,
@@ -59,9 +66,19 @@ export const WorkflowConfigView: React.FC = () => {
 
   // Categories list
   const allCategories = useMemo(() => {
-    const cats = Array.from(new Set(workflowTemplates.map(w => w.category).filter(Boolean)));
+    const fromEntities = documentCategories.map(c => c.name);
+    const fromWf = workflowTemplates.map(w => w.category);
+    const cats = Array.from(new Set([...fromEntities, ...fromWf].filter(Boolean)));
     return ['ALL', ...cats];
-  }, [workflowTemplates]);
+  }, [documentCategories, workflowTemplates]);
+
+  // Available categories for workflow template form
+  const standardCategories = useMemo(() => {
+    const fromEntities = documentCategories.map(c => c.name);
+    const fromWf = workflowTemplates.map(w => w.category);
+    const cats = Array.from(new Set([...fromEntities, ...fromWf].filter(Boolean)));
+    return [...cats, '__CUSTOM__'];
+  }, [documentCategories, workflowTemplates]);
 
   // Filtered Templates
   const filteredTemplates = useMemo(() => {
@@ -75,7 +92,7 @@ export const WorkflowConfigView: React.FC = () => {
     });
   }, [workflowTemplates, searchQuery, selectedCategoryFilter]);
 
-  // Modal State for Add / Edit
+  // Modal State for Add / Edit Workflow
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkflowTemplate | null>(null);
   const [formData, setFormData] = useState<{
@@ -86,11 +103,25 @@ export const WorkflowConfigView: React.FC = () => {
     steps: WorkflowStep[];
   }>({
     name: '',
-    category: 'Hợp đồng kinh tế',
+    category: documentCategories[0]?.name || 'Hợp đồng kinh tế',
     customCategory: '',
     description: '',
     steps: []
   });
+
+  // Category Manager Modal State (Thêm, Chỉnh Sửa, Xóa Loại Hồ Sơ Áp Dụng)
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<DocumentCategoryItem | null>(null);
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    code: '',
+    defaultSlaHours: 24,
+    description: ''
+  });
+  const [categoryModalError, setCategoryModalError] = useState('');
+  const [categoryDeletingTarget, setCategoryDeletingTarget] = useState<DocumentCategoryItem | null>(null);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
 
   // Modal State for Delete Confirmation
   const [deletingTemplate, setDeletingTemplate] = useState<WorkflowTemplate | null>(null);
@@ -102,17 +133,92 @@ export const WorkflowConfigView: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Standard category presets
-  const standardCategories = [
-    'Hợp đồng kinh tế',
-    'Tờ trình phê duyệt',
-    'Đề xuất thanh toán',
-    'Biên bản nghiệm thu',
-    'Văn bản nội bộ',
-    'Hồ sơ đấu thầu & Dự toán',
-    'Tài liệu kỹ thuật & Thiết kế',
-    '__CUSTOM__'
-  ];
+  // Category Management Handlers
+  const handleOpenAddCategory = () => {
+    setEditingCategory(null);
+    setCategoryForm({
+      name: '',
+      code: '',
+      defaultSlaHours: 24,
+      description: ''
+    });
+    setCategoryModalError('');
+    setIsCategoryFormOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat: DocumentCategoryItem) => {
+    setEditingCategory(cat);
+    setCategoryForm({
+      name: cat.name,
+      code: cat.code,
+      defaultSlaHours: cat.defaultSlaHours || 24,
+      description: cat.description || ''
+    });
+    setCategoryModalError('');
+    setIsCategoryFormOpen(true);
+  };
+
+  const handleSaveCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCategoryModalError('');
+    const trimmedName = categoryForm.name.trim();
+    const trimmedCode = categoryForm.code.trim().toUpperCase();
+
+    if (!trimmedName || !trimmedCode) {
+      setCategoryModalError('Vui lòng điền đầy đủ Tên loại hồ sơ và Mã viết tắt.');
+      return;
+    }
+
+    if (editingCategory) {
+      const res = updateDocumentCategory(editingCategory.id, {
+        name: trimmedName,
+        code: trimmedCode,
+        defaultSlaHours: Number(categoryForm.defaultSlaHours) || 24,
+        description: categoryForm.description.trim()
+      });
+      if (res.success) {
+        showToast(`Đã cập nhật loại hồ sơ "${trimmedName}" thành công.`);
+        setIsCategoryFormOpen(false);
+        if (formData.category === editingCategory.name) {
+          setFormData(prev => ({ ...prev, category: trimmedName }));
+        }
+      } else {
+        setCategoryModalError(res.message || 'Cập nhật thất bại.');
+      }
+    } else {
+      const res = createDocumentCategory({
+        name: trimmedName,
+        code: trimmedCode,
+        defaultSlaHours: Number(categoryForm.defaultSlaHours) || 24,
+        description: categoryForm.description.trim()
+      });
+      if (res.success) {
+        showToast(`Đã tạo mới loại hồ sơ "${trimmedName}" (${trimmedCode}) thành công.`);
+        setIsCategoryFormOpen(false);
+        if (isModalOpen) {
+          setFormData(prev => ({ ...prev, category: trimmedName }));
+        }
+      } else {
+        setCategoryModalError(res.message || 'Tạo mới thất bại.');
+      }
+    }
+  };
+
+  const handleDeleteCategory = (cat: DocumentCategoryItem, force: boolean = false) => {
+    const res = deleteDocumentCategory(cat.id, force);
+    if (!res.success && !force) {
+      setCategoryDeletingTarget(cat);
+    } else if (res.success) {
+      showToast(`Đã xóa loại hồ sơ "${cat.name}".`);
+      setCategoryDeletingTarget(null);
+      if (formData.category === cat.name) {
+        setFormData(prev => ({ ...prev, category: documentCategories[0]?.name || '' }));
+      }
+    } else {
+      showToast(res.message || 'Không thể xóa loại hồ sơ.', 'error');
+    }
+  };
+
 
   // Open Add Modal
   const handleOpenAdd = () => {
@@ -330,7 +436,21 @@ export const WorkflowConfigView: React.FC = () => {
       }
     }
 
+    // Tự động tạo Loại hồ sơ trong danh mục nếu người dùng tự nhập loại mới
+    if (formData.category === '__CUSTOM__' && !documentCategories.some(c => c.name.toLowerCase() === finalCategory.toLowerCase())) {
+
+      const words = finalCategory.split(/\s+/).filter(Boolean);
+      const autoCode = words.map(w => w[0]).join('').toUpperCase().slice(0, 5) || 'HS';
+      createDocumentCategory({
+        name: finalCategory,
+        code: autoCode,
+        description: formData.description.trim(),
+        defaultSlaHours: 24
+      });
+    }
+
     if (editingTemplate) {
+
       // Update
       const res = updateWorkflowTemplate(editingTemplate.id, {
         name: trimmedName,
@@ -393,6 +513,15 @@ export const WorkflowConfigView: React.FC = () => {
           {canManage && (
             <>
               <button
+                onClick={() => setIsCategoryModalOpen(true)}
+                title="Quản lý danh sách Loại hồ sơ áp dụng (Thêm, Sửa, Xóa)"
+                className="px-3.5 py-2 bg-blue-50/90 hover:bg-blue-100 text-brand-blue text-xs font-bold rounded-xl border border-blue-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
+              >
+                <FolderKanban className="h-3.5 w-3.5 text-brand-blue" />
+                <span>Loại Hồ Sơ ({documentCategories.length})</span>
+              </button>
+
+              <button
                 onClick={() => {
                   if (confirm('Bạn có chắc chắn muốn khôi phục danh mục quy trình hệ thống về mặc định ban đầu không?')) {
                     resetWorkflowTemplatesToDefault();
@@ -414,6 +543,7 @@ export const WorkflowConfigView: React.FC = () => {
                 <span>Thêm Quy Trình Mới</span>
               </button>
             </>
+
           )}
 
           <button
@@ -755,21 +885,38 @@ export const WorkflowConfigView: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Loại hồ sơ áp dụng <span className="text-brand-red">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-bold text-slate-700">
+                        Loại hồ sơ áp dụng <span className="text-brand-red">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        className="text-[11px] text-brand-blue hover:text-blue-800 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                        title="Mở danh sách quản lý: Thêm, sửa, xóa loại hồ sơ"
+                      >
+                        <Settings className="h-3 w-3" />
+                        <span>Quản lý loại hồ sơ</span>
+                      </button>
+                    </div>
                     <select
                       value={formData.category}
                       onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                       className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all cursor-pointer"
                     >
-                      {standardCategories.map(cat => (
-                        <option key={cat} value={cat}>
-                          {cat === '__CUSTOM__' ? '✨ + Thêm loại hồ sơ mới (Tự nhập)...' : cat}
+                      {documentCategories.map(cat => (
+                        <option key={cat.id} value={cat.name}>
+                          [{cat.code}] {cat.name} {cat.defaultSlaHours ? `(${cat.defaultSlaHours}h)` : ''}
                         </option>
                       ))}
+                      {/* Bổ sung các loại hồ sơ cũ nếu có */}
+                      {standardCategories.filter(cat => cat !== '__CUSTOM__' && !documentCategories.some(c => c.name === cat)).map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                      <option value="__CUSTOM__">✨ + Thêm loại hồ sơ mới (Tự nhập)...</option>
                     </select>
                   </div>
+
 
                   {formData.category === '__CUSTOM__' && (
                     <div>
@@ -1092,6 +1239,335 @@ export const WorkflowConfigView: React.FC = () => {
         </div>
       )}
 
+      {/* MODAL: QUẢN LÝ DANH MỤC LOẠI HỒ SƠ ÁP DỤNG */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                  <FolderKanban className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white tracking-tight">
+                    Quản Lý Loại Hồ Sơ Áp Dụng
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Thêm mới, chỉnh sửa thông tin hoặc xóa các loại hồ sơ áp dụng cho quy trình ký duyệt
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Toolbar: Search & Add button */}
+            <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm theo tên loại hồ sơ, mã viết tắt..."
+                  value={categorySearchQuery}
+                  onChange={(e) => setCategorySearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
+                />
+              </div>
+
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={handleOpenAddCategory}
+                  className="px-4 py-2 bg-gradient-to-r from-brand-blue to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Thêm Loại Hồ Sơ Mới</span>
+                </button>
+              )}
+            </div>
+
+            {/* Content: List of categories */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 custom-scrollbar">
+              {documentCategories.filter(c => {
+                const q = categorySearchQuery.toLowerCase().trim();
+                return !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
+              }).length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-2">
+                  <FolderKanban className="h-10 w-10 mx-auto text-slate-300 stroke-1" />
+                  <p className="text-sm font-semibold text-slate-600">Không tìm thấy loại hồ sơ nào phù hợp</p>
+                  <p className="text-xs text-slate-400">Nhấn "+ Thêm Loại Hồ Sơ Mới" để tạo loại hồ sơ áp dụng.</p>
+                </div>
+              ) : (
+                documentCategories
+                  .filter(c => {
+                    const q = categorySearchQuery.toLowerCase().trim();
+                    return !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
+                  })
+                  .map((cat) => {
+                    const workflowsCount = workflowTemplates.filter(w => w.category.trim().toLowerCase() === cat.name.trim().toLowerCase()).length;
+                    const docsCount = documents.filter(d => d.category.trim().toLowerCase() === cat.name.trim().toLowerCase()).length;
+
+                    return (
+                      <div
+                        key={cat.id}
+                        className="bg-white p-4 rounded-2xl border border-slate-200/90 hover:border-brand-blue/40 hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                      >
+                        <div className="space-y-1.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 bg-blue-100 text-brand-navy rounded-lg text-xs font-mono font-black border border-blue-200">
+                              {cat.code}
+                            </span>
+                            <h4 className="font-bold text-sm text-slate-900 group-hover:text-brand-blue transition-colors">
+                              {cat.name}
+                            </h4>
+                            {cat.defaultSlaHours && (
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[11px] font-semibold flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-amber-600" />
+                                <span>SLA: {cat.defaultSlaHours}h</span>
+                              </span>
+                            )}
+                          </div>
+                          {cat.description ? (
+                            <p className="text-xs text-slate-500 line-clamp-2">
+                              {cat.description}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">Chưa có mô tả chi tiết</p>
+                          )}
+                          <div className="flex items-center gap-3 text-[11px] text-slate-400 pt-1">
+                            <span className="flex items-center gap-1 font-medium text-slate-600">
+                              <GitFork className="h-3 w-3 text-brand-blue" />
+                              <span>{workflowsCount} quy trình áp dụng</span>
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1 font-medium text-slate-600">
+                              <FileCheck2 className="h-3 w-3 text-emerald-600" />
+                              <span>{docsCount} văn bản hồ sơ</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {canManage && (
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100 w-full sm:w-auto justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCategory(cat)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-brand-blue text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Chỉnh sửa loại hồ sơ"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                              <span>Sửa</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCategory(cat)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-brand-red text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Xóa loại hồ sơ"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>Xóa</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
+              <span>Tổng cộng: <strong className="text-slate-800">{documentCategories.length}</strong> loại hồ sơ áp dụng</span>
+              <button
+                type="button"
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-MODAL: THÊM / CHỈNH SỬA LOẠI HỒ SƠ */}
+      {isCategoryFormOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-100 text-brand-blue rounded-xl">
+                  {editingCategory ? <Edit3 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">
+                    {editingCategory ? 'Chỉnh Sửa Loại Hồ Sơ' : 'Thêm Loại Hồ Sơ Áp Dụng Mới'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {editingCategory ? `Cập nhật thông tin cho loại "${editingCategory.name}"` : 'Tạo loại hồ sơ mới để phân loại quy trình và văn bản'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCategoryFormOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {categoryModalError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2 rounded-xl">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{categoryModalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveCategory} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Tên loại hồ sơ áp dụng <span className="text-brand-red">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Hợp đồng kinh tế, Tờ trình phê duyệt..."
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Mã viết tắt (Ký hiệu) <span className="text-brand-red">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: HĐ, TTr, ĐXTT..."
+                    value={categoryForm.code}
+                    onChange={(e) => setCategoryForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                    className="w-full px-3.5 py-2.5 text-xs uppercase font-mono font-black bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Dùng để sinh mã số văn bản tự động</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    SLA khuyến nghị (Giờ)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="720"
+                    placeholder="VD: 24, 48..."
+                    value={categoryForm.defaultSlaHours}
+                    onChange={(e) => setCategoryForm(prev => ({ ...prev, defaultSlaHours: Math.max(1, Number(e.target.value)) }))}
+                    className="w-full px-3.5 py-2.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">{categoryForm.defaultSlaHours} giờ ({Number((categoryForm.defaultSlaHours / 24).toFixed(1))} ngày)</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Mô tả & Phạm vi áp dụng
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="VD: Áp dụng cho hợp đồng mua bán vật tư, thiết bị, gói thầu trên 100 triệu..."
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryFormOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-gradient-to-r from-brand-blue to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+                >
+                  {editingCategory ? 'Lưu Thay Đổi' : 'Tạo Loại Hồ Sơ'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM DELETE CATEGORY MODAL */}
+      {categoryDeletingTarget && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-brand-red">
+              <div className="p-3 bg-red-100 rounded-2xl">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Xác Nhận Xóa Loại Hồ Sơ
+              </h3>
+            </div>
+
+            <div className="text-xs text-slate-600 leading-relaxed space-y-2">
+              <p>
+                Bạn có chắc chắn muốn xóa loại hồ sơ <strong>"{categoryDeletingTarget.name}"</strong> (Mã: <em>{categoryDeletingTarget.code}</em>) không?
+              </p>
+              {(() => {
+                const wfCount = workflowTemplates.filter(w => w.category.trim().toLowerCase() === categoryDeletingTarget.name.trim().toLowerCase()).length;
+                const docCount = documents.filter(d => d.category.trim().toLowerCase() === categoryDeletingTarget.name.trim().toLowerCase()).length;
+                if (wfCount > 0 || docCount > 0) {
+                  return (
+                    <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl space-y-1">
+                      <p className="font-bold flex items-center gap-1">
+                        <span>⚠️ Cảnh báo ràng buộc dữ liệu:</span>
+                      </p>
+                      <p className="text-[11px]">
+                        Loại hồ sơ này đang được áp dụng cho <strong>{wfCount}</strong> mẫu quy trình ký và <strong>{docCount}</strong> văn bản hồ sơ thực tế trong hệ thống.
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCategoryDeletingTarget(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteCategory(categoryDeletingTarget, true)}
+                className="px-4 py-2 bg-brand-red hover:bg-red-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-glow-red transition-all cursor-pointer active:scale-98"
+              >
+                Xác Nhận Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
+

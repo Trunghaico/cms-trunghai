@@ -1,19 +1,19 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { 
-  X, 
-  Printer, 
-  CheckCircle2, 
-  ShieldCheck, 
-  Building2, 
-  Calendar, 
-  FileText, 
-  Download, 
-  Check, 
-  Copy, 
-  Flame, 
-  Clock, 
-  DollarSign, 
-  Stamp, 
+import {
+  X,
+  Printer,
+  CheckCircle2,
+  ShieldCheck,
+  Building2,
+  Calendar,
+  FileText,
+  Download,
+  Check,
+  Copy,
+  Flame,
+  Clock,
+  DollarSign,
+  Stamp,
   Zap,
   ZoomIn,
   ZoomOut
@@ -78,7 +78,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-0 sm:p-4 overflow-hidden animate-backdrop-in">
       {/* Modal Container */}
       <div className="bg-slate-100 rounded-none sm:rounded-3xl max-w-5xl w-full h-full sm:h-[94vh] flex flex-col shadow-2xl border border-slate-300 overflow-hidden">
-        
+
         {/* Top Control Bar (Hidden on print) */}
         <div className="no-print px-5 py-3.5 bg-gradient-to-r from-slate-900 via-brand-navy to-indigo-950 text-white flex items-center justify-between gap-3 shrink-0 shadow-md border-b border-indigo-900/50">
           <div className="flex items-center gap-3 min-w-0">
@@ -139,7 +139,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
               className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-900/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>In hồ sơ (1 Trang A4)</span>
+              <span>In hồ sơ </span>
             </button>
 
             {/* Close Button */}
@@ -156,12 +156,12 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
 
         {/* Scrollable View Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-300/80 custom-scrollbar flex justify-center items-start">
-          
+
           {/* Printable A4 Paper Document Container - Chuẩn kích thước và tỷ lệ A4 */}
-          <div 
+          <div
             ref={printAreaRef}
-            style={{ 
-              transform: `scale(${zoomLevel / 100})`, 
+            style={{
+              transform: `scale(${zoomLevel / 100})`,
               transformOrigin: 'top center',
               transition: 'transform 0.2s ease-out'
             }}
@@ -169,7 +169,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
           >
             {/* Main Content Area - Phân bổ đều và cân đối các khối theo chiều dọc khổ giấy A4 */}
             <div className="flex-1 flex flex-col justify-between space-y-2.5">
-              
+
               {/* KHỐI 1: QUỐC HIỆU & TIÊU ĐỀ VĂN BẢN */}
               <div className="space-y-2">
                 {/* TOP HEADER: Quốc hiệu & Tên Đơn vị */}
@@ -198,7 +198,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                     </p>
                     <div className="w-24 h-0.5 bg-slate-800 mx-auto my-0.5" />
                     <p className="text-[10px] italic text-slate-700 font-sans">
-                      Hà Nội, ngày {day} tháng {month} năm {year}
+                      Hồ Chí Minh, ngày {day} tháng {month} năm {year}
                     </p>
                   </div>
                 </div>
@@ -287,13 +287,12 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                         Mức độ &amp; Kinh phí:
                       </div>
                       <div className="p-1.5 flex items-center justify-between">
-                        <span className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${
-                          doc.priority === 'VERY_URGENT' ? 'bg-red-100 text-red-900 font-black' :
+                        <span className={`px-1.5 py-0.2 rounded font-bold text-[9px] ${doc.priority === 'VERY_URGENT' ? 'bg-red-100 text-red-900 font-black' :
                           doc.priority === 'URGENT' ? 'bg-amber-100 text-amber-900 font-bold' :
-                          'bg-slate-100 text-slate-800'
-                        }`}>
+                            'bg-slate-100 text-slate-800'
+                          }`}>
                           {doc.priority === 'VERY_URGENT' ? '🔥 Hỏa tốc (8h)' :
-                           doc.priority === 'URGENT' ? '⚡ Khẩn (24h)' : 'Bình thường'}
+                            doc.priority === 'URGENT' ? '⚡ Khẩn (24h)' : 'Bình thường'}
                         </span>
                         {doc.amount ? (
                           <span className="font-mono font-bold text-emerald-700 text-[9.5px]">
@@ -315,9 +314,9 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                     </h2>
                     <div className="p-2 border border-slate-300 rounded text-[9.5px] leading-relaxed text-slate-900 bg-white max-h-[60px] overflow-hidden">
                       {doc.contentHtml ? (
-                        <div 
+                        <div
                           className="prose prose-xs max-w-none text-slate-900 font-sans line-clamp-2"
-                          dangerouslySetInnerHTML={{ __html: doc.contentHtml }} 
+                          dangerouslySetInnerHTML={{ __html: doc.contentHtml }}
                         />
                       ) : (
                         <p className="font-sans text-slate-800 whitespace-pre-wrap line-clamp-2">{doc.description}</p>
@@ -384,7 +383,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                 </div>
 
                 {/* Grid of Signatures for all steps - Phân bổ đều các cột */}
-                <div 
+                <div
                   className="grid gap-2.5"
                   style={{
                     gridTemplateColumns: `repeat(${Math.min(doc.steps.length, 3)}, minmax(0, 1fr))`
@@ -396,13 +395,12 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                     const hasUrlSignature = step.signatureImage && step.signatureImage.startsWith('http');
 
                     return (
-                      <div 
+                      <div
                         key={step.id || idx}
-                        className={`border rounded-lg p-2.5 flex flex-col justify-between text-center relative overflow-hidden transition-all ${
-                          isApproved 
-                            ? 'border-emerald-600 bg-white shadow-2xs' 
-                            : 'border-slate-300 bg-slate-50/60 opacity-80'
-                        }`}
+                        className={`border rounded-lg p-2.5 flex flex-col justify-between text-center relative overflow-hidden transition-all ${isApproved
+                          ? 'border-emerald-600 bg-white shadow-2xs'
+                          : 'border-slate-300 bg-slate-50/60 opacity-80'
+                          }`}
                       >
                         {/* Header Box: Role / Department */}
                         <div>
@@ -459,9 +457,9 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                                 {/* Chữ ký vẽ tay sắc nét */}
                                 {hasDrawSignature || hasUrlSignature ? (
                                   <div className="h-7 max-w-[120px] flex items-center justify-center overflow-hidden mb-0.5">
-                                    <img 
-                                      src={step.signatureImage} 
-                                      alt="Chữ ký" 
+                                    <img
+                                      src={step.signatureImage}
+                                      alt="Chữ ký"
                                       className="max-h-full object-contain filter contrast-150 brightness-95 mix-blend-multiply drop-shadow-2xs"
                                     />
                                   </div>
@@ -528,7 +526,7 @@ export const ExportPrintDocumentModal: React.FC<ExportPrintDocumentModalProps> =
                   <p className="text-[9px] italic text-slate-500 font-sans">
                     (Ký, ghi rõ họ tên)
                   </p>
-                  
+
                   {/* Khu vực nét ký số hóa thanh thoát */}
                   <div className="h-10 flex flex-col items-center justify-center my-0.5">
                     <div className="relative flex flex-col items-center justify-center">
