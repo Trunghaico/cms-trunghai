@@ -12,7 +12,7 @@ export interface NotificationPayload {
   badge?: string;
 }
 
-// 1. Đăng ký Service Worker
+// 1. Đăng ký & Tự động Cập nhật Service Worker
 export const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
@@ -22,6 +22,28 @@ export const registerServiceWorker = async (): Promise<ServiceWorkerRegistration
     const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/'
     });
+
+    // Chủ động kiểm tra bản cập nhật sw.js mới nhất từ server
+    registration.update().catch(() => {});
+
+    // Kích hoạt ngay lập tức nếu có Service Worker đang đợi (waiting)
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+
+    // Lắng nghe khi có phiên bản Service Worker mới được tải về
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (newWorker) {
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('[PWA] Phiên bản Service Worker mới đã sẵn sàng. Đang kích hoạt...');
+            newWorker.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      }
+    });
+
     console.log('[PWA] Service Worker registered successfully:', registration.scope);
     return registration;
   } catch (error) {
@@ -29,6 +51,30 @@ export const registerServiceWorker = async (): Promise<ServiceWorkerRegistration
     return null;
   }
 };
+
+// Hàm tiện ích xóa sạch Service Worker & Cache cũ khi cần khắc phục sự cố
+export const unregisterAllServiceWorkers = async (): Promise<boolean> => {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return false;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const reg of registrations) {
+      await reg.unregister();
+    }
+    const cacheKeys = await caches.keys();
+    for (const key of cacheKeys) {
+      await caches.delete(key);
+    }
+    console.log('[PWA] Đã xóa toàn bộ Service Worker và Cache thành công.');
+    return true;
+  } catch (e) {
+    console.warn('[PWA] Lỗi khi xóa Service Worker:', e);
+    return false;
+  }
+};
+
+if (typeof window !== 'undefined') {
+  (window as any).clearPWACache = unregisterAllServiceWorkers;
+}
 
 // 2. Kiểm tra quyền thông báo hiện tại
 export const getNotificationPermission = (): NotificationPermission => {

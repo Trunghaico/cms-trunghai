@@ -398,6 +398,7 @@ export async function onRequest(context: any): Promise<Response> {
         jobTitles: snapshotData.jobTitles || [],
         permissionPresets: snapshotData.permissionPresets || [],
         workflowTemplates: snapshotData.workflowTemplates || [],
+        documentCategories: snapshotData.documentCategories || [],
         notifications: snapshotData.notifications || [],
         deletedDocumentIds: snapshotData.deletedDocumentIds || [],
         deletedUserIds: snapshotData.deletedUserIds || [],
@@ -405,6 +406,7 @@ export async function onRequest(context: any): Promise<Response> {
         deletedJobTitleIds: snapshotData.deletedJobTitleIds || [],
         deletedPresetIds: snapshotData.deletedPresetIds || [],
         deletedWorkflowTemplateIds: snapshotData.deletedWorkflowTemplateIds || [],
+        deletedDocumentCategoryIds: snapshotData.deletedDocumentCategoryIds || [],
         meta: {
           totalDocuments: (snapshotData.documents || []).length,
           totalUsers: (snapshotData.users || []).length,

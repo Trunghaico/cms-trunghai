@@ -1044,8 +1044,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (!isMounted) return;
         if (snapshot) {
           applyRemoteSnapshot(snapshot, info?.eTag, info?.lastModified);
-        } else {
-          // Khởi tạo baseline NAS nếu NAS chưa có dữ liệu
+        } else if (info && info.exists === false) {
+          // Chỉ khởi tạo baseline NAS khi server phản hồi rõ ràng file chưa tồn tại (exists === false)
+          // Tuyệt đối không lưu đè khi mạng offline/lỗi server (info === null) để tránh xung đột và lỗi 503
           saveDatabaseToNAS({
             documents,
             users,
@@ -1053,6 +1054,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             jobTitles,
             permissionPresets,
             workflowTemplates,
+            documentCategories,
             notifications,
             deletedDocumentIds: loadDeletedDocumentIds(),
             deletedUserIds: loadDeletedUserIds(),
@@ -1060,6 +1062,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             deletedJobTitleIds: loadDeletedJobIds(),
             deletedPresetIds: loadDeletedPresetIds(),
             deletedWorkflowTemplateIds: loadDeletedWorkflowTemplateIds(),
+            deletedDocumentCategoryIds: loadDeletedCategoryIds(),
             savedBy: 'Khởi tạo hệ thống ban đầu'
           }).then(res => {
             if (res.success) {
@@ -1129,16 +1132,26 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [documents, users, departments, jobTitles, permissionPresets, workflowTemplates, documentCategories, notifications, autoBackupConfig.backupOnChange, syncToNAS]);
 
 
-  // 4. Remote Polling & Real-time Synchronization across Devices (Ultra-fast 2s Polling + Event Driven - Luôn chạy liên tục)
+  // 4. Remote Polling & Real-time Synchronization across Devices (Adaptive Polling + Event Driven)
   useEffect(() => {
     let isPolling = false;
+    let consecutiveFailures = 0;
+    let timerId: any = null;
+    let isCancelled = false;
+
+    const scheduleNext = (delayMs: number) => {
+      if (isCancelled) return;
+      if (timerId) clearTimeout(timerId);
+      timerId = setTimeout(checkRemoteNAS, delayMs);
+    };
 
     const checkRemoteNAS = async () => {
-      if (isPolling || isSyncInProgress.current) return;
+      if (isPolling || isSyncInProgress.current || isCancelled) return;
       isPolling = true;
       try {
         const info = await getLatestNASDatabaseInfo();
         if (info && info.exists) {
+          consecutiveFailures = 0;
           const currentETag = (lastSyncETagRef.current || '').replace(/^["']|["']$/g, '').trim();
           const infoETag = (info.eTag || '').replace(/^["']|["']$/g, '').trim();
           const currentSyncTime = lastSyncServerTimeRef.current;
@@ -1152,9 +1165,24 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               applyRemoteSnapshot(snapshot, info.eTag, info.lastModified);
             }
           }
+          // Poll nhanh 3s khi kết nối tốt
+          scheduleNext(3000);
+        } else if (info === null) {
+          consecutiveFailures++;
+          // Giảm tần suất khi mạng chập chờn (10s -> 20s -> 30s)
+          const backoff = Math.min(30000, 10000 + consecutiveFailures * 5000);
+          scheduleNext(backoff);
+        } else {
+          // info.exists === false (file chưa có trên bucket)
+          scheduleNext(10000);
         }
       } catch (err) {
-        console.warn('Check remote NAS error:', err);
+        consecutiveFailures++;
+        if (consecutiveFailures === 1) {
+          console.warn('Kết nối đồng bộ MinIO NAS tạm thời gián đoạn:', err);
+        }
+        const backoff = Math.min(30000, 10000 + consecutiveFailures * 5000);
+        scheduleNext(backoff);
       } finally {
         isPolling = false;
       }
@@ -1163,6 +1191,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Kiểm tra tức thì khi chuyển tab, focus ứng dụng, bật mạng hoặc chuyển qua lại giữa các ứng dụng
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible' || document.hasFocus()) {
+        consecutiveFailures = 0;
         checkRemoteNAS();
       }
     };
@@ -1182,9 +1211,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       syncBroadcastChannel.addEventListener('message', handleBroadcast);
     }
 
-    const interval = setInterval(checkRemoteNAS, 2000); // Quét mỗi 2 giây
+    // Bắt đầu chu kỳ quét đầu tiên
+    scheduleNext(2500);
+
     return () => {
-      clearInterval(interval);
+      isCancelled = true;
+      if (timerId) clearTimeout(timerId);
       window.removeEventListener('focus', handleVisibilityOrFocus);
       window.removeEventListener('online', handleVisibilityOrFocus);
       window.removeEventListener('pageshow', handleVisibilityOrFocus);

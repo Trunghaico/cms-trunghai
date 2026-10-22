@@ -18,6 +18,7 @@ import {
 import { formatDate } from '../../lib/storage';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { Attachment } from '../../types';
+import { getSecureFileUrl } from '../../lib/nasStorageService';
 
 export const DMSStorageView: React.FC = () => {
   const { documents, setSelectedDocument } = useDocument();
@@ -208,10 +209,12 @@ export const DMSStorageView: React.FC = () => {
                         </button>
                         <button
                           onClick={() => {
-                            if (item.url && item.url !== '#') {
+                            const secureUrl = getSecureFileUrl(item.url);
+                            if (secureUrl && secureUrl !== '#') {
                               const a = document.createElement('a');
-                              a.href = item.url;
+                              a.href = secureUrl;
                               a.download = item.name;
+                              a.target = '_blank';
                               document.body.appendChild(a);
                               a.click();
                               document.body.removeChild(a);
@@ -220,7 +223,7 @@ export const DMSStorageView: React.FC = () => {
                             }
                           }}
                           title="Tải về"
-                          className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-slate-100 rounded-[3px] transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-brand-blue hover:bg-slate-100 rounded-[3px] transition-colors cursor-pointer"
                         >
                           <Download className="h-4 w-4" />
                         </button>

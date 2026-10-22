@@ -312,7 +312,7 @@ export const saveDatabaseToNAS = async (
       }
       return await res.json();
     } catch (err: any) {
-      console.error('Lỗi khi lưu database lên MinIO NAS qua Gateway:', err);
+      console.warn('Lưu database lên MinIO NAS qua Gateway tạm thời gián đoạn:', err?.message || err);
       return {
         success: false,
         message: `Lỗi sao lưu qua Gateway: ${err.message || err}`

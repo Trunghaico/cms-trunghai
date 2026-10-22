@@ -1,5 +1,5 @@
 // Service Worker for CMS Trung Hải PWA & Web Push Notifications
-const CACHE_NAME = 'cms-trunghai-v1';
+const CACHE_NAME = 'cms-trunghai-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -8,30 +8,30 @@ const STATIC_ASSETS = [
   '/manifest.json'
 ];
 
-// Install Event - Cache Core Assets
+// Install Event - Cache Core Assets & immediately activate
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  self.skipWaiting();
 });
 
-// Activate Event - Clean Old Caches
+// Activate Event - Clean Old Caches & claim all clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', key);
             return caches.delete(key);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 // Fetch Event - Network First with Cache Fallback
@@ -123,9 +123,22 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Message Event - Receive commands from app (e.g. SET_BADGE)
+// Message Event - Receive commands from app (e.g. SKIP_WAITING, CLEAR_CACHE, SET_BADGE)
 self.addEventListener('message', (event) => {
   if (!event.data) return;
+
+  if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
+
+  if (event.data.type === 'CLEAR_CACHE') {
+    caches.keys().then((keys) => {
+      return Promise.all(keys.map((k) => caches.delete(k)));
+    });
+    return;
+  }
+
   if (event.data.type === 'SET_BADGE') {
     const count = event.data.count;
     if ('setAppBadge' in self.navigator) {
