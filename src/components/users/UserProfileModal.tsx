@@ -136,8 +136,6 @@ export const UserProfileModal: React.FC = () => {
     }
   }, [activeTab]);
 
-  if (!isProfileModalOpen || !activeUser) return null;
-
   const handleClose = () => {
     setIsProfileModalOpen(false);
     setErrorMessage('');
@@ -161,7 +159,7 @@ export const UserProfileModal: React.FC = () => {
 
   // Canh chỉnh ảnh đại diện hiện tại hoặc ảnh đã chọn
   const handleOpenAdjustCurrentAvatar = async () => {
-    const currentSrc = avatarUrl || activeUser.avatar;
+    const currentSrc = avatarUrl || activeUser?.avatar;
     if (!currentSrc) return;
     const dataUrl = await loadImgToDataUrl(currentSrc);
     handleOpenAdjuster(dataUrl);
@@ -274,7 +272,7 @@ export const UserProfileModal: React.FC = () => {
 
       let finalAvatarUrl = res.dataUrl;
       try {
-        const customFileName = `avatar_${activeUser.username}_${Date.now()}.webp`;
+        const customFileName = `avatar_${activeUser?.username || 'user'}_${Date.now()}.webp`;
         const nasRes = await uploadFileToNAS(res.blob, customFileName);
         if (nasRes && nasRes.url) {
           finalAvatarUrl = nasRes.url;
@@ -371,7 +369,7 @@ export const UserProfileModal: React.FC = () => {
     const res = updateMyProfile({
       name: name.trim(),
       email: email.trim() || undefined,
-      avatar: avatarUrl || activeUser.avatar
+      avatar: avatarUrl || activeUser?.avatar
     });
 
     setIsSubmitting(false);
@@ -504,6 +502,8 @@ export const UserProfileModal: React.FC = () => {
   };
 
   const passStrength = getPasswordStrength(newPass);
+
+  if (!isProfileModalOpen || !activeUser) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-hidden pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe">

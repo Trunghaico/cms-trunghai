@@ -43,6 +43,10 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
+  // QUAN TRỌNG: Không can thiệp vào các API endpoints động (/api/...)
+  // để các request dữ liệu và MinIO NAS kết nối trực tiếp với backend
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/api')) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -55,14 +59,21 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
+      .catch(async () => {
+        try {
+          const cachedResponse = await caches.match(event.request);
           if (cachedResponse) {
             return cachedResponse;
           }
           if (event.request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('/index.html');
+            const indexHtml = await caches.match('/index.html');
+            if (indexHtml) return indexHtml;
           }
+        } catch {}
+        return new Response('Network error and no cache available', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: new Headers({ 'Content-Type': 'text/plain' })
         });
       })
   );
