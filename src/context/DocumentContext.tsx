@@ -1163,6 +1163,11 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const snapshot = await fetchDatabaseFromNAS();
             if (snapshot) {
               applyRemoteSnapshot(snapshot, info.eTag, info.lastModified);
+            } else {
+              // Nếu snapshot không tải được (server bận/mạng chập chờn), giãn cách polling 15s
+              consecutiveFailures++;
+              scheduleNext(15000);
+              return;
             }
           }
           // Poll nhanh 3s khi kết nối tốt
@@ -1211,8 +1216,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       syncBroadcastChannel.addEventListener('message', handleBroadcast);
     }
 
-    // Bắt đầu chu kỳ quét đầu tiên
-    scheduleNext(2500);
+    // Bắt đầu chu kỳ quét nền sau 6 giây (nhường cho quá trình khởi tạo startup hoàn tất)
+    scheduleNext(6000);
 
     return () => {
       isCancelled = true;

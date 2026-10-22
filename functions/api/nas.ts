@@ -124,24 +124,19 @@ async function socketHttp(
   writer.releaseLock();
 
   const reader = socket.readable.getReader();
-  let buffer = new Uint8Array(0);
+  const chunks: Uint8Array[] = [];
+  let totalLen = 0;
   let headerEnd = -1;
   let expectedBodyLen = -1;
   let isChunked = false;
-
-  const concat = (a: Uint8Array, b: Uint8Array): Uint8Array => {
-    const c = new Uint8Array(a.length + b.length);
-    c.set(a, 0);
-    c.set(b, a.length);
-    return c;
-  };
+  let scannedPos = 0;
 
   let timeoutTimer: any = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutTimer = setTimeout(() => {
       try { socket.close(); } catch {}
-      reject(new Error('MinIO NAS socket connection timed out after 30s'));
-    }, 30000);
+      reject(new Error('MinIO NAS socket connection timed out after 8s'));
+    }, 8000);
   });
 
   try {
@@ -150,21 +145,31 @@ async function socketHttp(
         while (true) {
           const { done, value } = await reader.read();
           if (value && value.length > 0) {
-            buffer = concat(buffer, value);
+            chunks.push(value);
+            totalLen += value.length;
           }
 
-          if (headerEnd === -1 && buffer.length >= 4) {
-            for (let i = 0; i < buffer.length - 3; i++) {
+          if (headerEnd === -1 && totalLen >= 4) {
+            // Flatten accumulated chunks to scan for HTTP header boundary
+            const currentBuf = new Uint8Array(totalLen);
+            let off = 0;
+            for (const c of chunks) {
+              currentBuf.set(c, off);
+              off += c.length;
+            }
+
+            for (let i = Math.max(0, scannedPos - 3); i < currentBuf.length - 3; i++) {
               if (
-                buffer[i] === 13 &&
-                buffer[i + 1] === 10 &&
-                buffer[i + 2] === 13 &&
-                buffer[i + 3] === 10
+                currentBuf[i] === 13 &&
+                currentBuf[i + 1] === 10 &&
+                currentBuf[i + 2] === 13 &&
+                currentBuf[i + 3] === 10
               ) {
                 headerEnd = i;
                 break;
               }
             }
+            scannedPos = currentBuf.length;
 
             if (headerEnd !== -1) {
               // Yêu cầu HEAD không trả về body
@@ -172,7 +177,7 @@ async function socketHttp(
                 break;
               }
 
-              const headerText = new TextDecoder().decode(buffer.subarray(0, headerEnd));
+              const headerText = new TextDecoder().decode(currentBuf.subarray(0, headerEnd));
               const clMatch = /content-length:\s*(\d+)/i.exec(headerText);
               if (clMatch) {
                 expectedBodyLen = parseInt(clMatch[1], 10);
@@ -187,12 +192,15 @@ async function socketHttp(
             if (options.method.toUpperCase() === 'HEAD') {
               break;
             }
-            const currentBodyLen = buffer.length - (headerEnd + 4);
+            const currentBodyLen = totalLen - (headerEnd + 4);
             if (expectedBodyLen !== -1 && currentBodyLen >= expectedBodyLen) {
               break;
             }
-            if (isChunked && new TextDecoder().decode(buffer.subarray(-7)).includes('0\r\n\r\n')) {
-              break;
+            if (isChunked && chunks.length > 0) {
+              const lastChunk = chunks[chunks.length - 1];
+              if (new TextDecoder().decode(lastChunk.subarray(-7)).includes('0\r\n\r\n')) {
+                break;
+              }
             }
           }
 
@@ -205,6 +213,14 @@ async function socketHttp(
     if (timeoutTimer) clearTimeout(timeoutTimer);
     try { reader.releaseLock(); } catch {}
     try { socket.close(); } catch {}
+  }
+
+  // Ghép toàn bộ chunks duy nhất một lần ở cuối để tối ưu CPU & RAM
+  const buffer = new Uint8Array(totalLen);
+  let off = 0;
+  for (const c of chunks) {
+    buffer.set(c, off);
+    off += c.length;
   }
 
   if (headerEnd === -1) {
@@ -645,6 +661,6 @@ export async function onRequest(context: any): Promise<Response> {
       success: false,
       endpoint,
       error: err.message || String(err)
-    }), { status: 500, headers: corsHeaders });
+    }), { status: 200, headers: corsHeaders });
   }
 }

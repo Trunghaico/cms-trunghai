@@ -403,20 +403,29 @@ export const saveDatabaseToNAS = async (
  */
 export const fetchDatabaseFromNAS = async (backupKey?: string): Promise<DatabaseSnapshot | null> => {
   if (isGatewayMode()) {
-    try {
-      const cacheBuster = `_t=${Date.now()}`;
-      const url = backupKey 
-        ? `/api/nas?action=fetch&key=${encodeURIComponent(backupKey)}&${cacheBuster}` 
-        : `/api/nas?action=fetch&${cacheBuster}`;
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) {
-        console.warn(`Gateway fetch failed: HTTP ${res.status}`);
+    const doFetch = async (): Promise<DatabaseSnapshot | null> => {
+      try {
+        const cacheBuster = `_t=${Date.now()}`;
+        const url = backupKey 
+          ? `/api/nas?action=fetch&key=${encodeURIComponent(backupKey)}&${cacheBuster}` 
+          : `/api/nas?action=fetch&${cacheBuster}`;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data || data.success === false) return null;
+        return data;
+      } catch {
         return null;
       }
-      const data = await res.json();
-      return data;
-    } catch (err) {
-      console.warn('Lỗi khi tải database từ MinIO NAS qua Gateway:', err);
+    };
+
+    try {
+      const first = await doFetch();
+      if (first) return first;
+      // Thử lại lần 2 sau 600ms nếu mạng chập chờn
+      await new Promise(r => setTimeout(r, 600));
+      return await doFetch();
+    } catch {
       return null;
     }
   }
