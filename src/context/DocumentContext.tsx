@@ -152,6 +152,8 @@ interface DocumentContextType {
 
 
   documents: DocumentItem[];
+  allDocuments?: DocumentItem[];
+  refreshData?: () => Promise<void>;
   notifications: NotificationItem[];
   unreadNotificationCount: number;
   markNotificationAsRead: (id: string) => void;
@@ -354,9 +356,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     saveNotifications(notifications);
   }, [notifications]);
 
-  // Lắng nghe BroadcastChannel để đồng bộ tức thời giữa các tab trình duyệt và ứng dụng
+  // Lắng nghe BroadcastChannel & StorageEvent để đồng bộ tức thời giữa các tab trình duyệt và ứng dụng
   useEffect(() => {
-    if (!syncBroadcastChannel) return;
     const handleBroadcast = (e: MessageEvent) => {
       const data = e.data;
       if (!data || typeof data !== 'object') return;
@@ -373,13 +374,60 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } else if (data.type === 'CAT_UPDATED' && Array.isArray(data.documentCategories)) {
         setDocumentCategories(deduplicateCategories(data.documentCategories));
       } else if (data.type === 'DOCUMENTS_UPDATED' && Array.isArray(data.documents)) {
-        setDocuments(deduplicateDocuments(data.documents));
+        const cleanDocs = deduplicateDocuments(data.documents);
+        setDocuments(cleanDocs);
+        if (Array.isArray(data.notifications)) {
+          setNotifications(data.notifications);
+        }
+        setSelectedDocument(prev => {
+          if (!prev) return null;
+          return cleanDocs.find(d => d.id === prev.id) || prev;
+        });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('trunghai_activity_updated', {
+            detail: { documents: cleanDocs, action: data.action }
+          }));
+        }
       }
     };
 
-    syncBroadcastChannel.addEventListener('message', handleBroadcast);
+    if (syncBroadcastChannel) {
+      syncBroadcastChannel.addEventListener('message', handleBroadcast);
+    }
+
+    // Lắng nghe StorageEvent đồng bộ tức thì giữa các tab cùng trình duyệt
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === 'trunghai_documents') {
+        const freshDocs = loadDocuments();
+        if (freshDocs && freshDocs.length > 0) {
+          const cleanDocs = deduplicateDocuments(freshDocs);
+          setDocuments(cleanDocs);
+          setSelectedDocument(prev => {
+            if (!prev) return null;
+            return cleanDocs.find(d => d.id === prev.id) || prev;
+          });
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('trunghai_activity_updated', {
+              detail: { documents: cleanDocs }
+            }));
+          }
+        }
+      }
+      if (!e.key || e.key === 'trunghai_notifications') {
+        const freshNotifs = loadNotifications();
+        if (freshNotifs) {
+          setNotifications(freshNotifs);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+
     return () => {
-      syncBroadcastChannel.removeEventListener('message', handleBroadcast);
+      if (syncBroadcastChannel) {
+        syncBroadcastChannel.removeEventListener('message', handleBroadcast);
+      }
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
@@ -2193,6 +2241,69 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }).catch(() => { });
   };
 
+  // Cập nhật tài liệu, lưu localStorage và phát broadcast tức thì tới mọi tab / view
+  const updateDocumentsAndBroadcast = useCallback((
+    updatedDocs: DocumentItem[],
+    updatedNotifs?: NotificationItem[],
+    actionDesc?: string
+  ) => {
+    const cleanDocs = deduplicateDocuments(updatedDocs);
+    setDocuments(cleanDocs);
+    saveDocuments(cleanDocs);
+
+    if (updatedNotifs) {
+      setNotifications(updatedNotifs);
+      saveNotifications(updatedNotifs);
+    }
+
+    // Phát broadcast tức thì tới mọi tab khác trên cùng trình duyệt
+    if (syncBroadcastChannel) {
+      syncBroadcastChannel.postMessage({
+        type: 'DOCUMENTS_UPDATED',
+        documents: cleanDocs,
+        notifications: updatedNotifs,
+        action: actionDesc,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Phát sự kiện nội bộ window cho các component cùng tab
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('trunghai_activity_updated', {
+        detail: { documents: cleanDocs, action: actionDesc }
+      }));
+    }
+  }, []);
+
+  // Làm mới dữ liệu tức thì từ LocalStorage và máy chủ NAS
+  const refreshData = useCallback(async (): Promise<void> => {
+    const localDocs = loadDocuments();
+    const localNotifs = loadNotifications();
+    if (localDocs && localDocs.length > 0) {
+      const cleanDocs = deduplicateDocuments(localDocs);
+      setDocuments(cleanDocs);
+      setSelectedDocument(prev => {
+        if (!prev) return null;
+        return cleanDocs.find(d => d.id === prev.id) || prev;
+      });
+    }
+    if (localNotifs) {
+      setNotifications(localNotifs);
+    }
+
+    try {
+      const info = await getLatestNASDatabaseInfo();
+      if (info && info.exists) {
+        const snapshot = await fetchDatabaseFromNAS();
+        if (snapshot) {
+          applyRemoteSnapshot(snapshot, info.eTag, info.lastModified);
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi kiểm tra dữ liệu từ xa khi làm mới:', e);
+    }
+  }, [applyRemoteSnapshot]);
+
   const createDocument = (docData: Omit<DocumentItem, 'id' | 'createdAt' | 'updatedAt' | 'auditLogs'>): DocumentItem => {
     const now = new Date();
     const nowIso = now.toISOString();
@@ -2237,8 +2348,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updatedDocs = [newDoc, ...documents];
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
 
     // Thêm thông báo cho người có trách nhiệm duyệt bước 1
     const firstApprover = stepsWithDates[0];
@@ -2260,8 +2369,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         targetDepartment: firstApprover.department,
       };
       updatedNotifs = [newNotif, ...notifications];
-      setNotifications(updatedNotifs);
-      saveNotifications(updatedNotifs);
       if (canUserReceiveNotification(activeUser, newNotif, newDoc)) {
         sendDeviceNotification({
           title: newNotif.title,
@@ -2271,6 +2378,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
       }
     }
+
+    updateDocumentsAndBroadcast(updatedDocs, updatedNotifs, `Khởi tạo và trình ký hồ sơ ${newDoc.code}`);
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2327,8 +2436,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
 
     if (selectedDocument?.id === documentId) {
       setSelectedDocument(updatedDoc);
@@ -2349,8 +2456,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       targetDepartment: curStep.department,
     };
     const updatedNotifs = [checkNotif, ...notifications];
-    setNotifications(updatedNotifs);
-    saveNotifications(updatedNotifs);
     if (canUserReceiveNotification(activeUser, checkNotif, targetDoc)) {
       sendDeviceNotification({
         title: checkNotif.title,
@@ -2359,6 +2464,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         type: checkNotif.type
       });
     }
+
+    updateDocumentsAndBroadcast(updatedDocs, updatedNotifs, `Kiểm tra nội bộ hồ sơ ${targetDoc.code}`);
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2443,8 +2550,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
 
     if (selectedDocument?.id === targetDoc.id) {
       setSelectedDocument(updatedDoc);
@@ -2526,8 +2631,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const updatedNotifs = [...addedNotifs, ...notifications];
-    setNotifications(updatedNotifs);
-    saveNotifications(updatedNotifs);
+    updateDocumentsAndBroadcast(updatedDocs, updatedNotifs, `Phê duyệt hồ sơ ${targetDoc.code} (Bước ${currentStepIdx + 1})`);
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2582,8 +2686,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
 
     if (selectedDocument?.id === targetDoc.id) {
       setSelectedDocument(updatedDoc);
@@ -2603,8 +2705,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       recipientIds: [targetDoc.creatorId, ...(targetDoc.ccUsers?.map(c => c.id) || [])],
     };
     const updatedNotifs = [slaNotif, ...notifications];
-    setNotifications(updatedNotifs);
-    saveNotifications(updatedNotifs);
     if (canUserReceiveNotification(activeUser, slaNotif, targetDoc)) {
       sendDeviceNotification({
         title: slaNotif.title,
@@ -2613,6 +2713,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         type: slaNotif.type
       });
     }
+
+    updateDocumentsAndBroadcast(updatedDocs, updatedNotifs, `Trả hồ sơ quá hạn SLA ${targetDoc.code}`);
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2669,8 +2771,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
 
     if (selectedDocument?.id === targetDoc.id) {
       setSelectedDocument(updatedDoc);
@@ -2689,8 +2789,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       recipientId: targetDoc.creatorId,
     };
     const updatedNotifs = [rejectNotif, ...notifications];
-    setNotifications(updatedNotifs);
-    saveNotifications(updatedNotifs);
     if (canUserReceiveNotification(activeUser, rejectNotif, targetDoc)) {
       sendDeviceNotification({
         title: rejectNotif.title,
@@ -2699,6 +2797,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         type: rejectNotif.type
       });
     }
+
+    updateDocumentsAndBroadcast(updatedDocs, updatedNotifs, `Từ chối duyệt hồ sơ ${targetDoc.code}`);
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2755,8 +2855,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
 
     if (selectedDocument?.id === targetDoc.id) {
       setSelectedDocument(updatedDoc);
@@ -2776,8 +2874,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       recipientId: targetDoc.creatorId,
     };
     const updatedNotifs = [reqNotif, ...notifications];
-    setNotifications(updatedNotifs);
-    saveNotifications(updatedNotifs);
     if (canUserReceiveNotification(activeUser, reqNotif, targetDoc)) {
       sendDeviceNotification({
         title: reqNotif.title,
@@ -2786,6 +2882,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         type: reqNotif.type
       });
     }
+
+    updateDocumentsAndBroadcast(updatedDocs, updatedNotifs, `Yêu cầu bổ sung hồ sơ ${targetDoc.code}`);
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2889,8 +2987,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
 
     if (selectedDocument?.id === documentId) {
       setSelectedDocument(updatedDoc);
@@ -2912,8 +3008,6 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       targetDepartment: targetApprover?.department,
     };
     const updatedNotifs = [resubmitNotif, ...notifications];
-    setNotifications(updatedNotifs);
-    saveNotifications(updatedNotifs);
     if (canUserReceiveNotification(activeUser, resubmitNotif, targetDocToResubmit)) {
       sendDeviceNotification({
         title: resubmitNotif.title,
@@ -2922,6 +3016,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         type: resubmitNotif.type
       });
     }
+
+    updateDocumentsAndBroadcast(updatedDocs, updatedNotifs, `Bổ sung và gửi lại hồ sơ ${targetDocToResubmit.code}`);
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -2942,16 +3038,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       addDeletedDocumentId(docToDelete.code);
     }
     const updatedDocs = deduplicateDocuments(documents.filter(d => d.id !== documentId));
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
-
     const updatedNotifs = notifications.filter(n => n.documentId !== documentId);
-    setNotifications(updatedNotifs);
-    saveNotifications(updatedNotifs);
 
     if (selectedDocument?.id === documentId) {
       setSelectedDocument(null);
     }
+
+    updateDocumentsAndBroadcast(updatedDocs, updatedNotifs, activeUser ? `${activeUser.name} (Xóa hồ sơ ${docToDelete?.code || documentId})` : 'Xóa hồ sơ');
 
     persistStateToDatabase({
       documents: updatedDocs,
@@ -3014,12 +3107,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
-    setDocuments(updatedDocs);
-    saveDocuments(updatedDocs);
 
     if (selectedDocument?.id === documentId) {
       setSelectedDocument(updatedDoc);
     }
+
+    updateDocumentsAndBroadcast(updatedDocs, notifications, `Bình luận trên hồ sơ ${targetDoc.code}`);
 
     // Thu thập danh sách người nhận thông báo
     const notifRecipientIds = new Set<string>();
@@ -3318,6 +3411,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateDocumentCategory,
         deleteDocumentCategory,
         documents: accessibleDocuments,
+        allDocuments: documents,
+        refreshData,
 
         notifications: userNotifications,
         unreadNotificationCount,

@@ -164,7 +164,7 @@ export type ResubmitMode = 'CONTINUE_FROM_CURRENT' | 'RESTART_FROM_BEGINNING';
 export interface AuditLog {
   id: string;
   documentId: string;
-  action: 'CREATE' | 'SUBMIT' | 'APPROVE' | 'REJECT' | 'REQUEST_INFO' | 'FORWARD' | 'UPDATE' | 'RESUBMIT';
+  action: 'CREATE' | 'SUBMIT' | 'APPROVE' | 'INTERNAL_CHECK' | 'REJECT' | 'REQUEST_INFO' | 'RETURN_OVERDUE' | 'FORWARD' | 'UPDATE' | 'RESUBMIT' | 'COMMENT' | 'DELETE';
   actorId: string;
   actorName: string;
   actorTitle: string;

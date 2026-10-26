@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useDocument } from '../../context/DocumentContext';
 import { 
   History, 
@@ -16,16 +16,62 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  RefreshCw,
+  Clock,
+  ShieldCheck,
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import { formatDate } from '../../lib/storage';
 
 export const AuditLogView: React.FC = () => {
-  const { documents, setSelectedDocument } = useDocument();
+  const { documents, allDocuments, setSelectedDocument, refreshData, activeUser, hasPermission } = useDocument();
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
+
+  // Người có quyền audit log hoặc Quản trị/Ban Giám Đốc sẽ xem nhật ký của toàn bộ hồ sơ
+  const canViewAll = hasPermission('system.audit_log') || activeUser?.role === 'ADMIN' || activeUser?.role === 'DIRECTOR';
+  const effectiveDocs = (canViewAll && allDocuments && allDocuments.length > 0) ? allDocuments : documents;
+
+  // Lắng nghe sự kiện cập nhật tức thì từ các thao tác nội bộ và tab khác
+  useEffect(() => {
+    // Làm mới dữ liệu khi mở trang
+    if (refreshData) {
+      refreshData().catch(() => {});
+    }
+
+    const handleInstantUpdate = () => {
+      setLastRefreshedAt(new Date());
+      // Tự động chuyển về trang 1 để người dùng thấy ngay hành động vừa xảy ra trên cùng
+      setCurrentPage(1);
+    };
+
+    window.addEventListener('trunghai_activity_updated', handleInstantUpdate);
+    window.addEventListener('storage', handleInstantUpdate);
+
+    return () => {
+      window.removeEventListener('trunghai_activity_updated', handleInstantUpdate);
+      window.removeEventListener('storage', handleInstantUpdate);
+    };
+  }, [refreshData]);
+
+  const handleManualRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    if (refreshData) {
+      try {
+        await refreshData();
+      } catch (e) {
+        console.warn('Lỗi làm mới nhật ký:', e);
+      }
+    }
+    setLastRefreshedAt(new Date());
+    setTimeout(() => setIsRefreshing(false), 400);
+  }, [refreshData]);
 
   // Tổng hợp tất cả audit logs từ toàn bộ hồ sơ
   const allAuditLogs = useMemo(() => {
@@ -45,7 +91,7 @@ export const AuditLogView: React.FC = () => {
       newStatus?: string;
     }[] = [];
 
-    documents.forEach(doc => {
+    effectiveDocs.forEach(doc => {
       if (doc.auditLogs && Array.isArray(doc.auditLogs)) {
         doc.auditLogs.forEach(log => {
           logs.push({
@@ -68,7 +114,7 @@ export const AuditLogView: React.FC = () => {
     });
 
     return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [documents]);
+  }, [effectiveDocs]);
 
   const filteredLogs = useMemo(() => {
     return allAuditLogs.filter(log => {
@@ -145,7 +191,14 @@ export const AuditLogView: React.FC = () => {
         return (
           <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold rounded flex items-center gap-1 w-max">
             <CheckCircle2 className="w-2.5 h-2.5" />
-            Phê Duyệt
+            Phê Duyệt & Ký Số
+          </span>
+        );
+      case 'INTERNAL_CHECK':
+        return (
+          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 border border-indigo-200 text-[10px] font-bold rounded flex items-center gap-1 w-max">
+            <ShieldCheck className="w-2.5 h-2.5" />
+            Thẩm Định Nội Bộ
           </span>
         );
       case 'REJECT':
@@ -162,11 +215,32 @@ export const AuditLogView: React.FC = () => {
             Yêu Cầu Bổ Sung
           </span>
         );
+      case 'RETURN_OVERDUE':
+        return (
+          <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 text-[10px] font-bold rounded flex items-center gap-1 w-max">
+            <Clock className="w-2.5 h-2.5 text-rose-600" />
+            Trả Quá Hạn SLA
+          </span>
+        );
       case 'RESUBMIT':
         return (
           <span className="px-2 py-0.5 bg-orange-100 text-orange-800 border border-orange-200 text-[10px] font-bold rounded flex items-center gap-1 w-max">
             <RotateCcw className="w-2.5 h-2.5" />
             Gửi Lại Hồ Sơ
+          </span>
+        );
+      case 'COMMENT':
+        return (
+          <span className="px-2 py-0.5 bg-sky-100 text-sky-800 border border-sky-200 text-[10px] font-bold rounded flex items-center gap-1 w-max">
+            <MessageSquare className="w-2.5 h-2.5" />
+            Ý Kiến Thảo Luận
+          </span>
+        );
+      case 'DELETE':
+        return (
+          <span className="px-2 py-0.5 bg-red-100 text-red-800 border border-red-200 text-[10px] font-bold rounded flex items-center gap-1 w-max">
+            <Trash2 className="w-2.5 h-2.5" />
+            Xóa Hồ Sơ
           </span>
         );
       default:
@@ -189,8 +263,30 @@ export const AuditLogView: React.FC = () => {
             <span>Nhật Ký Hoạt Động & Lịch Sử Hệ Thống (Audit Trail)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Lịch sử toàn bộ các thao tác tạo, chỉnh sửa, ký duyệt, từ chối hoặc đổi trạng thái hồ sơ
+            Lịch sử toàn bộ các thao tác tạo, chỉnh sửa, ký duyệt, từ chối hoặc đổi trạng thái hồ sơ theo thời gian thực
           </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          {/* Live indicator badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full text-xs font-bold shadow-2xs">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>Trực tiếp • Cập nhật tức thì</span>
+          </div>
+
+          {/* Instant refresh button */}
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold rounded-[4px] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+            title="Làm mới dữ liệu từ hệ thống ngay tức thì"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-brand-blue ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Làm mới tức thì</span>
+          </button>
         </div>
       </div>
 
@@ -212,14 +308,18 @@ export const AuditLogView: React.FC = () => {
           <select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            className="w-full sm:w-auto px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-[3px] font-semibold text-slate-700 focus:outline-none"
+            className="w-full sm:w-auto px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-[3px] font-semibold text-slate-700 focus:outline-none cursor-pointer"
           >
             <option value="ALL">Tất cả hành động</option>
-            <option value="CREATE">Khởi tạo</option>
+            <option value="CREATE">Khởi tạo & Trình ký</option>
             <option value="APPROVE">Phê duyệt & Ký số</option>
-            <option value="REQUEST_INFO">Yêu cầu bổ sung / Trả hồ sơ</option>
+            <option value="INTERNAL_CHECK">Thẩm định nội bộ ban</option>
+            <option value="REQUEST_INFO">Yêu cầu bổ sung</option>
+            <option value="RETURN_OVERDUE">Trả hồ sơ quá hạn SLA</option>
             <option value="REJECT">Từ chối duyệt</option>
             <option value="RESUBMIT">Bổ sung & Gửi lại</option>
+            <option value="COMMENT">Ý kiến thảo luận</option>
+            <option value="DELETE">Xóa hồ sơ</option>
           </select>
         </div>
       </div>
@@ -245,39 +345,59 @@ export const AuditLogView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedLogs.map((log) => (
-                  <tr key={log.logId} className="hover:bg-blue-50/30 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
-                      {formatDate(log.timestamp)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <p className={`font-bold text-xs ${log.actorId === 'SYSTEM_BOT' ? 'text-purple-700' : 'text-slate-900'}`}>
-                        {log.actorName}
-                      </p>
-                      <p className="text-[10px] text-slate-500">{log.actorTitle}</p>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {getActionBadge(log.action, log.actorId)}
-                    </td>
-                    <td className="px-4 py-3 min-w-[200px] max-w-sm">
-                      <span 
-                        onClick={() => {
-                          const targetDoc = documents.find(d => d.id === log.docId);
-                          if (targetDoc) setSelectedDocument(targetDoc);
-                        }}
-                        className="font-bold text-brand-blue hover:underline cursor-pointer"
-                      >
-                        {log.docCode}
-                      </span>
-                      <p className="text-slate-700 font-medium text-[11px] line-clamp-1" title={log.docTitle}>
-                        {log.docTitle}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3 max-w-md text-slate-600 text-xs italic">
-                      {log.comment ? `"${log.comment}"` : '-'}
-                    </td>
-                  </tr>
-                ))
+                paginatedLogs.map((log) => {
+                  const logTime = new Date(log.timestamp).getTime();
+                  const isRecent = !isNaN(logTime) && (Date.now() - logTime) < 180000; // Dưới 3 phút
+
+                  return (
+                    <tr 
+                      key={log.logId} 
+                      className={`transition-colors ${
+                        isRecent 
+                          ? 'bg-emerald-50/40 hover:bg-emerald-50/70 border-l-4 border-l-emerald-500' 
+                          : 'hover:bg-blue-50/30'
+                      }`}
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <span>{formatDate(log.timestamp)}</span>
+                          {isRecent && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
+                              <Zap className="w-2.5 h-2.5 text-emerald-600 fill-emerald-600" />
+                              VỪA XONG
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className={`font-bold text-xs ${log.actorId === 'SYSTEM_BOT' ? 'text-purple-700' : 'text-slate-900'}`}>
+                          {log.actorName}
+                        </p>
+                        <p className="text-[10px] text-slate-500">{log.actorTitle}</p>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {getActionBadge(log.action, log.actorId)}
+                      </td>
+                      <td className="px-4 py-3 min-w-[200px] max-w-sm">
+                        <span 
+                          onClick={() => {
+                            const targetDoc = effectiveDocs.find(d => d.id === log.docId);
+                            if (targetDoc) setSelectedDocument(targetDoc);
+                          }}
+                          className="font-bold text-brand-blue hover:underline cursor-pointer"
+                        >
+                          {log.docCode}
+                        </span>
+                        <p className="text-slate-700 font-medium text-[11px] line-clamp-1" title={log.docTitle}>
+                          {log.docTitle}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 max-w-md text-slate-600 text-xs italic">
+                        {log.comment ? `"${log.comment}"` : '-'}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

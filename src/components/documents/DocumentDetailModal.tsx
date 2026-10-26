@@ -957,51 +957,94 @@ export const DocumentDetailModal: React.FC = () => {
           {/* Audit History Tab */}
           {activeTab === 'AUDIT' && (
             <div className="space-y-4">
-              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                <History className="h-4 w-4 text-brand-blue" />
-                <span>Toàn Bộ Lịch Sử Thao Tác & Trình Ký (Audit Trail)</span>
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                  <History className="h-4 w-4 text-brand-blue" />
+                  <span>Toàn Bộ Lịch Sử Thao Tác & Trình Ký (Audit Trail)</span>
+                </h4>
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                  <span>Mới nhất ở trên</span>
+                </span>
+              </div>
 
               <div className="relative border-l-2 border-slate-200 ml-4 space-y-4 py-2">
-                {selectedDocument.auditLogs.map((log) => (
-                  <div key={log.id} className="relative pl-6">
-                    {/* Dot on timeline */}
-                    <div className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-brand-blue flex items-center justify-center shadow-xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-brand-blue" />
-                    </div>
+                {[...(selectedDocument.auditLogs || [])]
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                  .map((log, index) => {
+                    const isNewest = index === 0;
+                    return (
+                      <div key={log.id} className="relative pl-6">
+                        {/* Dot on timeline */}
+                        <div className={`absolute -left-[9px] top-1.5 h-4 w-4 rounded-full bg-white border-2 flex items-center justify-center shadow-xs ${
+                          isNewest ? 'border-emerald-600' : 'border-brand-blue'
+                        }`}>
+                          {isNewest ? (
+                            <>
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                            </>
+                          ) : (
+                            <span className="h-1.5 w-1.5 rounded-full bg-brand-blue" />
+                          )}
+                        </div>
 
-                    <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-900">
-                          {log.actorName} <span className="text-slate-500 font-normal">({log.actorTitle})</span>
-                        </p>
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {formatDate(log.timestamp)}
-                        </span>
+                        <div className={`p-4 border rounded-2xl shadow-2xs space-y-1 transition-all ${
+                          isNewest 
+                            ? 'bg-gradient-to-r from-emerald-50/60 to-teal-50/30 border-emerald-300 ring-1 ring-emerald-200' 
+                            : 'bg-slate-50 border-slate-200/80'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-bold text-slate-900">
+                                {log.actorName} <span className="text-slate-500 font-normal">({log.actorTitle})</span>
+                              </p>
+                              {isNewest && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
+                                  <Zap className="w-2.5 h-2.5 text-emerald-600 fill-emerald-600" />
+                                  MỚI NHẤT
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {formatDate(log.timestamp)}
+                            </span>
+                          </div>
+
+                          <p className={`text-xs font-semibold ${
+                            log.action === 'APPROVE' ? 'text-emerald-700' :
+                            log.action === 'INTERNAL_CHECK' ? 'text-indigo-700' :
+                            log.action === 'REJECT' ? 'text-brand-red' :
+                            log.action === 'REQUEST_INFO' ? 'text-amber-700' :
+                            log.action === 'RETURN_OVERDUE' ? 'text-rose-700' :
+                            log.action === 'RESUBMIT' ? 'text-purple-700' :
+                            log.action === 'COMMENT' ? 'text-sky-700' :
+                            log.action === 'DELETE' ? 'text-red-700' :
+                            'text-brand-blue'
+                          }`}>
+                            {log.action === 'CREATE' ? 'Khởi tạo và trình ký hồ sơ' :
+                             log.action === 'APPROVE' ? 'Phê duyệt & Ký điện tử' :
+                             log.action === 'INTERNAL_CHECK' ? 'Thẩm định & Kiểm tra nội bộ ban' :
+                             log.action === 'REJECT' ? 'Từ chối phê duyệt hồ sơ' :
+                             log.action === 'REQUEST_INFO' ? 'Yêu cầu bổ sung hồ sơ' :
+                             log.action === 'RETURN_OVERDUE' ? 'Trả hồ sơ do quá hạn thời gian SLA' :
+                             log.action === 'RESUBMIT' ? 'Bổ sung & Gửi lại phê duyệt' : 
+                             log.action === 'COMMENT' ? 'Ý kiến trao đổi & Thảo luận' : 
+                             log.action === 'DELETE' ? 'Xóa hồ sơ' : 'Cập nhật'}
+                          </p>
+
+                          {log.comment && (
+                            <p className="text-[11px] text-slate-600 mt-1.5 bg-white p-2.5 border border-slate-200 rounded-xl italic">
+                              "{log.comment}"
+                            </p>
+                          )}
+                        </div>
                       </div>
-
-                      <p className={`text-xs font-semibold ${
-                        log.action === 'APPROVE' ? 'text-emerald-700' :
-                        log.action === 'REJECT' ? 'text-brand-red' :
-                        log.action === 'REQUEST_INFO' ? 'text-amber-700' :
-                        log.action === 'RESUBMIT' ? 'text-purple-700' :
-                        'text-brand-blue'
-                      }`}>
-                        {log.action === 'CREATE' ? 'Khởi tạo hồ sơ' :
-                         log.action === 'APPROVE' ? 'Phê duyệt & Ký điện tử' :
-                         log.action === 'REJECT' ? 'Từ chối hồ sơ' :
-                         log.action === 'REQUEST_INFO' ? 'Yêu cầu bổ sung' :
-                         log.action === 'RESUBMIT' ? 'Bổ sung & Gửi lại phê duyệt' : 'Cập nhật'}
-                      </p>
-
-                      {log.comment && (
-                        <p className="text-[11px] text-slate-600 mt-1.5 bg-white p-2.5 border border-slate-200 rounded-xl italic">
-                          "{log.comment}"
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
             </div>
           )}
