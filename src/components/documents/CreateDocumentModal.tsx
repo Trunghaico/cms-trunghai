@@ -1789,7 +1789,7 @@ export const CreateDocumentModal: React.FC = () => {
                   Tệp đính kèm & File scan (DMS)
                 </label>
                 <span className="text-[10px] text-blue-600 font-medium">
-                  Tự động chuẩn hóa (.docx, .xlsx, ảnh) sang chuẩn .PDF phục vụ đóng dấu & giáp lai chân trang
+                  Hỗ trợ tệp đính kèm văn phòng (.pdf, .docx, .xlsx, ảnh). Đóng dấu giáp lai chân trang chỉ áp dụng cho tệp .PDF tải lên
                 </span>
               </div>
               <label className={`cursor-pointer px-3.5 py-1.5 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs active:scale-98 ${
