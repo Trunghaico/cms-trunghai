@@ -18,6 +18,54 @@ const STORAGE_KEY_DELETED_PRESETS = 'trunghai_deleted_presets_v1';
 const STORAGE_KEY_DELETED_DOCS = 'trunghai_deleted_documents_v1';
 const STORAGE_KEY_DELETED_WF_TEMPLATES = 'trunghai_deleted_wf_templates_v1';
 const STORAGE_KEY_DELETED_DOC_CATEGORIES = 'trunghai_deleted_doc_categories_v1';
+const STORAGE_KEY_SYSTEM_AUDIT_LOGS = 'trunghai_system_audit_logs_v1';
+
+export interface StandaloneAuditLogEntry {
+  logId: string;
+  docId: string;
+  docCode: string;
+  docTitle: string;
+  docCategory: string;
+  action: string;
+  actorId: string;
+  actorName: string;
+  actorTitle: string;
+  timestamp: string;
+  comment?: string;
+  previousStatus?: string;
+  newStatus?: string;
+}
+
+export const loadSystemAuditLogs = (): StandaloneAuditLogEntry[] => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_SYSTEM_AUDIT_LOGS);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveSystemAuditLogs = (logs: StandaloneAuditLogEntry[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_SYSTEM_AUDIT_LOGS, JSON.stringify(logs));
+  } catch (e) {
+    console.error('Failed to save system audit logs', e);
+  }
+};
+
+export const appendSystemAuditLogs = (newLogs: StandaloneAuditLogEntry[]) => {
+  try {
+    const current = loadSystemAuditLogs();
+    const existingIds = new Set(current.map(l => l.logId));
+    const toAdd = newLogs.filter(l => !existingIds.has(l.logId));
+    if (toAdd.length > 0) {
+      const merged = [...toAdd, ...current].slice(0, 5000);
+      saveSystemAuditLogs(merged);
+    }
+  } catch (e) {
+    console.error('Failed to append system audit logs', e);
+  }
+};
 
 
 export const loadDeletedDocumentIds = (): string[] => {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDocument } from '../../context/DocumentContext';
-import { formatDate } from '../../lib/storage';
+import { formatDate, loadSystemAuditLogs } from '../../lib/storage';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -12,12 +12,13 @@ import {
   ShieldCheck, 
   MessageSquare, 
   Trash2, 
+  Edit3,
   Zap 
 } from 'lucide-react';
 
 export const RecentActivity: React.FC = () => {
   const { documents, allDocuments, setSelectedDocument, setActiveTab, hasPermission, activeUser } = useDocument();
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
 
   const canViewAuditLog = hasPermission('system.audit_log') || activeUser?.role === 'ADMIN' || activeUser?.role === 'DIRECTOR';
   const effectiveDocs = (canViewAuditLog && allDocuments && allDocuments.length > 0) ? allDocuments : documents;
@@ -33,11 +34,33 @@ export const RecentActivity: React.FC = () => {
     };
   }, []);
 
-  // Gom các audit logs gần nhất từ tất cả hồ sơ
-  const allLogs = effectiveDocs
-    .flatMap(doc => (doc.auditLogs || []).map(log => ({ ...log, docCode: doc.code, docTitle: doc.title, document: doc })))
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 6);
+  // Gom các audit logs gần nhất từ tất cả hồ sơ hiện hành và kho lưu trữ nhật ký vĩnh viễn
+  const allLogs = useMemo(() => {
+    const logsMap = new Map<string, any>();
+    effectiveDocs.forEach(doc => {
+      (doc.auditLogs || []).forEach(log => {
+        logsMap.set(log.id, { ...log, docCode: doc.code, docTitle: doc.title, document: doc });
+      });
+    });
+    loadSystemAuditLogs().forEach(log => {
+      if (!logsMap.has(log.logId)) {
+        logsMap.set(log.logId, {
+          id: log.logId,
+          docCode: log.docCode,
+          docTitle: log.docTitle,
+          action: log.action,
+          actorName: log.actorName,
+          actorTitle: log.actorTitle,
+          timestamp: log.timestamp,
+          comment: log.comment,
+          document: effectiveDocs.find(d => d.id === log.docId),
+        });
+      }
+    });
+    return Array.from(logsMap.values())
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 6);
+  }, [effectiveDocs, tick]);
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -53,6 +76,8 @@ export const RecentActivity: React.FC = () => {
         return <Clock className="h-4 w-4 text-rose-600" />;
       case 'RESUBMIT':
         return <RotateCcw className="h-4 w-4 text-purple-600" />;
+      case 'UPDATE':
+        return <Edit3 className="h-4 w-4 text-cyan-600" />;
       case 'COMMENT':
         return <MessageSquare className="h-4 w-4 text-sky-600" />;
       case 'DELETE':
@@ -78,6 +103,8 @@ export const RecentActivity: React.FC = () => {
         return 'đã trả hồ sơ quá hạn SLA';
       case 'RESUBMIT':
         return 'đã bổ sung & gửi lại';
+      case 'UPDATE':
+        return 'đã chỉnh sửa';
       case 'COMMENT':
         return 'đã để lại ý kiến thảo luận trên';
       case 'DELETE':
@@ -127,7 +154,13 @@ export const RecentActivity: React.FC = () => {
             return (
               <div
                 key={log.id}
-                onClick={() => setSelectedDocument(log.document)}
+                onClick={() => {
+                  if (log.document) {
+                    setSelectedDocument(log.document);
+                  } else {
+                    alert(`Hồ sơ [${log.docCode}] đã được xóa khỏi hệ thống. Nhật ký hoạt động này được lưu trữ vĩnh viễn trong lịch sử kiểm toán.`);
+                  }
+                }}
                 className={`py-3 flex items-start gap-3 px-2.5 -mx-2 rounded-xl transition-colors cursor-pointer group ${
                   isRecent ? 'bg-emerald-50/40 hover:bg-emerald-50/70 border-l-2 border-emerald-500' : 'hover:bg-indigo-50/40'
                 }`}

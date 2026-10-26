@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useDocument } from '../../context/DocumentContext';
-import { 
-  History, 
-  Search, 
-  Filter, 
-  User, 
-  Building2, 
-  FileText, 
-  CheckCircle2, 
-  XCircle, 
-  AlertCircle, 
+import {
+  History,
+  Search,
+  Filter,
+  User,
+  Building2,
+  FileText,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
   RotateCcw,
   Zap,
   ArrowRight,
@@ -21,9 +21,10 @@ import {
   Clock,
   ShieldCheck,
   MessageSquare,
-  Trash2
+  Trash2,
+  Edit3
 } from 'lucide-react';
-import { formatDate } from '../../lib/storage';
+import { formatDate, loadSystemAuditLogs, StandaloneAuditLogEntry } from '../../lib/storage';
 
 export const AuditLogView: React.FC = () => {
   const { documents, allDocuments, setSelectedDocument, refreshData, activeUser, hasPermission } = useDocument();
@@ -42,7 +43,7 @@ export const AuditLogView: React.FC = () => {
   useEffect(() => {
     // Làm mới dữ liệu khi mở trang
     if (refreshData) {
-      refreshData().catch(() => {});
+      refreshData().catch(() => { });
     }
 
     const handleInstantUpdate = () => {
@@ -73,9 +74,9 @@ export const AuditLogView: React.FC = () => {
     setTimeout(() => setIsRefreshing(false), 400);
   }, [refreshData]);
 
-  // Tổng hợp tất cả audit logs từ toàn bộ hồ sơ
+  // Tổng hợp tất cả audit logs từ toàn bộ hồ sơ hiện hành và kho lưu trữ nhật ký vĩnh viễn (gồm cả hồ sơ đã xóa)
   const allAuditLogs = useMemo(() => {
-    const logs: {
+    const logsMap = new Map<string, {
       logId: string;
       docId: string;
       docCode: string;
@@ -89,12 +90,14 @@ export const AuditLogView: React.FC = () => {
       comment?: string;
       previousStatus?: string;
       newStatus?: string;
-    }[] = [];
+      isDeleted?: boolean;
+    }>();
 
+    // 1. Logs từ các hồ sơ đang hoạt động
     effectiveDocs.forEach(doc => {
       if (doc.auditLogs && Array.isArray(doc.auditLogs)) {
         doc.auditLogs.forEach(log => {
-          logs.push({
+          logsMap.set(log.id, {
             logId: log.id,
             docId: doc.id,
             docCode: doc.code,
@@ -108,13 +111,27 @@ export const AuditLogView: React.FC = () => {
             comment: log.comment,
             previousStatus: log.previousStatus,
             newStatus: log.newStatus,
+            isDeleted: false,
           });
         });
       }
     });
 
-    return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [effectiveDocs]);
+    // 2. Logs từ kho lưu trữ nhật ký hệ thống (bao gồm các hành động DELETE và hồ sơ đã bị xóa)
+    const standaloneLogs = loadSystemAuditLogs();
+    standaloneLogs.forEach(l => {
+      if (!logsMap.has(l.logId)) {
+        logsMap.set(l.logId, {
+          ...l,
+          isDeleted: l.action === 'DELETE' || !effectiveDocs.some(d => d.id === l.docId),
+        });
+      }
+    });
+
+    return Array.from(logsMap.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }, [effectiveDocs, lastRefreshedAt]);
 
   const filteredLogs = useMemo(() => {
     return allAuditLogs.filter(log => {
@@ -229,6 +246,13 @@ export const AuditLogView: React.FC = () => {
             Gửi Lại Hồ Sơ
           </span>
         );
+      case 'UPDATE':
+        return (
+          <span className="px-2 py-0.5 bg-cyan-100 text-cyan-800 border border-cyan-200 text-[10px] font-bold rounded flex items-center gap-1 w-max">
+            <Edit3 className="w-2.5 h-2.5 text-cyan-700" />
+            Chỉnh Sửa Hồ Sơ
+          </span>
+        );
       case 'COMMENT':
         return (
           <span className="px-2 py-0.5 bg-sky-100 text-sky-800 border border-sky-200 text-[10px] font-bold rounded flex items-center gap-1 w-max">
@@ -254,16 +278,16 @@ export const AuditLogView: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <History className="h-5 w-5 text-brand-blue" />
-            <span>Nhật Ký Hoạt Động & Lịch Sử Hệ Thống (Audit Trail)</span>
+            <span>Nhật Ký Hoạt Động & Lịch Sử Hệ Thống</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Lịch sử toàn bộ các thao tác tạo, chỉnh sửa, ký duyệt, từ chối hoặc đổi trạng thái hồ sơ theo thời gian thực
+            Lịch sử toàn bộ các thao tác tạo, chỉnh sửa, ký duyệt, từ chối hoặc đổi trạng thái hồ sơ
           </p>
         </div>
 
@@ -274,7 +298,7 @@ export const AuditLogView: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span>Trực tiếp • Cập nhật tức thì</span>
+            <span>Trực tiếp</span>
           </div>
 
           {/* Instant refresh button */}
@@ -285,7 +309,7 @@ export const AuditLogView: React.FC = () => {
             title="Làm mới dữ liệu từ hệ thống ngay tức thì"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-brand-blue ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Làm mới tức thì</span>
+            <span>Làm mới</span>
           </button>
         </div>
       </div>
@@ -318,6 +342,7 @@ export const AuditLogView: React.FC = () => {
             <option value="RETURN_OVERDUE">Trả hồ sơ quá hạn SLA</option>
             <option value="REJECT">Từ chối duyệt</option>
             <option value="RESUBMIT">Bổ sung & Gửi lại</option>
+            <option value="UPDATE">Chỉnh sửa hồ sơ</option>
             <option value="COMMENT">Ý kiến thảo luận</option>
             <option value="DELETE">Xóa hồ sơ</option>
           </select>
@@ -350,13 +375,12 @@ export const AuditLogView: React.FC = () => {
                   const isRecent = !isNaN(logTime) && (Date.now() - logTime) < 180000; // Dưới 3 phút
 
                   return (
-                    <tr 
-                      key={log.logId} 
-                      className={`transition-colors ${
-                        isRecent 
-                          ? 'bg-emerald-50/40 hover:bg-emerald-50/70 border-l-4 border-l-emerald-500' 
-                          : 'hover:bg-blue-50/30'
-                      }`}
+                    <tr
+                      key={log.logId}
+                      className={`transition-colors ${isRecent
+                        ? 'bg-emerald-50/40 hover:bg-emerald-50/70 border-l-4 border-l-emerald-500'
+                        : 'hover:bg-blue-50/30'
+                        }`}
                     >
                       <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
                         <div className="flex items-center gap-1.5">
@@ -379,12 +403,16 @@ export const AuditLogView: React.FC = () => {
                         {getActionBadge(log.action, log.actorId)}
                       </td>
                       <td className="px-4 py-3 min-w-[200px] max-w-sm">
-                        <span 
+                        <span
                           onClick={() => {
                             const targetDoc = effectiveDocs.find(d => d.id === log.docId);
-                            if (targetDoc) setSelectedDocument(targetDoc);
+                            if (targetDoc) {
+                              setSelectedDocument(targetDoc);
+                            } else {
+                              alert(`Hồ sơ [${log.docCode}] đã được xóa khỏi hệ thống. Toàn bộ lịch sử thao tác này vẫn được lưu trữ vĩnh viễn trong nhật ký hoạt động.`);
+                            }
                           }}
-                          className="font-bold text-brand-blue hover:underline cursor-pointer"
+                          className={`font-bold ${log.action === 'DELETE' ? 'text-rose-600 line-through' : 'text-brand-blue'} hover:underline cursor-pointer`}
                         >
                           {log.docCode}
                         </span>
@@ -468,11 +496,10 @@ export const AuditLogView: React.FC = () => {
                     <button
                       key={`page-${page}`}
                       onClick={() => setCurrentPage(Number(page))}
-                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
-                        isCurrent
-                          ? 'bg-brand-blue text-white shadow-xs'
-                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
+                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${isCurrent
+                        ? 'bg-brand-blue text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
                     >
                       {page}
                     </button>

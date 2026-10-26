@@ -38,7 +38,7 @@ import { PDFViewerModal } from '../common/PDFViewerModal';
 import { FooterStampModal } from './FooterStampModal';
 import { ResubmitDocumentModal } from './ResubmitDocumentModal';
 import { DocumentCommentThread } from './DocumentCommentThread';
-import { Attachment } from '../../types';
+import { Attachment, DocumentPriority } from '../../types';
 import { getSecureFileUrl } from '../../lib/nasStorageService';
 import { isUserApproverForStep, canUserOverseeAllDocuments, canUserPerformInternalCheck, canUserPerformManagerApproval } from '../../lib/permissions';
 import { ExportPrintDocumentModal } from './ExportPrintDocumentModal';
@@ -53,6 +53,7 @@ export const DocumentDetailModal: React.FC = () => {
     rejectDocument, 
     requestAdditionalInfo,
     returnOverdueDocument,
+    updateDocument,
     deleteDocument,
     hasPermission 
   } = useDocument();
@@ -69,6 +70,12 @@ export const DocumentDetailModal: React.FC = () => {
   const [isClosing, setIsClosing] = useState(false);
   const [returnOverdueReason, setReturnOverdueReason] = useState('');
   const [isReturningOverdue, setIsReturningOverdue] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editAmount, setEditAmount] = useState<number | undefined>(undefined);
+  const [editPriority, setEditPriority] = useState<DocumentPriority>('NORMAL');
+  const [editDescription, setEditDescription] = useState('');
+  const [editNote, setEditNote] = useState('');
   const mouseDownTargetRef = useRef<EventTarget | null>(null);
 
   if (!selectedDocument || !activeUser) return null;
@@ -87,6 +94,39 @@ export const DocumentDetailModal: React.FC = () => {
   const isCreator = selectedDocument ? selectedDocument.creatorId === activeUser.id : false;
   const canUserResubmit = selectedDocument?.status === 'ADDITIONAL_REQ' && (isCreator || activeUser.role === 'ADMIN');
   const canDelete = hasPermission('doc.delete') && (isCreator || activeUser.role === 'ADMIN' || hasPermission('approval.override'));
+  const canEdit = (isCreator || activeUser.role === 'ADMIN' || hasPermission('doc.edit')) && selectedDocument?.status !== 'APPROVED';
+
+  const handleOpenEdit = () => {
+    if (!selectedDocument) return;
+    setEditTitle(selectedDocument.title || '');
+    setEditAmount(selectedDocument.amount);
+    setEditPriority(selectedDocument.priority || 'NORMAL');
+    setEditDescription(selectedDocument.description || '');
+    setEditNote('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDocument) return;
+    if (!editTitle.trim()) {
+      alert('Vui lòng nhập tiêu đề hồ sơ.');
+      return;
+    }
+    const res = updateDocument(
+      selectedDocument.id,
+      {
+        title: editTitle.trim(),
+        amount: editAmount !== undefined && editAmount !== null && !isNaN(Number(editAmount)) ? Number(editAmount) : undefined,
+        priority: editPriority,
+        description: editDescription.trim(),
+      },
+      editNote.trim() || undefined
+    );
+    if (res.success) {
+      setIsEditModalOpen(false);
+    }
+  };
 
   // Lọc dữ liệu file đẩy lên: chỉ nhận diện tệp là PDF hợp lệ (.pdf hoặc mime type application/pdf)
   const isAttachmentPdf = (a?: Attachment | null): boolean => {
@@ -1021,6 +1061,7 @@ export const DocumentDetailModal: React.FC = () => {
                             log.action === 'REQUEST_INFO' ? 'text-amber-700' :
                             log.action === 'RETURN_OVERDUE' ? 'text-rose-700' :
                             log.action === 'RESUBMIT' ? 'text-purple-700' :
+                            log.action === 'UPDATE' ? 'text-cyan-700' :
                             log.action === 'COMMENT' ? 'text-sky-700' :
                             log.action === 'DELETE' ? 'text-red-700' :
                             'text-brand-blue'
@@ -1032,6 +1073,7 @@ export const DocumentDetailModal: React.FC = () => {
                              log.action === 'REQUEST_INFO' ? 'Yêu cầu bổ sung hồ sơ' :
                              log.action === 'RETURN_OVERDUE' ? 'Trả hồ sơ do quá hạn thời gian SLA' :
                              log.action === 'RESUBMIT' ? 'Bổ sung & Gửi lại phê duyệt' : 
+                             log.action === 'UPDATE' ? 'Chỉnh sửa thông tin hồ sơ' :
                              log.action === 'COMMENT' ? 'Ý kiến trao đổi & Thảo luận' : 
                              log.action === 'DELETE' ? 'Xóa hồ sơ' : 'Cập nhật'}
                           </p>
@@ -1065,11 +1107,22 @@ export const DocumentDetailModal: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-1.5">
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleOpenEdit}
+                className="px-2.5 py-1.5 text-[11px] font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 hover:bg-cyan-100 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                title="Chỉnh sửa thông tin hồ sơ"
+              >
+                <Edit3 className="h-3 w-3 text-cyan-700" />
+                <span>Sửa Hồ Sơ</span>
+              </button>
+            )}
             {canDelete && (
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm(`Xác nhận xóa vĩnh viễn hồ sơ ${selectedDocument.code}? Hồ sơ sau khi xóa sẽ mất hoàn toàn và không khôi phục lại khi tải lại trang/build dữ liệu.`)) {
+                  if (confirm(`Xác nhận xóa vĩnh viễn hồ sơ ${selectedDocument.code}? Hồ sơ sau khi xóa sẽ mất hoàn toàn và lưu giữ vĩnh viễn trong nhật ký hoạt động.`)) {
                     deleteDocument(selectedDocument.id);
                   }
                 }}
@@ -1108,6 +1161,105 @@ export const DocumentDetailModal: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Edit Document Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-cyan-600" />
+                <span>Chỉnh Sửa Hồ Sơ [{selectedDocument.code}]</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Tiêu đề hồ sơ *</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-blue"
+                  placeholder="Nhập tiêu đề hồ sơ..."
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Số tiền (VNĐ)</label>
+                  <input
+                    type="number"
+                    value={editAmount !== undefined ? editAmount : ''}
+                    onChange={(e) => setEditAmount(e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-blue"
+                    placeholder="Không có hoặc 0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Độ khẩn cấp</label>
+                  <select
+                    value={editPriority}
+                    onChange={(e) => setEditPriority(e.target.value as DocumentPriority)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-blue bg-white"
+                  >
+                    <option value="NORMAL">Bình thường (72h)</option>
+                    <option value="URGENT">Khẩn cấp (24h)</option>
+                    <option value="VERY_URGENT">Hỏa tốc (8h)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Trích yếu nội dung</label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-blue"
+                  placeholder="Mô tả tóm tắt nội dung..."
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Lý do chỉnh sửa (Ghi nhận vào nhật ký)</label>
+                <input
+                  type="text"
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-brand-blue"
+                  placeholder="Vd: Điều chỉnh giá trị theo phê duyệt mới..."
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-bold rounded-lg shadow-sm cursor-pointer"
+                >
+                  Lưu & Ghi Nhật Ký
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Resubmit Document Modal */}
       {isResubmitModalOpen && (

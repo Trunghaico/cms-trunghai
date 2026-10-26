@@ -49,7 +49,9 @@ import {
   deduplicateCategories,
   formatDate,
   exportFullDatabaseJson,
-  importFullDatabaseJson
+  importFullDatabaseJson,
+  appendSystemAuditLogs,
+  StandaloneAuditLogEntry
 } from '../lib/storage';
 
 import {
@@ -185,6 +187,11 @@ interface DocumentContextType {
       supplementNote: string;
       resubmitMode: ResubmitMode;
     }
+  ) => { success: boolean; message?: string };
+  updateDocument: (
+    documentId: string,
+    updates: Partial<Omit<DocumentItem, 'id' | 'createdAt' | 'auditLogs'>>,
+    note?: string
   ) => { success: boolean; message?: string };
   deleteDocument: (documentId: string) => void;
   addDocumentComment: (
@@ -2416,7 +2423,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const newLog: AuditLog = {
       id: `log-${Date.now()}`,
       documentId: targetDoc.id,
-      action: 'APPROVE' as const,
+      action: 'INTERNAL_CHECK' as const,
       actorId: activeUser.id,
       actorName: activeUser.name,
       actorTitle: activeUser.roleTitle,
@@ -2652,7 +2659,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const newLog: AuditLog = {
       id: `log-${Date.now()}`,
       documentId: targetDoc.id,
-      action: 'REQUEST_INFO',
+      action: 'RETURN_OVERDUE' as const,
       actorId: activeUser.id,
       actorName: activeUser.name,
       actorTitle: activeUser.roleTitle,
@@ -3031,8 +3038,109 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   };
 
+  // Chỉnh sửa thông tin hồ sơ và ghi nhận nhật ký thao tác UPDATE
+  const updateDocument = (
+    documentId: string,
+    updates: Partial<Omit<DocumentItem, 'id' | 'createdAt' | 'auditLogs'>>,
+    note?: string
+  ): { success: boolean; message?: string } => {
+    if (!activeUser) {
+      return { success: false, message: 'Vui lòng đăng nhập để thực hiện chỉnh sửa.' };
+    }
+    const targetDoc = documents.find(d => d.id === documentId);
+    if (!targetDoc) {
+      return { success: false, message: 'Không tìm thấy hồ sơ.' };
+    }
+
+    const now = new Date().toISOString();
+    const changeSummary: string[] = [];
+    if (updates.title && updates.title !== targetDoc.title) changeSummary.push(`tiêu đề: "${updates.title}"`);
+    if (updates.amount !== undefined && updates.amount !== targetDoc.amount) changeSummary.push(`số tiền: ${updates.amount.toLocaleString('vi-VN')} đ`);
+    if (updates.category && updates.category !== targetDoc.category) changeSummary.push(`loại: "${updates.category}"`);
+    if (updates.priority && updates.priority !== targetDoc.priority) changeSummary.push(`độ khẩn: "${updates.priority}"`);
+    if (updates.description && updates.description !== targetDoc.description) changeSummary.push(`trích yếu nội dung`);
+    if (updates.attachments && updates.attachments !== targetDoc.attachments) changeSummary.push(`tài liệu đính kèm (${updates.attachments.length} tệp)`);
+
+    const summaryText = changeSummary.length > 0 ? changeSummary.join(', ') : (note || 'thông tin văn bản');
+
+    const newLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      documentId: targetDoc.id,
+      action: 'UPDATE',
+      actorId: activeUser.id,
+      actorName: activeUser.name,
+      actorTitle: activeUser.roleTitle,
+      timestamp: now,
+      comment: note ? `Chỉnh sửa hồ sơ (${note}): Đã cập nhật ${summaryText}` : `Chỉnh sửa hồ sơ: Đã cập nhật ${summaryText}`,
+      previousStatus: targetDoc.status,
+      newStatus: targetDoc.status,
+    };
+
+    const updatedDoc: DocumentItem = {
+      ...targetDoc,
+      ...updates,
+      updatedAt: now,
+      auditLogs: [...targetDoc.auditLogs, newLog],
+    };
+
+    const updatedDocs = documents.map(d => d.id === documentId ? updatedDoc : d);
+
+    if (selectedDocument?.id === documentId) {
+      setSelectedDocument(updatedDoc);
+    }
+
+    updateDocumentsAndBroadcast(updatedDocs, notifications, `Chỉnh sửa hồ sơ ${targetDoc.code}`);
+
+    persistStateToDatabase({
+      documents: updatedDocs,
+      actionDescription: `Chỉnh sửa hồ sơ ${targetDoc.code}: ${summaryText}`
+    }).catch(e => console.warn('Lỗi persist NAS khi chỉnh sửa hồ sơ:', e));
+
+    return { success: true, message: 'Đã cập nhật hồ sơ thành công!' };
+  };
+
   const deleteDocument = (documentId: string) => {
     const docToDelete = documents.find(d => d.id === documentId);
+    const now = new Date().toISOString();
+
+    // 1. Ghi nhận nhật ký xóa hồ sơ vào hệ thống kiểm toán vĩnh viễn
+    const deleteLogEntry: StandaloneAuditLogEntry = {
+      logId: `log-${Date.now()}`,
+      docId: docToDelete?.id || documentId,
+      docCode: docToDelete?.code || 'ĐÃ XÓA',
+      docTitle: docToDelete ? `${docToDelete.title} (ĐÃ XÓA)` : 'Hồ sơ đã xóa',
+      docCategory: docToDelete?.category || 'Chung',
+      action: 'DELETE',
+      actorId: activeUser?.id || 'SYSTEM',
+      actorName: activeUser?.name || 'Người dùng',
+      actorTitle: activeUser?.roleTitle || 'Thành viên',
+      timestamp: now,
+      comment: activeUser 
+        ? `${activeUser.name} đã xóa vĩnh viễn hồ sơ [${docToDelete?.code || documentId}] - "${docToDelete?.title || ''}"`
+        : `Xóa vĩnh viễn hồ sơ [${docToDelete?.code || documentId}]`,
+      previousStatus: docToDelete?.status,
+      newStatus: undefined,
+    };
+
+    // 2. Lưu giữ toàn bộ nhật ký trước đó của hồ sơ đã xóa để không bị mất trong Audit Trail
+    const pastLogs: StandaloneAuditLogEntry[] = (docToDelete?.auditLogs || []).map(l => ({
+      logId: l.id,
+      docId: docToDelete?.id || documentId,
+      docCode: docToDelete?.code || 'ĐÃ XÓA',
+      docTitle: docToDelete ? `${docToDelete.title} (ĐÃ XÓA)` : 'Hồ sơ đã xóa',
+      docCategory: docToDelete?.category || 'Chung',
+      action: l.action,
+      actorId: l.actorId,
+      actorName: l.actorName,
+      actorTitle: l.actorTitle,
+      timestamp: l.timestamp,
+      comment: l.comment,
+      previousStatus: l.previousStatus,
+      newStatus: l.newStatus,
+    }));
+
+    appendSystemAuditLogs([deleteLogEntry, ...pastLogs]);
+
     addDeletedDocumentId(documentId);
     if (docToDelete?.code) {
       addDeletedDocumentId(docToDelete.code);
@@ -3099,10 +3207,25 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       createdAt: now
     };
 
+    // Ghi nhận nhật ký hoạt động COMMENT khi có ý kiến thảo luận
+    const commentLog: AuditLog = {
+      id: `log-${Date.now()}`,
+      documentId: targetDoc.id,
+      action: 'COMMENT',
+      actorId: activeUser.id,
+      actorName: activeUser.name,
+      actorTitle: activeUser.roleTitle,
+      timestamp: now,
+      comment: trimmedContent.length > 120 ? `"${trimmedContent.substring(0, 120)}..."` : `"${trimmedContent}"`,
+      previousStatus: targetDoc.status,
+      newStatus: targetDoc.status,
+    };
+
     const updatedComments = [...(targetDoc.comments || []), newComment];
     const updatedDoc: DocumentItem = {
       ...targetDoc,
       comments: updatedComments,
+      auditLogs: [...targetDoc.auditLogs, commentLog],
       updatedAt: now
     };
 
@@ -3433,6 +3556,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         requestAdditionalInfo,
         returnOverdueDocument,
         resubmitDocument,
+        updateDocument,
         deleteDocument,
         addDocumentComment,
         deleteDocumentComment,
