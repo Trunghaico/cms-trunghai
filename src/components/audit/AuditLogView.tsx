@@ -387,7 +387,7 @@ export const AuditLogView: React.FC = () => {
                           <span>{formatDate(log.timestamp)}</span>
                           {isRecent && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
-                              <Zap className="w-2.5 h-2.5 text-emerald-600 fill-emerald-600" />
+
                               VỪA XONG
                             </span>
                           )}
