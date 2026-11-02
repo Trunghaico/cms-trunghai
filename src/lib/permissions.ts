@@ -1,4 +1,4 @@
-import { PermissionId, PermissionDefinition, PermissionCategory, PermissionPreset, UserRole, User, ApprovalStep, DocumentItem, NotificationItem } from '../types';
+import { PermissionId, PermissionDefinition, PermissionCategory, PermissionPreset, UserRole, User, ApprovalStep, DocumentItem, NotificationItem, isProposingDepartment } from '../types';
 
 export const PERMISSION_CATEGORIES: { id: PermissionCategory; name: string; iconName: string; description: string }[] = [
   {
@@ -519,30 +519,32 @@ export function isSameDepartment(dept1?: string, dept2?: string): boolean {
 }
 
 // 2a. Kiểm tra người dùng có thẩm quyền kiểm tra nội bộ tại phòng ban của bước duyệt
-export function canUserPerformInternalCheck(user: User | null | undefined, step: ApprovalStep): boolean {
+export function canUserPerformInternalCheck(user: User | null | undefined, step: ApprovalStep, docDepartment?: string): boolean {
   if (!user || !step) return false;
+  const targetDept = (isProposingDepartment(step.department) && docDepartment) ? docDepartment : step.department;
   const userPositions = [
     { department: user.department, role: user.role, roleTitle: user.roleTitle },
     ...(user.secondaryPositions || [])
   ];
   const matchingPositions = userPositions.filter(pos => 
-    isSameDepartment(pos.department, step.department)
+    isSameDepartment(pos.department, targetDept)
   );
   if (matchingPositions.length === 0) return false;
   return hasPermission(user, 'approval.internal_check');
 }
 
 // 2b. Kiểm tra người dùng có thẩm quyền ký phê duyệt cấp Quản lý (Trưởng phòng/Trưởng ban/Giám đốc)
-export function canUserPerformManagerApproval(user: User | null | undefined, step: ApprovalStep): boolean {
+export function canUserPerformManagerApproval(user: User | null | undefined, step: ApprovalStep, docDepartment?: string): boolean {
   if (!user || !step) return false;
   if (step.approverId) return step.approverId === user.id;
 
+  const targetDept = (isProposingDepartment(step.department) && docDepartment) ? docDepartment : step.department;
   const userPositions = [
     { department: user.department, role: user.role, roleTitle: user.roleTitle },
     ...(user.secondaryPositions || [])
   ];
   const matchingPositions = userPositions.filter(pos => 
-    isSameDepartment(pos.department, step.department)
+    isSameDepartment(pos.department, targetDept)
   );
   if (matchingPositions.length === 0) return false;
 
@@ -573,8 +575,10 @@ export function canUserPerformManagerApproval(user: User | null | undefined, ste
 }
 
 // 2c. Kiểm tra xem người dùng có phải là người duyệt hoặc kiểm tra của một bước cụ thể
-export function isUserApproverForStep(user: User | null | undefined, step: ApprovalStep): boolean {
+export function isUserApproverForStep(user: User | null | undefined, step: ApprovalStep, docOrDept?: DocumentItem | string): boolean {
   if (!user || !step) return false;
+
+  const docDept = typeof docOrDept === 'string' ? docOrDept : docOrDept?.department;
 
   // Trường hợp 1: Chỉ định đích danh cá nhân duyệt
   if (step.approverId) {
@@ -584,22 +588,22 @@ export function isUserApproverForStep(user: User | null | undefined, step: Appro
   // Trường hợp 2: Bước duyệt phòng ban gộp khâu kiểm tra & duyệt
   // Nếu bước yêu cầu kiểm tra nội bộ và CHƯA kiểm tra: Nhân sự kiểm tra HOẶC Quản lý ban đều có quyền thao tác
   if (step.requiresInternalCheck && !step.isInternalChecked) {
-    return canUserPerformInternalCheck(user, step) || canUserPerformManagerApproval(user, step);
+    return canUserPerformInternalCheck(user, step, docDept) || canUserPerformManagerApproval(user, step, docDept);
   }
 
   // Trường hợp tương thích ngược với bước riêng:
   if (step.isInternalCheck || step.stepType === 'INTERNAL_CHECK') {
-    return canUserPerformInternalCheck(user, step);
+    return canUserPerformInternalCheck(user, step, docDept);
   }
 
   // Nếu đã kiểm tra nội bộ xong (hoặc không yêu cầu kiểm tra): Chỉ cấp Quản lý ban mới duyệt
-  return canUserPerformManagerApproval(user, step);
+  return canUserPerformManagerApproval(user, step, docDept);
 }
 
 // 3. Kiểm tra xem người dùng có phải là người duyệt trong bất kỳ bước nào của hồ sơ
 export function isUserApproverForDoc(user: User | null | undefined, doc: DocumentItem): boolean {
   if (!user || !doc || !doc.steps) return false;
-  return doc.steps.some(step => isUserApproverForStep(user, step));
+  return doc.steps.some(step => isUserApproverForStep(user, step, doc));
 }
 
 // 4. Kiểm tra quyền xem hồ sơ:

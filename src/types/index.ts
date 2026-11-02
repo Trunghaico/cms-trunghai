@@ -257,6 +257,27 @@ export interface WorkflowStep {
   overdueAction?: OverdueAction;
 }
 
+export const PROPOSING_DEPT_LABEL = 'Phòng ban đề xuất';
+
+/**
+ * Kiểm tra xem một tên phòng ban có phải là "Phòng ban đề xuất" (động theo người lập) hay không
+ */
+export const isProposingDepartment = (deptName?: string): boolean => {
+  if (!deptName) return false;
+  const normalized = deptName.trim().toLowerCase();
+  return (
+    normalized === 'phòng ban đề xuất' ||
+    normalized === 'phong ban de xuat' ||
+    normalized === 'phòng ban khởi tạo' ||
+    normalized === 'phong ban khoi tao' ||
+    normalized === 'đơn vị đề xuất' ||
+    normalized === 'don vi de xuat' ||
+    normalized === 'đơn vị khởi tạo' ||
+    normalized === 'don vi khoi tao' ||
+    normalized === 'dx'
+  );
+};
+
 export interface WorkflowTemplate {
   id: string;
   name: string;

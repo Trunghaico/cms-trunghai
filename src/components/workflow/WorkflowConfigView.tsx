@@ -28,7 +28,7 @@ import {
   FolderKanban
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { WorkflowTemplate, WorkflowStep, UserRole, OverdueAction, DocumentCategoryItem } from '../../types';
+import { WorkflowTemplate, WorkflowStep, UserRole, OverdueAction, DocumentCategoryItem, isProposingDepartment, PROPOSING_DEPT_LABEL } from '../../types';
 
 export const WorkflowConfigView: React.FC = () => {
   const { 
@@ -312,15 +312,16 @@ export const WorkflowConfigView: React.FC = () => {
     // Tìm phòng ban khả dụng chưa được chọn trong các bước trước
     const selectedDeptNames = new Set(formData.steps.map(s => s.department.trim().toLowerCase()));
     const allAvailable = [
+      { name: PROPOSING_DEPT_LABEL, code: 'DX', defaultSla: 8, defaultOverdue: 'WARN_AND_RETURN' as OverdueAction },
       ...departments.map(d => ({ name: d.name, code: d.code, defaultSla: d.defaultSlaHours, defaultOverdue: d.defaultOverdueAction })),
       { name: 'Ban Giám đốc', code: 'BGD', defaultSla: 24, defaultOverdue: 'WARN_AND_RETURN' as OverdueAction },
-      { name: 'Ban Pháp chế & Kiểm soát', code: 'PCKS', defaultSla: 12, defaultOverdue: 'WARN_AND_RETURN' as OverdueAction },
-      { name: 'Phòng ban đề xuất', code: 'DX', defaultSla: 8, defaultOverdue: 'WARN_AND_RETURN' as OverdueAction }
+      { name: 'Ban Pháp chế & Kiểm soát', code: 'PCKS', defaultSla: 12, defaultOverdue: 'WARN_AND_RETURN' as OverdueAction }
     ];
     
     const availableDept = allAvailable.find(d => !selectedDeptNames.has(d.name.toLowerCase()));
     const defaultDept = availableDept ? availableDept.name : (departments[0]?.name || 'Phòng Kỹ thuật & Dự án');
     const deptObj = departments.find(d => d.name === defaultDept);
+    const isProposing = isProposingDepartment(defaultDept);
 
     setFormData(prev => ({
       ...prev,
@@ -328,9 +329,9 @@ export const WorkflowConfigView: React.FC = () => {
         ...prev.steps,
         {
           order: nextOrder,
-          title: `Bước ${nextOrder}: Xét duyệt & Thẩm định`,
-          role: defaultDept.includes('Giám đốc') ? 'DIRECTOR' : defaultDept.includes('Pháp chế') ? 'LEGAL_DEPT' : defaultDept.includes('Kế toán') ? 'CHIEF_ACCOUNTANT' : 'DEPT_HEAD',
-          roleTitle: defaultDept.includes('Giám đốc') ? 'Tổng Giám đốc' : defaultDept.includes('Pháp chế') ? 'Trưởng ban Pháp chế' : defaultDept.includes('Kế toán') ? 'Kế toán trưởng' : 'Trưởng bộ phận',
+          title: `Bước ${nextOrder}: ${isProposing ? 'Trưởng bộ phận đề xuất phê duyệt' : 'Xét duyệt & Thẩm định'}`,
+          role: isProposing ? 'DEPT_HEAD' : defaultDept.includes('Giám đốc') ? 'DIRECTOR' : defaultDept.includes('Pháp chế') ? 'LEGAL_DEPT' : defaultDept.includes('Kế toán') ? 'CHIEF_ACCOUNTANT' : 'DEPT_HEAD',
+          roleTitle: isProposing ? 'Trưởng bộ phận đề xuất' : defaultDept.includes('Giám đốc') ? 'Tổng Giám đốc' : defaultDept.includes('Pháp chế') ? 'Trưởng ban Pháp chế' : defaultDept.includes('Kế toán') ? 'Kế toán trưởng' : 'Trưởng bộ phận',
           department: defaultDept,
           slaHours: availableDept?.defaultSla || deptObj?.defaultSlaHours || 8,
           overdueAction: availableDept?.defaultOverdue || deptObj?.defaultOverdueAction || 'WARN_AND_RETURN',
@@ -793,6 +794,12 @@ export const WorkflowConfigView: React.FC = () => {
                                   <Building2 className="h-3.5 w-3.5 text-slate-400" />
                                   {step.department}
                                 </span>
+                                {isProposingDepartment(step.department) && (
+                                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 shadow-2xs">
+                                    <Sparkles className="h-3 w-3 text-amber-600 shrink-0" />
+                                    <span>Tự động theo đơn vị tạo hồ sơ</span>
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -1035,8 +1042,13 @@ export const WorkflowConfigView: React.FC = () => {
                           
                           {/* Department */}
                           <div>
-                            <label className="block font-semibold text-slate-600 mb-1">
-                              Phòng ban phụ trách:
+                            <label className="block font-semibold text-slate-600 mb-1 flex items-center justify-between">
+                              <span>Phòng ban phụ trách:</span>
+                              {isProposingDepartment(step.department) && (
+                                <span className="text-[9.5px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded">
+                                  Tự động theo người tạo
+                                </span>
+                              )}
                             </label>
                             <select
                               value={step.department}
@@ -1049,31 +1061,62 @@ export const WorkflowConfigView: React.FC = () => {
                                 }
                                 setModalError('');
                                 const foundDept = departments.find(d => d.name === deptName);
+                                const isProposing = isProposingDepartment(deptName);
                                 handleUpdateStep(idx, { 
                                   department: deptName,
+                                  role: isProposing ? 'DEPT_HEAD' : deptName.includes('Giám đốc') ? 'DIRECTOR' : deptName.includes('Pháp chế') ? 'LEGAL_DEPT' : deptName.includes('Kế toán') ? 'CHIEF_ACCOUNTANT' : 'DEPT_HEAD',
+                                  roleTitle: isProposing 
+                                    ? (step.roleTitle && step.roleTitle !== 'Trưởng bộ phận' ? step.roleTitle : 'Trưởng bộ phận đề xuất')
+                                    : (step.roleTitle && step.roleTitle !== 'Trưởng bộ phận đề xuất' ? step.roleTitle : (deptName.includes('Giám đốc') ? 'Tổng Giám đốc' : deptName.includes('Pháp chế') ? 'Trưởng ban Pháp chế' : deptName.includes('Kế toán') ? 'Kế toán trưởng' : 'Trưởng bộ phận')),
+                                  title: isProposing && (!step.title || step.title.includes('Xét duyệt & Thẩm định'))
+                                    ? `Bước ${step.order}: Trưởng bộ phận đề xuất phê duyệt`
+                                    : step.title,
                                   slaHours: step.slaHours || foundDept?.defaultSlaHours || 8,
                                   overdueAction: step.overdueAction || foundDept?.defaultOverdueAction || 'WARN_AND_RETURN'
                                 });
                               }}
                               className="w-full px-2.5 py-1.5 bg-white border border-slate-200/80 rounded-xl font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 cursor-pointer"
                             >
-                              {departments.map(d => {
-                                const isSelectedInOther = formData.steps.some((s, i) => i !== idx && s.department.trim().toLowerCase() === d.name.trim().toLowerCase());
-                                return (
-                                  <option key={d.id} value={d.name} disabled={isSelectedInOther}>
-                                    {d.name} ({d.code}) {isSelectedInOther ? ' — (⚠️ Đã chọn ở bước khác)' : ''}
-                                  </option>
-                                );
-                              })}
-                              {['Ban Giám đốc', 'Ban Pháp chế & Kiểm soát', 'Phòng ban đề xuất'].map(name => {
-                                const isSelectedInOther = formData.steps.some((s, i) => i !== idx && s.department.trim().toLowerCase() === name.trim().toLowerCase());
-                                return (
-                                  <option key={name} value={name} disabled={isSelectedInOther}>
-                                    {name} {isSelectedInOther ? ' — (⚠️ Đã chọn ở bước khác)' : ''}
-                                  </option>
-                                );
-                              })}
+                              <optgroup label="⚡ Phòng ban động theo người lập">
+                                {(() => {
+                                  const isSelectedInOther = formData.steps.some((s, i) => i !== idx && isProposingDepartment(s.department));
+                                  return (
+                                    <option value={PROPOSING_DEPT_LABEL} disabled={isSelectedInOther}>
+                                      🏢 Phòng ban đề xuất (Tự động theo đơn vị khởi tạo hồ sơ) {isSelectedInOther ? ' — (⚠️ Đã chọn ở bước khác)' : ''}
+                                    </option>
+                                  );
+                                })()}
+                              </optgroup>
+                              <optgroup label="🏢 Các phòng ban chuyên môn">
+                                {departments.map(d => {
+                                  const isSelectedInOther = formData.steps.some((s, i) => i !== idx && s.department.trim().toLowerCase() === d.name.trim().toLowerCase());
+                                  return (
+                                    <option key={d.id} value={d.name} disabled={isSelectedInOther}>
+                                      {d.name} ({d.code}) {isSelectedInOther ? ' — (⚠️ Đã chọn ở bước khác)' : ''}
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
+                              <optgroup label="🏛️ Ban Lãnh đạo & Pháp chế">
+                                {['Ban Giám đốc', 'Ban Pháp chế & Kiểm soát'].map(name => {
+                                  const isSelectedInOther = formData.steps.some((s, i) => i !== idx && s.department.trim().toLowerCase() === name.trim().toLowerCase());
+                                  return (
+                                    <option key={name} value={name} disabled={isSelectedInOther}>
+                                      {name} {isSelectedInOther ? ' — (⚠️ Đã chọn ở bước khác)' : ''}
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
                             </select>
+
+                            {isProposingDepartment(step.department) && (
+                              <div className="mt-1.5 p-2 bg-amber-50/90 border border-amber-200/90 rounded-lg text-[10px] text-amber-800 flex items-start gap-1.5 leading-snug">
+                                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>Quy tắc tự động:</strong> Khi người lập tạo hồ sơ, bước này sẽ tự động gán cho <strong>Phòng ban khởi tạo</strong> của người lập làm phòng ban đề xuất phê duyệt.
+                                </span>
+                              </div>
+                            )}
                           </div>
 
                           {/* Role / Position Title */}

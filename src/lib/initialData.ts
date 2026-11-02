@@ -114,7 +114,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Hợp đồng kinh tế',
     description: 'Áp dụng cho mọi hợp đồng mua sắm vật tư, thiết bị, gói thầu có giá trị trên 100.000.000 VNĐ',
     steps: [
-      { order: 1, title: 'Kiểm tra kỹ thuật & kế hoạch dự án', role: 'BOARD_HEAD', roleTitle: 'Trưởng ban Kế hoạch tổng hợp', department: 'BAN KẾ HOẠCH TỔNG HỢP', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
+      { order: 1, title: 'Trưởng bộ phận đề xuất kiểm tra & xác nhận', role: 'DEPT_HEAD', roleTitle: 'Trưởng bộ phận đề xuất', department: 'Phòng ban đề xuất', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
       { order: 2, title: 'Thẩm định điều khoản pháp lý & Rủi ro', role: 'LEGAL_DEPT', roleTitle: 'Trưởng ban Pháp chế', department: 'BAN PHÁP CHẾ', slaHours: 12, overdueAction: 'WARN_AND_RETURN' },
       { order: 3, title: 'Kiểm soát ngân sách & Điều khoản thanh toán', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'BAN TÀI CHÍNH KẾ TOÁN', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
       { order: 4, title: 'Phê duyệt & Ký số Hợp đồng', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'BAN LÃNH ĐẠO', slaHours: 24, overdueAction: 'WARN_AND_RETURN' },
@@ -126,7 +126,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Tờ trình phê duyệt',
     description: 'Dành cho tờ trình mua sắm nội bộ, chi phí công tác, nâng cấp trang thiết bị',
     steps: [
-      { order: 1, title: 'Xác nhận sự cần thiết & Kế hoạch', role: 'BOARD_HEAD', roleTitle: 'Trưởng ban Kế hoạch tổng hợp', department: 'BAN KẾ HOẠCH TỔNG HỢP', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
+      { order: 1, title: 'Trưởng bộ phận đề xuất thẩm định & xác nhận', role: 'DEPT_HEAD', roleTitle: 'Trưởng bộ phận đề xuất', department: 'Phòng ban đề xuất', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
       { order: 2, title: 'Thẩm định định mức chi & Nguồn vốn', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'BAN TÀI CHÍNH KẾ TOÁN', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
       { order: 3, title: 'Phê duyệt hạn mức thực hiện', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'BAN LÃNH ĐẠO', slaHours: 16, overdueAction: 'WARN_AND_RETURN' },
     ]
@@ -137,7 +137,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     category: 'Hồ sơ thanh toán',
     description: 'Thanh toán tiền hàng nhà cung cấp, tạm ứng hợp đồng, hoàn ứng công tác',
     steps: [
-      { order: 1, title: 'Đối soát khối lượng nghiệm thu', role: 'BOARD_HEAD', roleTitle: 'Trưởng ban Kế hoạch tổng hợp', department: 'BAN KẾ HOẠCH TỔNG HỢP', slaHours: 4, overdueAction: 'WARN_AND_RETURN' },
+      { order: 1, title: 'Trưởng bộ phận đề xuất đối soát & phê duyệt', role: 'DEPT_HEAD', roleTitle: 'Trưởng bộ phận đề xuất', department: 'Phòng ban đề xuất', slaHours: 4, overdueAction: 'WARN_AND_RETURN' },
       { order: 2, title: 'Kiểm tra hóa đơn chứng từ hợp lệ', role: 'CHIEF_ACCOUNTANT', roleTitle: 'Kế toán trưởng', department: 'BAN TÀI CHÍNH KẾ TOÁN', slaHours: 4, overdueAction: 'WARN_AND_RETURN' },
       { order: 3, title: 'Duyệt chi chuyển khoản / Tiền mặt', role: 'DIRECTOR', roleTitle: 'Tổng Giám đốc', department: 'BAN LÃNH ĐẠO', slaHours: 8, overdueAction: 'WARN_AND_RETURN' },
     ]

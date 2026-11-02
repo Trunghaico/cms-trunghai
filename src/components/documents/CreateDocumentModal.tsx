@@ -27,7 +27,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
-import { ApprovalStep, DocumentStatus, Attachment, User, UserRole, OverdueAction, WorkflowTemplate, DocumentPriority } from '../../types';
+import { ApprovalStep, DocumentStatus, Attachment, User, UserRole, OverdueAction, WorkflowTemplate, DocumentPriority, isProposingDepartment, PROPOSING_DEPT_LABEL } from '../../types';
 import { QuillEditor } from '../common/QuillEditor';
 import { PDFViewerModal } from '../common/PDFViewerModal';
 import { uploadFileToNAS } from '../../lib/nasStorageService';
@@ -36,7 +36,19 @@ import { normalizeFileToPdf } from '../../lib/pdfFooterStamper';
 
 export type ApproverItem = 
   | { type: 'USER'; user: User; title?: string; slaHours?: number; originalSlaHours?: number; overdueAction?: OverdueAction }
-  | { type: 'DEPARTMENT'; departmentName: string; departmentCode: string; title?: string; slaHours?: number; originalSlaHours?: number; overdueAction?: OverdueAction; isInternalCheck?: boolean; requiresInternalCheck?: boolean };
+  | { 
+      type: 'DEPARTMENT'; 
+      departmentName: string; 
+      departmentCode: string; 
+      title?: string; 
+      slaHours?: number; 
+      originalSlaHours?: number; 
+      overdueAction?: OverdueAction; 
+      isInternalCheck?: boolean; 
+      requiresInternalCheck?: boolean;
+      isProposingDept?: boolean;
+      originalDeptConfig?: string;
+    };
 
 // Helper chuyển Date sang định dạng input datetime-local (YYYY-MM-DDTHH:mm)
 export const formatDateTimeLocal = (d: Date): string => {
@@ -283,7 +295,11 @@ export const CreateDocumentModal: React.FC = () => {
     const mappedSteps: ApproverItem[] = [];
 
     for (const s of tpl.steps) {
-      const dName = s.department;
+      const isProp = isProposingDepartment(s.department);
+      // Khi cấu hình bước là "Phòng ban đề xuất", tự động chọn phòng ban khởi tạo của hồ sơ làm phòng ban đề xuất duyệt
+      const dName = isProp 
+        ? (department || activeUser?.department || 'Phòng Kỹ thuật & Dự án')
+        : s.department;
       const dKey = dName.trim().toLowerCase();
       if (seenDepts.has(dKey)) continue;
       seenDepts.add(dKey);
@@ -297,13 +313,15 @@ export const CreateDocumentModal: React.FC = () => {
       mappedSteps.push({
         type: 'DEPARTMENT',
         departmentName: dName,
-        departmentCode: deptObj?.code || 'PB',
-        title: s.title || (isBoard ? `Ban ${dName}` : `Phòng ${dName}`),
+        departmentCode: deptObj?.code || (isProp ? 'DX' : 'PB'),
+        title: s.title || (isProp ? `Đơn vị đề xuất (${dName})` : isBoard ? `Ban ${dName}` : `Phòng ${dName}`),
         slaHours: stepPresetSla,
         originalSlaHours: stepPresetSla,
         overdueAction: s.overdueAction || deptObj?.defaultOverdueAction || getDeptDefaultOverdueAction(dName),
         isInternalCheck: !!s.isInternalCheck,
-        requiresInternalCheck: !!s.isInternalCheck
+        requiresInternalCheck: !!s.isInternalCheck,
+        isProposingDept: isProp,
+        originalDeptConfig: isProp ? 'Phòng ban đề xuất' : undefined
       });
     }
 
@@ -317,7 +335,37 @@ export const CreateDocumentModal: React.FC = () => {
     if (calculatedDeadline) {
       setDesiredDeadline(calculatedDeadline);
     }
-  }, [workflowTemplates, systemDepts, getDeptDefaultSla, getDeptDefaultOverdueAction, calculateAllocatedApprovers, priority, normalSlaMode, desiredDeadline]);
+  }, [workflowTemplates, systemDepts, getDeptDefaultSla, getDeptDefaultOverdueAction, calculateAllocatedApprovers, priority, normalSlaMode, desiredDeadline, department, activeUser?.department]);
+
+  // Xử lý khi thay đổi Phòng ban khởi tạo: Nếu chuỗi duyệt có bước lấy theo "Phòng ban đề xuất", tự động đồng bộ sang phòng ban mới
+  const handleInitiatingDepartmentChange = (newDept: string) => {
+    setDepartment(newDept);
+    
+    setSelectedApprovers(prev => {
+      let hasChanged = false;
+      const updated = prev.map(item => {
+        if (item.type === 'DEPARTMENT' && (item.isProposingDept || isProposingDepartment(item.originalDeptConfig))) {
+          hasChanged = true;
+          const deptObj = systemDepts?.find(d => d.name.toLowerCase() === newDept.toLowerCase());
+          const newSla = deptObj?.defaultSlaHours || getDeptDefaultSla(newDept);
+          const newOverdue = deptObj?.defaultOverdueAction || getDeptDefaultOverdueAction(newDept);
+          return {
+            ...item,
+            departmentName: newDept,
+            departmentCode: deptObj?.code || 'PB',
+            title: item.title && !item.title.includes('(') ? item.title : `Đơn vị đề xuất (${newDept})`,
+            slaHours: item.slaHours || newSla,
+            originalSlaHours: item.originalSlaHours || newSla,
+            overdueAction: item.overdueAction || newOverdue,
+            isProposingDept: true,
+            originalDeptConfig: 'Phòng ban đề xuất'
+          };
+        }
+        return item;
+      });
+      return hasChanged ? updated : prev;
+    });
+  };
 
   // Helper lấy deadline mặc định
   const getDefaultDeadline = useCallback(() => {
@@ -502,6 +550,40 @@ export const CreateDocumentModal: React.FC = () => {
       originalSlaHours: sla,
       overdueAction: overdueAct,
       requiresInternalCheck: true
+    };
+    const newApprovers = [...selectedApprovers, newItem];
+    const { updatedApprovers } = calculateAllocatedApprovers(priority, normalSlaMode, desiredDeadline, newApprovers);
+    setSelectedApprovers(updatedApprovers);
+    setApproverSearchQuery('');
+    setIsApproverDropdownOpen(false);
+  };
+
+  // Thêm bước duyệt của PHÒNG BAN ĐỀ XUẤT (Tự động gán cho phòng ban khởi tạo của hồ sơ)
+  const handleAddProposingDeptApprover = () => {
+    setErrorMsg('');
+    const propDeptName = department || activeUser?.department || 'Phòng Kỹ thuật & Dự án';
+    if (isDepartmentAlreadyChosen(propDeptName)) {
+      setErrorMsg(`Phòng ban đề xuất "${propDeptName}" đã có trong chuỗi phê duyệt.`);
+      return;
+    }
+    const deptObj = systemDepts?.find(d => d.name.toLowerCase() === propDeptName.toLowerCase());
+    const sla = deptObj?.defaultSlaHours || getDeptDefaultSla(propDeptName);
+    const overdueAct = deptObj?.defaultOverdueAction || getDeptDefaultOverdueAction(propDeptName);
+    const isBoard = propDeptName.toLowerCase().startsWith('ban ') || 
+                    propDeptName.toLowerCase().includes('ban qlda') || 
+                    propDeptName.toLowerCase().includes('ban kiểm soát') ||
+                    propDeptName.toLowerCase().includes('ban điều hành');
+    const newItem: ApproverItem = {
+      type: 'DEPARTMENT',
+      departmentName: propDeptName,
+      departmentCode: deptObj?.code || 'DX',
+      title: `Đơn vị đề xuất (${propDeptName})`,
+      slaHours: sla,
+      originalSlaHours: sla,
+      overdueAction: overdueAct,
+      requiresInternalCheck: true,
+      isProposingDept: true,
+      originalDeptConfig: 'Phòng ban đề xuất'
     };
     const newApprovers = [...selectedApprovers, newItem];
     const { updatedApprovers } = calculateAllocatedApprovers(priority, normalSlaMode, desiredDeadline, newApprovers);
@@ -756,7 +838,10 @@ export const CreateDocumentModal: React.FC = () => {
           isInternalCheck: false,
         };
       } else {
-        const dName = item.departmentName;
+        let dName = item.departmentName;
+        if (isProposingDepartment(dName)) {
+          dName = department.trim() || activeUser.department || 'Phòng Kỹ thuật & Dự án';
+        }
         const isBoard = dName.toLowerCase().startsWith('ban ') || 
                         dName.toLowerCase().includes('ban qlda') || 
                         dName.toLowerCase().includes('ban kiểm soát') ||
@@ -837,6 +922,18 @@ export const CreateDocumentModal: React.FC = () => {
   // Filtered Candidates for Search (both Users & Departments)
   const searchFilterText = approverSearchQuery.toLowerCase().trim();
   
+  const isSearchMatchingProposing = Boolean(
+    searchFilterText && (
+      'phòng ban đề xuất'.includes(searchFilterText) ||
+      'phong ban de xuat'.includes(searchFilterText) ||
+      'đề xuất'.includes(searchFilterText) ||
+      'de xuat'.includes(searchFilterText) ||
+      'khởi tạo'.includes(searchFilterText) ||
+      'khoi tao'.includes(searchFilterText) ||
+      searchFilterText === 'dx'
+    )
+  );
+
   const matchedDepartments = allDepartments.filter(d => 
     !searchFilterText || 
     d.name.toLowerCase().includes(searchFilterText) || 
@@ -1024,13 +1121,19 @@ export const CreateDocumentModal: React.FC = () => {
                 </label>
                 <select
                   value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
+                  onChange={(e) => handleInitiatingDepartmentChange(e.target.value)}
                   className="w-full min-h-[44px] px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-800 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue cursor-pointer transition-all shadow-2xs"
                 >
                   {allDepartments.map(d => (
                     <option key={d.id} value={d.name}>{d.name} ({d.code})</option>
                   ))}
                 </select>
+                {selectedApprovers.some(s => s.type === 'DEPARTMENT' && (s.isProposingDept || isProposingDepartment(s.originalDeptConfig))) && (
+                  <p className="text-[10px] text-amber-700 font-medium flex items-center gap-1 mt-1">
+                    <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                    <span>Tự động liên kết làm <strong>Phòng ban đề xuất</strong> trong chuỗi duyệt</span>
+                  </p>
+                )}
               </div>
 
               {/* Hạn duyệt mong muốn (Ngày & Giờ) */}
@@ -1349,9 +1452,18 @@ export const CreateDocumentModal: React.FC = () => {
                             {idx + 1}
                           </span>
                           {item.type === 'DEPARTMENT' ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 truncate">
-                              🏢 Duyệt cấp Ban/Phòng
-                            </span>
+                            item.isProposingDept ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1 shadow-2xs truncate">
+                                <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                                <span>Phòng ban đề xuất:</span>
+                                <span className="font-extrabold text-amber-950">{item.departmentName}</span>
+                                <span className="text-[9px] font-normal text-amber-700 bg-amber-100/90 px-1 py-0.2 rounded">(Đơn vị khởi tạo)</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 truncate">
+                                🏢 Duyệt cấp Ban/Phòng
+                              </span>
+                            )
                           ) : (
                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 truncate">
                               👤 Duyệt đích danh Cá nhân
@@ -1559,6 +1671,27 @@ export const CreateDocumentModal: React.FC = () => {
 
               {isApproverDropdownOpen && (
                 <div className="absolute top-full left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 divide-y divide-slate-100 animate-slide-down">
+                  {/* Gợi ý chọn Phòng ban đề xuất */}
+                  {isSearchMatchingProposing && (
+                    <div
+                      onClick={handleAddProposingDeptApprover}
+                      className="p-2.5 flex items-center justify-between bg-amber-50/70 hover:bg-amber-100/80 border-b border-amber-200/80 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-amber-950">
+                            🏢 Phòng ban đề xuất: {department || activeUser?.department}
+                          </span>
+                          <span className="text-[10px] text-amber-700 block font-normal">
+                            Tự động lấy theo đơn vị khởi tạo hồ sơ
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-amber-800 font-bold hover:underline">+ Chọn phòng này</span>
+                    </div>
+                  )}
+
                   {matchedDepartments.length > 0 && (
                     <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
                       <span>🏢 Chọn theo Phòng Ban:</span>
