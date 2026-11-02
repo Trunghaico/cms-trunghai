@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { 
-  X, 
-  Trash2, 
-  Upload, 
-  FileText, 
+import {
+  X,
+  Trash2,
+  Upload,
+  FileText,
   AlertCircle,
   Building2,
   Calendar,
@@ -34,21 +34,21 @@ import { uploadFileToNAS } from '../../lib/nasStorageService';
 import { formatCurrency, formatDate } from '../../lib/storage';
 import { normalizeFileToPdf } from '../../lib/pdfFooterStamper';
 
-export type ApproverItem = 
+export type ApproverItem =
   | { type: 'USER'; user: User; title?: string; slaHours?: number; originalSlaHours?: number; overdueAction?: OverdueAction }
-  | { 
-      type: 'DEPARTMENT'; 
-      departmentName: string; 
-      departmentCode: string; 
-      title?: string; 
-      slaHours?: number; 
-      originalSlaHours?: number; 
-      overdueAction?: OverdueAction; 
-      isInternalCheck?: boolean; 
-      requiresInternalCheck?: boolean;
-      isProposingDept?: boolean;
-      originalDeptConfig?: string;
-    };
+  | {
+    type: 'DEPARTMENT';
+    departmentName: string;
+    departmentCode: string;
+    title?: string;
+    slaHours?: number;
+    originalSlaHours?: number;
+    overdueAction?: OverdueAction;
+    isInternalCheck?: boolean;
+    requiresInternalCheck?: boolean;
+    isProposingDept?: boolean;
+    originalDeptConfig?: string;
+  };
 
 // Helper chuyển Date sang định dạng input datetime-local (YYYY-MM-DDTHH:mm)
 export const formatDateTimeLocal = (d: Date): string => {
@@ -72,12 +72,12 @@ export const formatSlaDisplay = (hours?: number): string => {
 };
 
 export const CreateDocumentModal: React.FC = () => {
-  const { 
-    isCreateModalOpen, 
-    setIsCreateModalOpen, 
-    createDocument, 
-    activeUser, 
-    users, 
+  const {
+    isCreateModalOpen,
+    setIsCreateModalOpen,
+    createDocument,
+    activeUser,
+    users,
     departments: systemDepts,
     workflowTemplates = [],
     documentCategories = []
@@ -89,22 +89,22 @@ export const CreateDocumentModal: React.FC = () => {
   const [code, setCode] = useState(`HĐ-2026/TH-${Math.floor(100 + Math.random() * 900)}`);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  
+
   // 2. Tên hồ sơ & Giá trị đề xuất
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState<number | undefined>(undefined);
-  
+
   // 3. Dự án & Độ khẩn
   const [project, setProject] = useState('');
   const [priority, setPriority] = useState<DocumentPriority>('NORMAL');
   const [normalSlaMode, setNormalSlaMode] = useState<'PRESET' | 'SPLIT_DESIRED'>('PRESET');
-  
+
   // 4. Phòng ban khởi tạo (Thẻ select)
   const [department, setDepartment] = useState(activeUser?.department || 'Phòng Kỹ thuật & Dự án');
 
   // Chính sách xử lý quá hạn mặc định
   const [docOverdueAction, setDocOverdueAction] = useState<OverdueAction>('WARN_AND_RETURN');
-  
+
   // 5. Chuỗi người / phòng ban xét duyệt
   const [selectedApprovers, setSelectedApprovers] = useState<ApproverItem[]>([]);
   const [approverSearchQuery, setApproverSearchQuery] = useState('');
@@ -154,7 +154,7 @@ export const CreateDocumentModal: React.FC = () => {
   const allDepartments = useMemo(() => {
     if (systemDepts && systemDepts.length > 0) return systemDepts;
     const fromUsers = Array.from(new Set(users.map(u => u.department)));
-    return fromUsers.map((name, idx) => ({ id: `dept-${idx}`, name, code: `PB${idx+1}`, defaultSlaHours: 8, defaultOverdueAction: 'WARN_AND_RETURN' as OverdueAction }));
+    return fromUsers.map((name, idx) => ({ id: `dept-${idx}`, name, code: `PB${idx + 1}`, defaultSlaHours: 8, defaultOverdueAction: 'WARN_AND_RETURN' as OverdueAction }));
   }, [systemDepts, users]);
 
   // Helper phân bổ thời gian SLA cho các ban duyệt theo mức độ xử lý:
@@ -198,7 +198,7 @@ export const CreateDocumentModal: React.FC = () => {
       // Chia đều theo thời gian mong muốn
       const deadlineMs = targetDeadline ? new Date(targetDeadline).getTime() : NaN;
       const nowMs = Date.now();
-      const diffHours = !isNaN(deadlineMs) && deadlineMs > nowMs 
+      const diffHours = !isNaN(deadlineMs) && deadlineMs > nowMs
         ? Math.max(1, (deadlineMs - nowMs) / (3600 * 1000))
         : 72;
       const perStepSla = count > 0 ? Number((diffHours / count).toFixed(1)) : 8;
@@ -253,18 +253,18 @@ export const CreateDocumentModal: React.FC = () => {
 
   // Helper kiểm tra xem phòng ban đã được chọn trong chuỗi duyệt chưa (loại trừ bước hiện tại nếu đang sửa)
   const isDepartmentAlreadyChosen = useCallback((deptName: string, excludeIdx: number = -1): boolean => {
-    return selectedApprovers.some((a, i) => 
-      i !== excludeIdx && 
-      a.type === 'DEPARTMENT' && 
+    return selectedApprovers.some((a, i) =>
+      i !== excludeIdx &&
+      a.type === 'DEPARTMENT' &&
       a.departmentName.trim().toLowerCase() === deptName.trim().toLowerCase()
     );
   }, [selectedApprovers]);
 
   // Helper kiểm tra xem cá nhân đã được chọn trong chuỗi duyệt chưa (loại trừ bước hiện tại nếu đang sửa)
   const isUserAlreadyChosen = useCallback((userId: string, excludeIdx: number = -1): boolean => {
-    return selectedApprovers.some((a, i) => 
-      i !== excludeIdx && 
-      a.type === 'USER' && 
+    return selectedApprovers.some((a, i) =>
+      i !== excludeIdx &&
+      a.type === 'USER' &&
       a.user.id === userId
     );
   }, [selectedApprovers]);
@@ -297,7 +297,7 @@ export const CreateDocumentModal: React.FC = () => {
     for (const s of tpl.steps) {
       const isProp = isProposingDepartment(s.department);
       // Khi cấu hình bước là "Phòng ban đề xuất", tự động chọn phòng ban khởi tạo của hồ sơ làm phòng ban đề xuất duyệt
-      const dName = isProp 
+      const dName = isProp
         ? (department || activeUser?.department || 'Phòng Kỹ thuật & Dự án')
         : s.department;
       const dKey = dName.trim().toLowerCase();
@@ -305,10 +305,10 @@ export const CreateDocumentModal: React.FC = () => {
       seenDepts.add(dKey);
 
       const deptObj = systemDepts?.find(d => d.name.toLowerCase() === dName.toLowerCase());
-      const isBoard = dName.toLowerCase().startsWith('ban ') || 
-                      dName.toLowerCase().includes('ban qlda') || 
-                      dName.toLowerCase().includes('ban kiểm soát') ||
-                      dName.toLowerCase().includes('ban điều hành');
+      const isBoard = dName.toLowerCase().startsWith('ban ') ||
+        dName.toLowerCase().includes('ban qlda') ||
+        dName.toLowerCase().includes('ban kiểm soát') ||
+        dName.toLowerCase().includes('ban điều hành');
       const stepPresetSla = s.slaHours || deptObj?.defaultSlaHours || getDeptDefaultSla(dName);
       mappedSteps.push({
         type: 'DEPARTMENT',
@@ -326,9 +326,9 @@ export const CreateDocumentModal: React.FC = () => {
     }
 
     const { updatedApprovers, calculatedDeadline } = calculateAllocatedApprovers(
-      priority, 
-      normalSlaMode, 
-      desiredDeadline, 
+      priority,
+      normalSlaMode,
+      desiredDeadline,
       mappedSteps
     );
     setSelectedApprovers(updatedApprovers);
@@ -340,7 +340,7 @@ export const CreateDocumentModal: React.FC = () => {
   // Xử lý khi thay đổi Phòng ban khởi tạo: Nếu chuỗi duyệt có bước lấy theo "Phòng ban đề xuất", tự động đồng bộ sang phòng ban mới
   const handleInitiatingDepartmentChange = (newDept: string) => {
     setDepartment(newDept);
-    
+
     setSelectedApprovers(prev => {
       let hasChanged = false;
       const updated = prev.map(item => {
@@ -511,13 +511,13 @@ export const CreateDocumentModal: React.FC = () => {
 
     const sla = getDeptDefaultSla(user.department);
     const overdueAct = getDeptDefaultOverdueAction(user.department);
-    const newItem: ApproverItem = { 
-      type: 'USER', 
-      user, 
-      title: user.name, 
-      slaHours: sla, 
-      originalSlaHours: sla, 
-      overdueAction: overdueAct 
+    const newItem: ApproverItem = {
+      type: 'USER',
+      user,
+      title: user.name,
+      slaHours: sla,
+      originalSlaHours: sla,
+      overdueAction: overdueAct
     };
     const newApprovers = [...selectedApprovers, newItem];
     const { updatedApprovers } = calculateAllocatedApprovers(priority, normalSlaMode, desiredDeadline, newApprovers);
@@ -537,16 +537,16 @@ export const CreateDocumentModal: React.FC = () => {
     const sla = dept.defaultSlaHours || getDeptDefaultSla(dept.name);
     const overdueAct = dept.defaultOverdueAction || getDeptDefaultOverdueAction(dept.name);
     const dName = dept.name;
-    const isBoard = dName.toLowerCase().startsWith('ban ') || 
-                    dName.toLowerCase().includes('ban qlda') || 
-                    dName.toLowerCase().includes('ban kiểm soát') ||
-                    dName.toLowerCase().includes('ban điều hành');
-    const newItem: ApproverItem = { 
-      type: 'DEPARTMENT', 
-      departmentName: dName, 
-      departmentCode: dept.code, 
-      title: isBoard ? `Ban ${dName}` : `Phòng ${dName}`, 
-      slaHours: sla, 
+    const isBoard = dName.toLowerCase().startsWith('ban ') ||
+      dName.toLowerCase().includes('ban qlda') ||
+      dName.toLowerCase().includes('ban kiểm soát') ||
+      dName.toLowerCase().includes('ban điều hành');
+    const newItem: ApproverItem = {
+      type: 'DEPARTMENT',
+      departmentName: dName,
+      departmentCode: dept.code,
+      title: isBoard ? `Ban ${dName}` : `Phòng ${dName}`,
+      slaHours: sla,
       originalSlaHours: sla,
       overdueAction: overdueAct,
       requiresInternalCheck: true
@@ -569,10 +569,10 @@ export const CreateDocumentModal: React.FC = () => {
     const deptObj = systemDepts?.find(d => d.name.toLowerCase() === propDeptName.toLowerCase());
     const sla = deptObj?.defaultSlaHours || getDeptDefaultSla(propDeptName);
     const overdueAct = deptObj?.defaultOverdueAction || getDeptDefaultOverdueAction(propDeptName);
-    const isBoard = propDeptName.toLowerCase().startsWith('ban ') || 
-                    propDeptName.toLowerCase().includes('ban qlda') || 
-                    propDeptName.toLowerCase().includes('ban kiểm soát') ||
-                    propDeptName.toLowerCase().includes('ban điều hành');
+    const isBoard = propDeptName.toLowerCase().startsWith('ban ') ||
+      propDeptName.toLowerCase().includes('ban qlda') ||
+      propDeptName.toLowerCase().includes('ban kiểm soát') ||
+      propDeptName.toLowerCase().includes('ban điều hành');
     const newItem: ApproverItem = {
       type: 'DEPARTMENT',
       departmentName: propDeptName,
@@ -656,10 +656,10 @@ export const CreateDocumentModal: React.FC = () => {
         const sla = getDeptDefaultSla(foundUser.department);
         const overdueAct = getDeptDefaultOverdueAction(foundUser.department);
         setSelectedApprovers(prev => {
-          const arr = prev.map((item, i) => i === idx ? { 
-            ...item, 
-            type: 'USER' as const, 
-            user: foundUser, 
+          const arr = prev.map((item, i) => i === idx ? {
+            ...item,
+            type: 'USER' as const,
+            user: foundUser,
             title: foundUser.name,
             originalSlaHours: sla,
             slaHours: sla,
@@ -679,10 +679,10 @@ export const CreateDocumentModal: React.FC = () => {
       const sla = (deptObj as any)?.defaultSlaHours || getDeptDefaultSla(deptName);
       const overdueAct = (deptObj as any)?.defaultOverdueAction || getDeptDefaultOverdueAction(deptName);
       setSelectedApprovers(prev => {
-        const arr = prev.map((item, i) => i === idx ? { 
+        const arr = prev.map((item, i) => i === idx ? {
           ...item,
-          type: 'DEPARTMENT' as const, 
-          departmentName: deptName, 
+          type: 'DEPARTMENT' as const,
+          departmentName: deptName,
           departmentCode: (deptObj as any)?.code || 'PB',
           title: `Phòng ${deptName}`,
           originalSlaHours: sla,
@@ -814,7 +814,7 @@ export const CreateDocumentModal: React.FC = () => {
       const sla = item.slaHours || 8;
       const act = item.overdueAction || docOverdueAction;
       const isFirst = idx === 0;
-      const stepDeadline = isFirst 
+      const stepDeadline = isFirst
         ? new Date(now.getTime() + sla * 3600 * 1000).toISOString()
         : undefined;
 
@@ -842,14 +842,14 @@ export const CreateDocumentModal: React.FC = () => {
         if (isProposingDepartment(dName)) {
           dName = department.trim() || activeUser.department || 'Phòng Kỹ thuật & Dự án';
         }
-        const isBoard = dName.toLowerCase().startsWith('ban ') || 
-                        dName.toLowerCase().includes('ban qlda') || 
-                        dName.toLowerCase().includes('ban kiểm soát') ||
-                        dName.toLowerCase().includes('ban điều hành');
+        const isBoard = dName.toLowerCase().startsWith('ban ') ||
+          dName.toLowerCase().includes('ban qlda') ||
+          dName.toLowerCase().includes('ban kiểm soát') ||
+          dName.toLowerCase().includes('ban điều hành');
         const role: UserRole = dName.includes('Giám Đốc') ? 'DIRECTOR' :
-                               dName.includes('Kế toán') ? 'CHIEF_ACCOUNTANT' :
-                               dName.includes('Pháp chế') ? 'LEGAL_DEPT' : 
-                               isBoard ? 'BOARD_HEAD' : 'DEPT_HEAD';
+          dName.includes('Kế toán') ? 'CHIEF_ACCOUNTANT' :
+            dName.includes('Pháp chế') ? 'LEGAL_DEPT' :
+              isBoard ? 'BOARD_HEAD' : 'DEPT_HEAD';
         return {
           id: `step-${Date.now()}-${idx}`,
           stepOrder: idx + 1,
@@ -921,7 +921,7 @@ export const CreateDocumentModal: React.FC = () => {
 
   // Filtered Candidates for Search (both Users & Departments)
   const searchFilterText = approverSearchQuery.toLowerCase().trim();
-  
+
   const isSearchMatchingProposing = Boolean(
     searchFilterText && (
       'phòng ban đề xuất'.includes(searchFilterText) ||
@@ -934,20 +934,20 @@ export const CreateDocumentModal: React.FC = () => {
     )
   );
 
-  const matchedDepartments = allDepartments.filter(d => 
-    !searchFilterText || 
-    d.name.toLowerCase().includes(searchFilterText) || 
+  const matchedDepartments = allDepartments.filter(d =>
+    !searchFilterText ||
+    d.name.toLowerCase().includes(searchFilterText) ||
     d.code.toLowerCase().includes(searchFilterText)
   );
 
   const matchedUsers = users.filter(u => {
     if (!searchFilterText) return true;
-    const matchMain = 
-      u.name.toLowerCase().includes(searchFilterText) || 
+    const matchMain =
+      u.name.toLowerCase().includes(searchFilterText) ||
       u.username.toLowerCase().includes(searchFilterText) ||
       u.roleTitle.toLowerCase().includes(searchFilterText) ||
       u.department.toLowerCase().includes(searchFilterText);
-    const matchSecondary = u.secondaryPositions?.some(p => 
+    const matchSecondary = u.secondaryPositions?.some(p =>
       p.roleTitle.toLowerCase().includes(searchFilterText) ||
       p.department.toLowerCase().includes(searchFilterText)
     );
@@ -964,12 +964,11 @@ export const CreateDocumentModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-0 sm:p-4 overflow-hidden pt-[max(env(safe-area-inset-top,0px),16px)] pb-safe">
-      <div 
-        className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:h-auto sm:max-h-[92vh] flex flex-col overflow-hidden transition-all duration-200 transform ${
-          isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100 animate-slide-down'
-        }`}
+      <div
+        className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl h-[calc(100dvh-max(env(safe-area-inset-top,0px),16px)-12px)] sm:h-auto sm:max-h-[92vh] flex flex-col overflow-hidden transition-all duration-200 transform ${isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100 animate-slide-down'
+          }`}
       >
-        
+
         {/* Compact Modal Header with Mobile Drag Bar Handle */}
         <div className="px-4 sm:px-5 pt-2.5 pb-2.5 sm:py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-blue text-white flex flex-col border-b border-indigo-900/60 shadow-xs shrink-0">
           {/* Mobile Top Grab Bar Indicator */}
@@ -1000,7 +999,7 @@ export const CreateDocumentModal: React.FC = () => {
 
         {/* Modal Body Form */}
         <form id="create-document-form" onSubmit={handleSubmit} className="p-3.5 sm:p-5 space-y-3.5 text-xs text-slate-800 flex-1 overflow-y-auto overflow-x-hidden max-w-full">
-          
+
           {errorMsg && (
             <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 flex items-center gap-2 rounded-xl text-xs">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -1131,7 +1130,7 @@ export const CreateDocumentModal: React.FC = () => {
                 {selectedApprovers.some(s => s.type === 'DEPARTMENT' && (s.isProposingDept || isProposingDepartment(s.originalDeptConfig))) && (
                   <p className="text-[10px] text-amber-700 font-medium flex items-center gap-1 mt-1">
                     <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
-                    <span>Tự động liên kết làm <strong>Phòng ban đề xuất</strong> trong chuỗi duyệt</span>
+                    <span> Phòng ban đề xuất</span>
                   </p>
                 )}
               </div>
@@ -1146,12 +1145,12 @@ export const CreateDocumentModal: React.FC = () => {
                   </span>
                   {priority === 'URGENT' && (
                     <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                      ⚡ Cố định 24h (Mức Khẩn)
+                      Cố định 24h (Khẩn)
                     </span>
                   )}
                   {priority === 'VERY_URGENT' && (
                     <span className="text-[10px] font-bold text-brand-red bg-red-100 px-2 py-0.5 rounded-full border border-red-300">
-                      🔥 Cố định 8h (Mức Hỏa tốc)
+                      Cố định 8h (Hỏa tốc)
                     </span>
                   )}
                 </label>
@@ -1161,11 +1160,10 @@ export const CreateDocumentModal: React.FC = () => {
                   disabled={priority !== 'NORMAL'}
                   value={desiredDeadline}
                   onChange={(e) => handleDesiredDeadlineChange(e.target.value)}
-                  className={`w-full max-w-full min-w-0 appearance-none box-border min-h-[44px] px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all shadow-2xs ${
-                    priority !== 'NORMAL'
-                      ? 'bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed opacity-90'
-                      : 'bg-white border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue'
-                  }`}
+                  className={`w-full max-w-full min-w-0 appearance-none box-border min-h-[44px] px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all shadow-2xs ${priority !== 'NORMAL'
+                    ? 'bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed opacity-90'
+                    : 'bg-white border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue'
+                    }`}
                 />
               </div>
             </div>
@@ -1209,20 +1207,19 @@ export const CreateDocumentModal: React.FC = () => {
                 <span className="text-slate-400 font-normal text-[11px]">(Quyết định cách phân bổ thời gian duyệt SLA cho các ban)</span>
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <label 
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${
-                    priority === 'NORMAL' 
-                      ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-2xs ring-2 ring-emerald-500/30' 
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
+                <label
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${priority === 'NORMAL'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold shadow-2xs ring-2 ring-emerald-500/30'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
                 >
-                  <input 
-                    type="radio" 
-                    name="priority" 
-                    value="NORMAL" 
-                    checked={priority === 'NORMAL'} 
+                  <input
+                    type="radio"
+                    name="priority"
+                    value="NORMAL"
+                    checked={priority === 'NORMAL'}
                     onChange={() => handlePriorityChange('NORMAL')}
-                    className="sr-only" 
+                    className="sr-only"
                   />
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
@@ -1233,20 +1230,19 @@ export const CreateDocumentModal: React.FC = () => {
                   </span>
                 </label>
 
-                <label 
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${
-                    priority === 'URGENT' 
-                      ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold shadow-2xs ring-2 ring-amber-500/30' 
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-amber-50/50'
-                  }`}
+                <label
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${priority === 'URGENT'
+                    ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold shadow-2xs ring-2 ring-amber-500/30'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-amber-50/50'
+                    }`}
                 >
-                  <input 
-                    type="radio" 
-                    name="priority" 
-                    value="URGENT" 
-                    checked={priority === 'URGENT'} 
+                  <input
+                    type="radio"
+                    name="priority"
+                    value="URGENT"
+                    checked={priority === 'URGENT'}
                     onChange={() => handlePriorityChange('URGENT')}
-                    className="sr-only" 
+                    className="sr-only"
                   />
                   <div className="flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -1257,20 +1253,19 @@ export const CreateDocumentModal: React.FC = () => {
                   </span>
                 </label>
 
-                <label 
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${
-                    priority === 'VERY_URGENT' 
-                      ? 'bg-red-50 border-brand-red text-brand-red font-bold shadow-2xs ring-2 ring-brand-red/30' 
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-red-50/50'
-                  }`}
+                <label
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition-all ${priority === 'VERY_URGENT'
+                    ? 'bg-red-50 border-brand-red text-brand-red font-bold shadow-2xs ring-2 ring-brand-red/30'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-red-50/50'
+                    }`}
                 >
-                  <input 
-                    type="radio" 
-                    name="priority" 
-                    value="VERY_URGENT" 
-                    checked={priority === 'VERY_URGENT'} 
+                  <input
+                    type="radio"
+                    name="priority"
+                    value="VERY_URGENT"
+                    checked={priority === 'VERY_URGENT'}
                     onChange={() => handlePriorityChange('VERY_URGENT')}
-                    className="sr-only" 
+                    className="sr-only"
                   />
                   <div className="flex items-center gap-1.5">
                     <Flame className="w-3.5 h-3.5 text-brand-red shrink-0" />
@@ -1288,7 +1283,7 @@ export const CreateDocumentModal: React.FC = () => {
                   <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <div className="font-bold flex items-center gap-2 flex-wrap">
-                      <span>⚡ Chế độ Khẩn: Toàn trình xử lý trong 24 giờ</span>
+                      <span> Chế độ Khẩn: Toàn trình xử lý trong 24 giờ</span>
                       <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black">
                         {selectedApprovers.length > 0 ? `${formatSlaDisplay(24 / selectedApprovers.length)} / ban` : '24h'}
                       </span>
@@ -1306,7 +1301,7 @@ export const CreateDocumentModal: React.FC = () => {
                   <Flame className="w-5 h-5 text-brand-red shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <div className="font-bold flex items-center gap-2 flex-wrap">
-                      <span>🔥 Chế độ Hỏa tốc: Toàn trình xử lý gấp trong 8 giờ</span>
+                      <span> Chế độ Hỏa tốc: Toàn trình xử lý gấp trong 8 giờ</span>
                       <span className="px-2 py-0.5 rounded-full bg-red-200 text-red-900 text-[10px] font-black">
                         {selectedApprovers.length > 0 ? `${formatSlaDisplay(8 / selectedApprovers.length)} / ban` : '8h'}
                       </span>
@@ -1330,28 +1325,26 @@ export const CreateDocumentModal: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleNormalSlaModeChange('PRESET')}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                          normalSlaMode === 'PRESET'
-                            ? 'bg-emerald-600 text-white shadow-2xs'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${normalSlaMode === 'PRESET'
+                          ? 'bg-emerald-600 text-white shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
                       >
                         🏢 Theo SLA đã set sẵn
                       </button>
                       <button
                         type="button"
                         onClick={() => handleNormalSlaModeChange('SPLIT_DESIRED')}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                          normalSlaMode === 'SPLIT_DESIRED'
-                            ? 'bg-brand-blue text-white shadow-2xs'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                        }`}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${normalSlaMode === 'SPLIT_DESIRED'
+                          ? 'bg-brand-blue text-white shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
                       >
                         ⏱️ Chia đều theo hạn mong muốn
                       </button>
                     </div>
                   </div>
-                  
+
                   {normalSlaMode === 'PRESET' ? (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-500">
                       <span>
@@ -1363,7 +1356,7 @@ export const CreateDocumentModal: React.FC = () => {
                           onClick={handleSetDeadlineToTotalPresetSla}
                           className="text-emerald-700 hover:text-emerald-800 font-bold underline inline-flex items-center gap-1 shrink-0 cursor-pointer"
                         >
-                          ⚡ Đặt hạn mong muốn = Tổng SLA (+{selectedApprovers.reduce((sum, a) => sum + (a.slaHours || 8), 0)}h)
+                          Đặt hạn mong muốn = Tổng SLA (+{selectedApprovers.reduce((sum, a) => sum + (a.slaHours || 8), 0)}h)
                         </button>
                       )}
                     </div>
@@ -1385,19 +1378,18 @@ export const CreateDocumentModal: React.FC = () => {
                 <span className="font-bold text-brand-blue text-xs uppercase tracking-wider">
                   Người / Phòng ban xét duyệt & Thời gian SLA
                 </span>
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs ${
-                  priority === 'VERY_URGENT' ? 'bg-brand-red text-white' :
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs ${priority === 'VERY_URGENT' ? 'bg-brand-red text-white' :
                   priority === 'URGENT' ? 'bg-amber-500 text-white' :
-                  'bg-brand-blue text-white'
-                }`}>
+                    'bg-brand-blue text-white'
+                  }`}>
                   {priority === 'VERY_URGENT' && <Flame className="w-3 h-3 text-white" />}
                   <span>{selectedApprovers.length} cấp duyệt</span>
                   <span>•</span>
                   <span>
                     {priority === 'VERY_URGENT' ? `Hỏa tốc (Chia đều 8h: ${formatSlaDisplay(selectedApprovers.length > 0 ? 8 / selectedApprovers.length : 8)}/ban)` :
-                     priority === 'URGENT' ? `Khẩn (Chia đều 24h: ${formatSlaDisplay(selectedApprovers.length > 0 ? 24 / selectedApprovers.length : 24)}/ban)` :
-                     normalSlaMode === 'SPLIT_DESIRED' ? `Chia theo hạn: ${formatSlaDisplay(selectedApprovers[0]?.slaHours)}/ban` :
-                     `Tổng SLA: ${Number(selectedApprovers.reduce((sum, s) => sum + (s.slaHours || 0), 0).toFixed(1))}h`}
+                      priority === 'URGENT' ? `Khẩn (Chia đều 24h: ${formatSlaDisplay(selectedApprovers.length > 0 ? 24 / selectedApprovers.length : 24)}/ban)` :
+                        normalSlaMode === 'SPLIT_DESIRED' ? `Chia theo hạn: ${formatSlaDisplay(selectedApprovers[0]?.slaHours)}/ban` :
+                          `Tổng SLA: ${Number(selectedApprovers.reduce((sum, s) => sum + (s.slaHours || 0), 0).toFixed(1))}h`}
                   </span>
                 </span>
               </div>
@@ -1414,8 +1406,8 @@ export const CreateDocumentModal: React.FC = () => {
                     }}
                     className="font-bold text-slate-800 text-[11px] bg-transparent focus:outline-none cursor-pointer"
                   >
-                    <option value="WARN_AND_RETURN">⚠️ Cảnh báo & Trả hồ sơ</option>
-                    <option value="AUTO_APPROVE">⚡ Tự động phê duyệt bởi hệ thống</option>
+                    <option value="WARN_AND_RETURN"> Cảnh báo & Trả hồ sơ</option>
+                    <option value="AUTO_APPROVE"> Tự động phê duyệt bởi hệ thống</option>
                   </select>
                 </div>
               ) : (
@@ -1439,16 +1431,15 @@ export const CreateDocumentModal: React.FC = () => {
                   const currentValue = item.type === 'USER' ? `USER:${item.user.id}` : `DEPT:${item.departmentName}`;
 
                   return (
-                    <div 
+                    <div
                       key={idx}
                       className="p-3.5 bg-white border border-slate-200/90 hover:border-brand-blue/50 rounded-2xl shadow-xs transition-all space-y-3 max-w-full overflow-hidden"
                     >
                       {/* Dòng 1: STT, Nhãn loại duyệt, Nút di chuyển/xóa */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] text-white shrink-0 shadow-xs ${
-                            isFirst ? 'bg-emerald-600' : isLast ? 'bg-brand-red' : 'bg-brand-blue'
-                          }`}>
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[11px] text-white shrink-0 shadow-xs ${isFirst ? 'bg-emerald-600' : isLast ? 'bg-brand-red' : 'bg-brand-blue'
+                            }`}>
                             {idx + 1}
                           </span>
                           {item.type === 'DEPARTMENT' ? (
@@ -1478,9 +1469,8 @@ export const CreateDocumentModal: React.FC = () => {
                             disabled={isFirst}
                             onClick={() => handleMoveApproverUp(idx)}
                             title="Đẩy lên trước"
-                            className={`p-1.5 rounded-lg border ${
-                              isFirst ? 'text-slate-200 border-slate-100 cursor-not-allowed' : 'text-slate-500 hover:text-brand-blue hover:bg-blue-50 border-slate-200 cursor-pointer'
-                            }`}
+                            className={`p-1.5 rounded-lg border ${isFirst ? 'text-slate-200 border-slate-100 cursor-not-allowed' : 'text-slate-500 hover:text-brand-blue hover:bg-blue-50 border-slate-200 cursor-pointer'
+                              }`}
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
                           </button>
@@ -1489,9 +1479,8 @@ export const CreateDocumentModal: React.FC = () => {
                             disabled={isLast}
                             onClick={() => handleMoveApproverDown(idx)}
                             title="Đẩy xuống sau"
-                            className={`p-1.5 rounded-lg border ${
-                              isLast ? 'text-slate-200 border-slate-100 cursor-not-allowed' : 'text-slate-500 hover:text-brand-blue hover:bg-blue-50 border-slate-200 cursor-pointer'
-                            }`}
+                            className={`p-1.5 rounded-lg border ${isLast ? 'text-slate-200 border-slate-100 cursor-not-allowed' : 'text-slate-500 hover:text-brand-blue hover:bg-blue-50 border-slate-200 cursor-pointer'
+                              }`}
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
                           </button>
@@ -1517,8 +1506,8 @@ export const CreateDocumentModal: React.FC = () => {
                             {allDepartments.map(d => {
                               const isDuplicate = isDepartmentAlreadyChosen(d.name, idx);
                               return (
-                                <option 
-                                  key={`dept-${d.id}`} 
+                                <option
+                                  key={`dept-${d.id}`}
                                   value={`DEPT:${d.name}`}
                                   disabled={isDuplicate}
                                   className={isDuplicate ? 'text-slate-400 bg-slate-100' : ''}
@@ -1534,8 +1523,8 @@ export const CreateDocumentModal: React.FC = () => {
                               const isCc = isUserInCc(u.id);
                               const isDisabled = isDuplicate || isCc;
                               return (
-                                <option 
-                                  key={`user-${u.id}`} 
+                                <option
+                                  key={`user-${u.id}`}
                                   value={`USER:${u.id}`}
                                   disabled={isDisabled}
                                   className={isDisabled ? 'text-slate-400 bg-slate-100' : ''}
@@ -1558,7 +1547,7 @@ export const CreateDocumentModal: React.FC = () => {
                             <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-300 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs">
                               <span>{formatSlaDisplay(item.slaHours)}</span>
                               <span className="text-[10px] font-normal text-amber-700 bg-amber-100/90 px-1.5 py-0.5 rounded">
-                                ⚡ Chia đều 24h ({selectedApprovers.length} ban)
+                                Chia đều 24h ({selectedApprovers.length} ban)
                               </span>
                             </span>
                           ) : priority === 'VERY_URGENT' ? (
@@ -1566,14 +1555,14 @@ export const CreateDocumentModal: React.FC = () => {
                               <Flame className="w-3.5 h-3.5 text-brand-red shrink-0" />
                               <span>{formatSlaDisplay(item.slaHours)}</span>
                               <span className="text-[10px] font-normal text-red-700 bg-red-100/90 px-1.5 py-0.5 rounded">
-                                🔥 Chia đều 8h ({selectedApprovers.length} ban)
+                                Chia đều 8h ({selectedApprovers.length} ban)
                               </span>
                             </span>
                           ) : normalSlaMode === 'SPLIT_DESIRED' ? (
                             <span className="px-2.5 py-1 bg-blue-50 text-brand-blue border border-blue-300 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs">
                               <span>{formatSlaDisplay(item.slaHours)}</span>
                               <span className="text-[10px] font-normal text-blue-700 bg-blue-100/90 px-1.5 py-0.5 rounded">
-                                ⏱️ Chia theo hạn ({selectedApprovers.length} ban)
+                                Chia theo hạn ({selectedApprovers.length} ban)
                               </span>
                             </span>
                           ) : isAdmin ? (
@@ -1596,11 +1585,10 @@ export const CreateDocumentModal: React.FC = () => {
                                     key={h}
                                     type="button"
                                     onClick={() => handleUpdateStepSla(idx, h)}
-                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
-                                      (item.slaHours || 8) === h
-                                        ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
-                                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700'
-                                    }`}
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${(item.slaHours || 8) === h
+                                      ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700'
+                                      }`}
                                   >
                                     {h}h
                                   </button>
@@ -1622,24 +1610,22 @@ export const CreateDocumentModal: React.FC = () => {
                               <select
                                 value={item.overdueAction || docOverdueAction}
                                 onChange={(e) => handleUpdateStepOverdueAction(idx, e.target.value as OverdueAction)}
-                                className={`px-2 py-1 border rounded-lg font-semibold text-[10px] cursor-pointer focus:outline-none ${
-                                  (item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
-                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                    : 'bg-orange-50 text-orange-700 border-orange-200'
-                                }`}
+                                className={`px-2 py-1 border rounded-lg font-semibold text-[10px] cursor-pointer focus:outline-none ${(item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : 'bg-orange-50 text-orange-700 border-orange-200'
+                                  }`}
                               >
-                                <option value="WARN_AND_RETURN">⚠️ Cảnh báo & Trả hồ sơ</option>
-                                <option value="AUTO_APPROVE">⚡ Tự động phê duyệt</option>
+                                <option value="WARN_AND_RETURN"> Cảnh báo & Trả hồ sơ</option>
+                                <option value="AUTO_APPROVE"> Tự động phê duyệt</option>
                               </select>
                             </>
                           ) : (
-                            <span className={`px-2.5 py-0.5 border rounded-full font-semibold text-[10px] shadow-2xs ${
-                              (item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
-                                ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                : 'bg-orange-50 text-orange-700 border-orange-200'
-                            }`}>
-                              {(item.overdueAction || docOverdueAction) === 'AUTO_APPROVE' 
-                                ? '⚡ Quá hạn: Tự động duyệt' 
+                            <span className={`px-2.5 py-0.5 border rounded-full font-semibold text-[10px] shadow-2xs ${(item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-orange-50 text-orange-700 border-orange-200'
+                              }`}>
+                              {(item.overdueAction || docOverdueAction) === 'AUTO_APPROVE'
+                                ? '⚡ Quá hạn: Tự động duyệt'
                                 : '⚠️ Quá hạn: Cảnh báo & Trả'}
                             </span>
                           )}
@@ -1710,11 +1696,10 @@ export const CreateDocumentModal: React.FC = () => {
                           }
                           handleAddDeptApprover(dept);
                         }}
-                        className={`p-2.5 flex items-center justify-between transition-colors ${
-                          isSelected 
-                            ? 'bg-slate-50/80 text-slate-400 cursor-not-allowed opacity-75' 
-                            : 'hover:bg-blue-50 cursor-pointer'
-                        }`}
+                        className={`p-2.5 flex items-center justify-between transition-colors ${isSelected
+                          ? 'bg-slate-50/80 text-slate-400 cursor-not-allowed opacity-75'
+                          : 'hover:bg-blue-50 cursor-pointer'
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <Building2 className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-slate-400' : 'text-brand-blue'}`} />
@@ -1758,11 +1743,10 @@ export const CreateDocumentModal: React.FC = () => {
                           }
                           handleAddUserApprover(u);
                         }}
-                        className={`p-2.5 flex items-center justify-between transition-colors ${
-                          isDisabled 
-                            ? 'bg-slate-50/80 text-slate-400 cursor-not-allowed opacity-75' 
-                            : 'hover:bg-blue-50 cursor-pointer'
-                        }`}
+                        className={`p-2.5 flex items-center justify-between transition-colors ${isDisabled
+                          ? 'bg-slate-50/80 text-slate-400 cursor-not-allowed opacity-75'
+                          : 'hover:bg-blue-50 cursor-pointer'
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <UserIcon className={`w-3.5 h-3.5 shrink-0 ${isDisabled ? 'text-slate-400' : 'text-slate-500'}`} />
@@ -1842,11 +1826,10 @@ export const CreateDocumentModal: React.FC = () => {
                               handleAddCcUser(u);
                             }
                           }}
-                          className={`p-2.5 flex items-center justify-between transition-colors ${
-                            isDisabled 
-                              ? 'bg-slate-50 opacity-40 cursor-not-allowed select-none' 
-                              : 'hover:bg-blue-50 cursor-pointer'
-                          }`}
+                          className={`p-2.5 flex items-center justify-between transition-colors ${isDisabled
+                            ? 'bg-slate-50 opacity-40 cursor-not-allowed select-none'
+                            : 'hover:bg-blue-50 cursor-pointer'
+                            }`}
                         >
                           <div>
                             <span className={`font-bold text-xs ${isDisabled ? 'text-slate-400' : 'text-slate-800'}`}>
@@ -1925,9 +1908,8 @@ export const CreateDocumentModal: React.FC = () => {
                   Hỗ trợ tệp đính kèm văn phòng (.pdf, .docx, .xlsx, ảnh). Đóng dấu giáp lai chân trang chỉ áp dụng cho tệp .PDF tải lên
                 </span>
               </div>
-              <label className={`cursor-pointer px-3.5 py-1.5 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs active:scale-98 ${
-                isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-brand-blue hover:bg-brand-blue-dark shadow-glow-blue'
-              }`}>
+              <label className={`cursor-pointer px-3.5 py-1.5 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs active:scale-98 ${isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-brand-blue hover:bg-brand-blue-dark shadow-glow-blue'
+                }`}>
                 {isUploading ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
