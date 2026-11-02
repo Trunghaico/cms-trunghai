@@ -1036,7 +1036,7 @@ export const CreateDocumentModal: React.FC = () => {
                   <option value="">-- Tự chọn phòng ban / người duyệt --</option>
                   {workflowTemplates.map((tpl) => (
                     <option key={tpl.id} value={tpl.id}>
-                      ⚡ [{tpl.category}] {tpl.name} ({tpl.steps.length} bước)
+                      [{tpl.category}] {tpl.name} ({tpl.steps.length} bước)
                     </option>
                   ))}
                 </select>
@@ -1330,7 +1330,7 @@ export const CreateDocumentModal: React.FC = () => {
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                           }`}
                       >
-                        🏢 Theo SLA đã set sẵn
+                        Theo SLA đã set sẵn
                       </button>
                       <button
                         type="button"
@@ -1340,7 +1340,7 @@ export const CreateDocumentModal: React.FC = () => {
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                           }`}
                       >
-                        ⏱️ Chia đều theo hạn mong muốn
+                        ⏱ Chia đều theo hạn mong muốn
                       </button>
                     </div>
                   </div>
@@ -1452,12 +1452,12 @@ export const CreateDocumentModal: React.FC = () => {
                               </span>
                             ) : (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 truncate">
-                                🏢 Duyệt cấp Ban/Phòng
+                                Duyệt cấp Ban/Phòng
                               </span>
                             )
                           ) : (
                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 truncate">
-                              👤 Duyệt đích danh Cá nhân
+                              Duyệt đích danh Cá nhân
                             </span>
                           )}
                         </div>
@@ -1667,7 +1667,7 @@ export const CreateDocumentModal: React.FC = () => {
                         <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
                         <div>
                           <span className="text-xs font-bold text-amber-950">
-                            🏢 Phòng ban đề xuất: {department || activeUser?.department}
+                            Phòng ban đề xuất: {department || activeUser?.department}
                           </span>
                           <span className="text-[10px] text-amber-700 block font-normal">
                             Tự động lấy theo đơn vị khởi tạo hồ sơ
@@ -1680,7 +1680,7 @@ export const CreateDocumentModal: React.FC = () => {
 
                   {matchedDepartments.length > 0 && (
                     <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
-                      <span>🏢 Chọn theo Phòng Ban:</span>
+                      <span> Chọn theo Phòng Ban:</span>
                       <span className="text-[9px] text-slate-400 font-normal">Mỗi phòng chỉ duyệt 1 lần</span>
                     </div>
                   )}
