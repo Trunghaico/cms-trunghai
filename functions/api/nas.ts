@@ -1,4 +1,5 @@
 import { AwsClient } from 'aws4fetch';
+// @ts-ignore
 import { connect } from 'cloudflare:sockets';
 
 const DEFAULT_MINIO_ENDPOINT = 'http://trunghaico.synology.me:9000';
@@ -93,9 +94,14 @@ async function socketHttp(
   headerStr += `Host: ${hostname}:${port}\r\n`;
   headerStr += `Connection: close\r\n`;
 
-  const headersObj = options.headers instanceof Headers 
-    ? Object.fromEntries(options.headers.entries()) 
-    : (options.headers || {});
+  const headersObj: Record<string, string> = {};
+  if (options.headers instanceof Headers) {
+    options.headers.forEach((v, k) => {
+      headersObj[k] = v;
+    });
+  } else if (options.headers) {
+    Object.assign(headersObj, options.headers);
+  }
 
   const reqBodyBytes = options.body 
     ? (typeof options.body === 'string' ? new TextEncoder().encode(options.body) : options.body)
@@ -229,7 +235,7 @@ async function socketHttp(
   }
 
   const headerText = new TextDecoder().decode(buffer.subarray(0, headerEnd));
-  let resBodyBytes = buffer.subarray(headerEnd + 4);
+  let resBodyBytes: any = buffer.subarray(headerEnd + 4);
 
   const lines = headerText.split('\r\n');
   const statusLine = lines[0] || '';
@@ -285,7 +291,7 @@ async function signedSocketFetch(
   const signed = await aws.sign(urlStr, {
     method,
     headers,
-    body: init?.body,
+    body: init?.body as any,
   });
 
   return await socketHttp(signed.url, {
@@ -646,7 +652,7 @@ export async function onRequest(context: any): Promise<Response> {
           headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
         }
 
-        return new Response(res.body, {
+        return new Response(res.body as any, {
           status: 200,
           headers
         });
